@@ -66,7 +66,7 @@ export const OPERATOR_SUITE_COMPONENTS: OperatorSuiteComponent[] = [
     plane: 'product',
     status: 'verified-command',
     owns: 'Terminal-first operator and agent command surface.',
-    reads: ['~/.fieldtheory/bookmarks', '~/.fieldtheory/library', '~/.fieldtheory/commands'],
+    reads: ['~/.fieldtheory/bookmarks', '~/.fieldtheory/library', '~/.fieldtheory/library/Commands'],
     writes: ['local markdown', 'portable commands', 'operator suite scaffolds'],
     command: 'ft suite status --json',
   },

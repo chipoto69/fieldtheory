@@ -196,100 +196,91 @@ flowchart LR
 
 ## Pack Schema
 
+The canonical v1 TypeScript contract is frozen in
+`docs/superpowers/plans/2026-05-31-fieldtheory-capture-first-agentic-suite.md`.
+This feature note keeps the same shape at the planning level so PRD, CLI,
+MCP/Raycast wrappers, and future hosted surfaces do not fork the contract.
+
 ```ts
 interface AgentBriefPack {
+  id: string;
   version: "agent-brief-pack.v1";
   kind: "recall_pack" | "source_packet" | "dispatch_brief";
   generatedAt: string;
+  input: PackInput;
+  limits: PackLimits;
+  storeStatus: StoreStatusEntry[];
   query?: string;
   sourceBookmarkId?: string;
   sourceNodeId?: string;
   summary: string;
+  summaryClaims: SummaryClaim[];
   evidence: EvidenceItem[];
   typedSlots: TypedSlot[];
   sourcePacket?: SourcePacket;
   suggestedCommands: SuggestedCommand[];
-  suggestedPrompt: string;
   boundaries: BoundaryNote[];
   promotionCandidates: PromotionCandidate[];
   resultEnvelope: ResultEnvelope;
 }
 
 interface SourcePacket {
-  whySaved?: string;
-  claim?: string;
-  objection?: string;
-  topicKeys: string[];
+  target: "aeon" | "hermes" | "content-os";
   agentRoute:
-    | "recon_candidate"
-    | "synthesis_evidence"
-    | "wiki_enrich_gap"
-    | "hook_inspiration"
     | "build_handoff"
-    | "discard";
-  evidenceType:
-    | "receipt"
-    | "example"
-    | "claim"
-    | "counterclaim"
-    | "repo"
-    | "paper"
-    | "product"
-    | "thread";
-  sourceIdentity: {
-    canonicalUrl?: string;
-    authorHandle?: string;
-    platform?: string;
-    contentHash?: string;
-    dedupeKey?: string;
-  };
-  nextAction: string;
+    | "recon_candidate"
+    | "synthesis_evidence";
+  sourceId: string;
+  sourceUrl?: string;
+  whySavedStatus: "known" | "inferred" | "unknown";
+  confidence: number;
+  forbiddenActions: string[];
+  payload: Record<string, unknown>;
 }
 
 interface EvidenceItem {
-  source: "bookmark" | "library" | "command" | "possible_dot";
   id: string;
-  title?: string;
+  sourceType: "capture" | "library" | "command" | "bookmark" | "operator";
+  title: string;
   locator: string;
-  url?: string;
-  date?: string;
-  score?: number;
+  excerpt: string;
   hash?: string;
+  rank: number;
+  sourceRank: number;
+  score: number;
+  scoreReason: string;
+  retrievedAt: string;
+  tags: string[];
 }
 
 interface TypedSlot {
-  type:
-    | "decision"
-    | "finding"
-    | "entity"
-    | "method"
-    | "preference"
-    | "contradiction"
-    | "stale_hint"
-    | "task_candidate";
-  title: string;
-  body: string;
+  type: "context" | "constraint" | "command" | "idea" | "soul" | "source";
+  label: string;
+  value: string;
   evidenceIds: string[];
+  operatorAuthored?: boolean;
 }
 
 interface SuggestedCommand {
   command: string;
-  authority: "read-only" | "write-with-operator-intent" | "dry-run";
+  argv: string[];
   reason: string;
+  evidenceIds: string[];
+  operatorAuthored?: boolean;
 }
 
 interface PromotionCandidate {
-  target: "library" | "wiki" | "gbrain" | "skill" | "kanban" | "content-os";
-  gate: string;
+  destination: "library" | "wiki" | "gbrain" | "skill" | "none";
+  status: "candidate" | "blocked" | "not_recommended";
   reason: string;
   evidenceIds: string[];
 }
 
 interface ResultEnvelope {
-  status: "ok" | "partial" | "blocked";
-  actionsTaken: string[];
-  blockers: string[];
-  nextRecommendedAction: string;
+  status: "complete" | "partial";
+  resultCount: number;
+  warnings: string[];
+  generatedBy: "fieldtheory";
 }
 ```
 
@@ -337,9 +328,9 @@ flowchart LR
 The pack can also produce a Content-OS source packet without bypassing
 Content-OS:
 
-1. `ft packet bookmark <id> --target content-os --dry-run --json` builds an
-   enriched packet with `whySaved`, `claim`, `topicKeys`, `agentRoute`,
-   `evidenceType`, `sourceIdentity`, `dedupeKey`, and `nextAction`.
+1. `ft packet bookmark <id> --target content-os --json` builds a dry-run packet
+   with `whySavedStatus`, `confidence`, `agentRoute`, evidence locators,
+   `dedupeKey`, and target payload fields.
 2. Operator reviews whether it belongs in Content-OS.
 3. A future Content-OS-owned adapter can accept the payload and populate
    `tags_json`, `topic_keys_json`, `source_metadata_json`, and `links_json` in

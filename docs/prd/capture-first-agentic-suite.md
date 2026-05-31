@@ -86,7 +86,7 @@ capture:
   captured_at: 2026-05-31T12:00:00.000Z
   promotion_status: captured
   tags: [agent, aeon]
-  source_locator:
+  source_locator: stdin | macos-pbpaste | <explicit-source>
   content_sha256:
 ```
 
@@ -101,12 +101,18 @@ Library notes, Commands, and future Possible dispatch.
 
 ```ts
 interface AgentBriefPack {
+  id: string;
   version: "agent-brief-pack.v1";
   kind: "recall_pack" | "source_packet" | "dispatch_brief";
   generatedAt: string;
+  input: PackInput;
+  limits: PackLimits;
+  storeStatus: StoreStatusEntry[];
   query?: string;
   sourceBookmarkId?: string;
+  sourceNodeId?: string;
   summary: string;
+  summaryClaims: SummaryClaim[];
   evidence: EvidenceItem[];
   typedSlots: TypedSlot[];
   suggestedCommands: SuggestedCommand[];
@@ -117,9 +123,13 @@ interface AgentBriefPack {
 }
 ```
 
-Required invariant: every non-empty `summary`, `typedSlot`, suggested action,
-or promotion candidate must trace back to at least one `evidence` item or mark
-itself as operator-authored.
+The canonical field-level TypeScript shape is locked in
+`docs/superpowers/plans/2026-05-31-fieldtheory-capture-first-agentic-suite.md`.
+
+Required invariant: every non-empty `summaryClaims`, `typedSlot`, suggested
+action, or promotion candidate must trace back to at least one `evidence` item
+or mark itself as operator-authored. `summary` is a display rollup, not an
+uncited claim surface.
 
 ## Acceptance Criteria
 
@@ -127,10 +137,10 @@ itself as operator-authored.
 |---|---|
 | Capture | Reject empty capture text, unsafe paths, unsupported capture types, and writes outside Library/Captures. |
 | Clipboard | Use `pbpaste` on macOS; produce a clear error when clipboard read fails; stdin path remains available. |
-| Recall | Works when bookmarks DB is missing, Library is empty, or Commands are absent; output remains valid JSON. |
+| Recall | Works when bookmarks DB is missing, Library is empty, or Commands are absent; output remains valid partial JSON with `storeStatus`. |
 | Packets | `ft packet bookmark` fails clearly for unknown bookmark IDs and never writes to target systems in v1. |
-| Soul draft | Produces `SOUL.md`, `STYLE.md`, `MEMORY.md`, and `examples/good-outputs.md` in the requested output root. |
-| Exports | Aeon/Hermes/soul exports write files only under the operator-specified path and do not create `.git`, secrets, or remote calls. |
+| Soul draft | Produces `SOUL.md`, `STYLE.md`, `MEMORY.md`, `examples/good-outputs.md`, and `data/source-index.json` in the requested output root. |
+| Exports | Aeon/Hermes/soul exports write files only under the operator-specified path and do not create `.git`, root `aeon.yml`, `.github/workflows`, secrets, or remote calls. |
 | Docs | README, operator workflow docs, PRD, environment docs, and architecture docs agree on scope and commands. |
 
 ## Release Gates
@@ -141,6 +151,7 @@ itself as operator-authored.
 | Unit tests | `HOME=$(mktemp -d) npm test` |
 | Diff hygiene | `git diff --check` |
 | CLI smoke | isolated `FT_DATA_DIR` and `FT_LIBRARY_DIR` command run for capture, recall, packet, soul draft, and exports |
+| Release smoke | `npm pack --dry-run` and `node bin/ft.mjs --help` after `npm run build` |
 
 ## Deferred Milestone 2
 

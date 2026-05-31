@@ -108,7 +108,7 @@ On first run, `ft sync` extracts your X session from your browser and downloads 
 | `ft library update <path> --stdin --expected-sha256 <hash>` | Replace a Library page with conflict protection |
 | `ft library delete <path>` | Move a Library page to Trash; the Mac app owns remote sync tombstones |
 | `ft library open <path>` | Open a Library page in the Field Theory Mac app |
-| `ft commands list` | List portable commands under `~/.fieldtheory/commands` |
+| `ft commands list` | List portable commands under `~/.fieldtheory/library/Commands` |
 | `ft commands new <name>` | Create a reusable portable command |
 | `ft commands validate [name]` | Check command shape and guardrails |
 | `ft install app` | Download and install the latest Field Theory Mac app from `afar1/field-releases` |
@@ -254,7 +254,7 @@ Data is stored locally under `~/.fieldtheory/`:
 ~/.fieldtheory/library/
   index.md                # markdown knowledge base (ft wiki / ft md)
 
-~/.fieldtheory/commands/
+~/.fieldtheory/library/Commands/
   *.md                    # portable commands used by Field Theory and agents
 
 ~/.fieldtheory/ideas/

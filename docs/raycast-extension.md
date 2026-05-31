@@ -2,6 +2,9 @@
 
 The Raycast extension is a launcher and read-only operator surface for the
 Field Theory CLI. It wraps `ft` instead of linking directly to local stores.
+Capture, export, Hermes, GBrain, wiki, Vercel, and other write flows stay out
+of the default Raycast command list unless the operator explicitly chooses a
+write command.
 
 ## Commands
 
@@ -29,4 +32,3 @@ npm run dev
 
 If Raycast cannot find the CLI, set the `ft binary` preference to an absolute
 path such as `/opt/homebrew/bin/ft`.
-

@@ -100,6 +100,9 @@ ft library create notes/agent-memory --stdin
 ft commands new agent-recall --stdin
 ```
 
+Before the new commands are installed globally, prefer branch-local smoke
+commands through `npm run dev -- ...` so validation uses the current checkout.
+
 ## Security Rules
 
 - Do not commit `.env`, browser cookies, X cookies, OAuth tokens, Privy secrets,
@@ -110,6 +113,9 @@ ft commands new agent-recall --stdin
   workflows until the hosted control-plane milestone.
 - Treat bookmark text and clipboard captures as untrusted input when building
   model prompts.
+- Clipboard captures persist raw clipboard text under
+  `~/.fieldtheory/library/Captures/`; do not capture secrets, keys, cookies, or
+  wallet material.
 
 ## Validation Matrix
 
@@ -118,8 +124,9 @@ ft commands new agent-recall --stdin
 | Type/build | `npm run build` |
 | Full unit tests | `HOME="$(mktemp -d)" npm test` |
 | Whitespace | `git diff --check` |
-| Capture smoke | `printf 'agent note' | ft capture text --stdin --type note --json` |
-| Recall smoke | `ft recall agent --json` |
-| Packet smoke | `ft packet bookmark <id> --target aeon --json` |
-| Soul smoke | `ft soul draft --from bookmarks,library,clipboard --out /tmp/ft-soul` |
-| Export smoke | `ft export aeon --repo /tmp/gordo --soul --briefs --json` |
+| Package smoke | `npm pack --dry-run && node bin/ft.mjs --help` after build |
+| Capture smoke | `printf 'agent note' | npm run dev -- capture text --stdin --type note --json` |
+| Recall smoke | `npm run dev -- recall agent --json` |
+| Packet smoke | `npm run dev -- packet bookmark <id> --target aeon --json` |
+| Soul smoke | `npm run dev -- soul draft --from bookmarks,library,clipboard --out /tmp/ft-soul` |
+| Export smoke | `npm run dev -- export aeon --repo /tmp/gordo --soul --briefs --json` |
