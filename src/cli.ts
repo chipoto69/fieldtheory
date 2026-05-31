@@ -497,6 +497,8 @@ function isInternalWorkerCommand(command: Command): boolean {
 function shouldSkipCommandChrome(command: Command): boolean {
   if (isInternalWorkerCommand(command)) return true;
   if (command.opts().json) return true;
+  if (['capture', 'recall', 'packet', 'soul', 'export'].includes(command.name())) return true;
+  if (['capture', 'packet', 'soul', 'export'].includes(command.parent?.name() ?? '')) return true;
   if (command.parent?.name() === 'suite' || command.parent?.parent?.name() === 'suite') return true;
   if ([
     'path', 'paths', 'current', 'recent', 'state', 'ls', 'tree', 'find', 'grep', 'cat',
@@ -741,6 +743,10 @@ function parsePositiveInteger(value: string): number {
     throw new InvalidArgumentError('value must be a positive integer');
   }
   return parsed;
+}
+
+function collectOption(value: string, previous: string[]): string[] {
+  return [...previous, value];
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
@@ -3351,6 +3357,97 @@ export function buildCli() {
         console.log(`  Removed from ${r.agent}: ${r.path}`);
       }
     }));
+
+  // ── agentic capture-first commands ────────────────────────────────────
+
+  const capture = program
+    .command('capture')
+    .description('Capture clipboard or stdin material into the Field Theory Library');
+
+  capture
+    .command('text')
+    .description('Capture text from stdin')
+    .option('--stdin', 'Read capture text from stdin', false)
+    .option('--type <type>', 'Capture type: note, source, idea, or soul')
+    .option('--tags <tags>', 'Comma-separated tags')
+    .option('--json', 'JSON output')
+    .option('--md', 'Print created markdown');
+
+  capture
+    .command('clipboard')
+    .description('Capture macOS clipboard text')
+    .option('--type <type>', 'Capture type: note, source, idea, or soul')
+    .option('--tags <tags>', 'Comma-separated tags')
+    .option('--json', 'JSON output')
+    .option('--md', 'Print created markdown');
+
+  program
+    .command('recall')
+    .description('Build an agent brief pack from local Field Theory sources')
+    .argument('<query>', 'Recall query')
+    .option('--json', 'JSON output')
+    .option('--md', 'Markdown output')
+    .option('--captures <n>', 'Capture result limit', parsePositiveInteger, 5)
+    .option('--library <n>', 'Library result limit', parsePositiveInteger, 5)
+    .option('--commands <n>', 'Command result limit', parsePositiveInteger, 3)
+    .option('--bookmarks <n>', 'Bookmark result limit', parsePositiveInteger, 8);
+
+  const packet = program
+    .command('packet')
+    .description('Build dry-run source packets for agent targets');
+
+  packet
+    .command('bookmark')
+    .description('Build a source packet from one bookmark')
+    .argument('<id>', 'Bookmark record id')
+    .option('--target <target>', 'Target: aeon, hermes, or content-os')
+    .option('--json', 'JSON output')
+    .option('--md', 'Markdown output');
+
+  const soul = program
+    .command('soul')
+    .description('Draft agent soul files from Field Theory sources');
+
+  soul
+    .command('draft')
+    .description('Draft SOUL.md, STYLE.md, MEMORY.md, and examples')
+    .option('--from <sources>', 'Comma-separated sources: bookmarks, library, clipboard')
+    .option('--out <path>', 'Output directory')
+    .option('--json', 'JSON output')
+    .option('--force', 'Overwrite existing files', false);
+
+  const exportCommand = program
+    .command('export')
+    .description('Export local-only agent handoff bundles');
+
+  exportCommand
+    .command('aeon')
+    .description('Export a local Aeon/Gordo bundle')
+    .option('--repo <path>', 'Target repo or export directory')
+    .option('--query <query>', 'Recall query for the export brief')
+    .option('--bookmark <id>', 'Bookmark id to include as a source packet', collectOption, [])
+    .option('--soul', 'Include soul draft files', false)
+    .option('--briefs', 'Include brief pack files', false)
+    .option('--json', 'JSON output')
+    .option('--force', 'Overwrite existing files', false)
+    .option('--allow-existing-repo', 'Allow writing into an existing Git repository', false);
+
+  exportCommand
+    .command('hermes')
+    .description('Export a local Hermes bundle')
+    .option('--out <path>', 'Output directory')
+    .option('--query <query>', 'Recall query for the export brief')
+    .option('--bookmark <id>', 'Bookmark id to include as a source packet', collectOption, [])
+    .option('--briefs', 'Include brief pack files', false)
+    .option('--json', 'JSON output')
+    .option('--force', 'Overwrite existing files', false);
+
+  exportCommand
+    .command('soul')
+    .description('Export soul files')
+    .option('--out <path>', 'Output directory')
+    .option('--json', 'JSON output')
+    .option('--force', 'Overwrite existing files', false);
 
   // ── hidden backward-compat aliases ────────────────────────────────────
 
