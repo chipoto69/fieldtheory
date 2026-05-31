@@ -1,5 +1,5 @@
 import { requirePrivyUser } from "@/lib/auth";
-import { validateExportManifest } from "@/lib/contracts";
+import { summarizeExportManifest, validateExportManifest } from "@/lib/contracts";
 import { jsonErrorFrom, jsonOk, readJson } from "@/lib/http";
 import { hostedStore } from "@/lib/store";
 import { requireMutableStore } from "@/lib/store-guard";
@@ -7,7 +7,7 @@ import { requireMutableStore } from "@/lib/store-guard";
 export const runtime = "nodejs";
 
 export async function POST(request: Request): Promise<Response> {
-  const auth = requirePrivyUser(request);
+  const auth = await requirePrivyUser(request);
   if (!auth.ok) return auth.response;
   const storeGuard = requireMutableStore();
   if (storeGuard) return storeGuard;
@@ -15,11 +15,13 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const payload = await readJson(request);
     const report = validateExportManifest(payload);
+    const exportSummary = report.valid ? summarizeExportManifest(payload) : undefined;
     const artifact = hostedStore.createImport({
       ownerUserId: auth.user.id,
       contractVersion: report.contractVersion ?? "unknown",
       kind: report.kind ?? "agent-export",
       validationStatus: report.valid ? "valid" : "invalid",
+      exportSummary,
       payload,
     });
     hostedStore.appendAudit({

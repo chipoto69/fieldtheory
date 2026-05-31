@@ -7,7 +7,7 @@ import { requireMutableStore } from "@/lib/store-guard";
 export const runtime = "nodejs";
 
 export async function POST(request: Request): Promise<Response> {
-  const auth = requirePrivyUser(request);
+  const auth = await requirePrivyUser(request);
   if (!auth.ok) return auth.response;
   const storeGuard = requireMutableStore();
   if (storeGuard) return storeGuard;
@@ -30,8 +30,11 @@ export async function POST(request: Request): Promise<Response> {
     if (artifact.validationStatus !== "valid") {
       return jsonError("invalid_import", "Cannot create an agent run from an invalid import.", 422);
     }
+    if (!isImportCompatibleWithTarget(artifact.exportSummary?.target, target)) {
+      return jsonError("target_mismatch", "Import target does not match the requested agent target.", 422);
+    }
 
-    const plan = buildImportPlan(target, { runId: importId });
+    const plan = buildImportPlan(target, artifact.exportSummary ?? { runId: importId, fileRelPaths: [], forbiddenWrites: [] });
     const run = hostedStore.createRun({
       ownerUserId: auth.user.id,
       target,
@@ -62,6 +65,11 @@ function isAgentTarget(value: unknown): value is AgentTarget {
 
 function isRunMode(value: unknown): value is RunMode {
   return value === "dry-run" || value === "apply-plan";
+}
+
+function isImportCompatibleWithTarget(importTarget: string | undefined, requestedTarget: AgentTarget): boolean {
+  if (requestedTarget === "aeon" || requestedTarget === "hermes") return importTarget === requestedTarget;
+  return importTarget === undefined || importTarget === "soul";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

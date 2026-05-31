@@ -1,4 +1,5 @@
 import { stableHash } from "@/lib/http";
+import type { ExportManifestSummary } from "@/lib/contracts";
 
 export type AgentTarget = "aeon" | "hermes" | "content-os";
 export type RunMode = "dry-run" | "apply-plan";
@@ -10,6 +11,7 @@ export interface ArtifactImport {
   kind: string;
   sha256: string;
   validationStatus: "valid" | "invalid";
+  exportSummary?: ExportManifestSummary;
   createdAt: string;
 }
 
@@ -50,6 +52,7 @@ class MemoryHostedStore {
       kind: input.kind,
       sha256,
       validationStatus: input.validationStatus,
+      exportSummary: input.exportSummary,
       createdAt: now,
     };
     this.imports.set(item.id, item);

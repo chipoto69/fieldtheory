@@ -11,6 +11,7 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_CLI_VERSION: 54.6.1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,10 +25,14 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: HOME="$(mktemp -d)" npm test
+      - run: npm run release:check
+      - run: git diff --check
+      - run: npm --prefix raycast/fieldtheory ci
+      - run: npm --prefix raycast/fieldtheory run lint
+      - run: npm --prefix raycast/fieldtheory run build
       - run: npm --prefix apps/portal ci
-      - run: npm --prefix apps/portal test
-      - run: npm --prefix apps/portal run build
-      - run: npm install --global vercel@latest
+      - run: npm run verify:hosted
+      - run: npm install --global "vercel@$VERCEL_CLI_VERSION"
         if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' }}
       - name: Pull Vercel preview environment
         if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' }}

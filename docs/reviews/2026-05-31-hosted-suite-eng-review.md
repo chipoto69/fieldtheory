@@ -32,9 +32,11 @@ Follow-up scaffold evidence:
 | Evidence | Finding |
 |---|---|
 | `apps/portal` | Next.js App Router scaffold now exists with dashboard shell and dry-run API routes. |
-| `.github/workflows/vercel-preview.yml` | Preview workflow runs CLI and portal gates, then deploys only when Vercel secrets exist. |
-| `.github/workflows/vercel-production.yml` | Production workflow is protected-main only and deploys only when Vercel secrets exist. |
-| `apps/portal/package.json` | Privy browser SDK is deliberately deferred; npm production audit is clean for the current fail-closed scaffold. |
+| `.github/workflows/vercel-preview.yml` | Preview workflow runs CLI, release, Raycast, diff, and portal gates, then deploys preview only when Vercel secrets exist. |
+| `.github/workflows/vercel-production.yml` | Production workflow is protected-main only, uses the GitHub production environment, and fails fast when Vercel secrets are missing. |
+| `apps/portal/package.json` | `@privy-io/node` is installed for server access-token verification; Privy browser SDK remains deferred. |
+| `apps/portal/src/lib/auth.ts` | Server auth verifies real Privy access tokens, requires server app config, and disables unsigned dev tokens in production. |
+| `apps/portal/src/lib/contracts.ts` | Export manifests produce sanitized summaries from `relPath` values only. |
 
 ## Required Plan Change
 
@@ -56,12 +58,12 @@ The next milestone is not "deploy what exists." It is:
 |---|---|---|
 | Vercel-hosted app | Scaffolded, not deployed | `apps/portal`, portal `vercel.json`, passing local portal build, deployed preview URL still needed. |
 | Agents live with the app | Dry-run scaffolded | Route handlers for agent run creation/status and in-memory audit exist; durable artifacts still needed. |
-| Privy GitHub/wallet login | Server fail-closed only | Browser SDK login is deferred to auth hardening; server checks fail closed without `PRIVY_APP_SECRET`. |
+| Privy GitHub/wallet login | Server verification scaffolded | `@privy-io/node` verifies server access tokens; browser SDK login and linked identity policy are still pending. |
 | Base EVM and Solana wallet scaffold | Env/UI scaffolded | UI distinguishes GitHub, Base chain id, and Solana cluster; real wallet linking pending Privy SDK gate. |
-| Gordo/Aeon control plane | Dry-run scaffolded | Import-plan endpoint and tests exist; no repo mutation authority. |
-| Hermes integration | Dry-run scaffolded | Import-plan endpoint and tests exist; no Kanban/profile write authority. |
+| Gordo/Aeon control plane | Dry-run scaffolded | Import-plan endpoint and tests exist; target mismatch and `aeon/aeon.yml.draft` checks exist; no repo mutation authority. |
+| Hermes integration | Dry-run scaffolded | Import-plan endpoint and tests exist; target mismatch and `hermes/task-payload.dry-run.json` checks exist; no Kanban/profile write authority. |
 | x402 architecture handoff | Partial | Endpoint inventory, replay/audit/threat model, payment metadata review. |
-| GitHub Actions Vercel deployment | Scaffolded, secrets pending | Preview and production workflow files exist and skip deploy without secrets. |
+| GitHub Actions Vercel deployment | Scaffolded, secrets pending | Preview deploy skips without secrets; production workflow is guarded to `main` and fails without required Vercel secrets. |
 | Raycast continuity | Present for local CLI | Docs explaining how Raycast remains local while portal is hosted. |
 
 ## Blockers Before Coding
@@ -106,6 +108,15 @@ Their findings should be appended below before the next implementation commit.
 | Verification | Current gates prove M1 local contracts only; there is no enforced CI, portal test matrix, Privy/Hermes/Gordo/x402 coverage, or packed CLI smoke in CI. | Added CI/deploy gates to hosted runbook and Vercel deployment plan. |
 | Security/contracts | Hosted app must preserve evidence-linked `AgentBriefPack` invariants, dry-run authority, secret scanning, auth classes, x402 replay/audit review, and remote-write prohibitions. | Added endpoint contract, data model, and threat model. |
 | Operator/release | Operator can use local CLI/Raycast/static console today, but final product lacks hosted app, dynamic portal, deployment plan, and M2 release bridge. | Added release readiness checklist and README/handoff links. |
+
+## Second Review Findings Integrated
+
+| Lane | Findings | Action |
+|---|---|---|
+| Hosted architecture | Validated imports were not carrying target/run metadata, and plan routes could build plausible plans from mismatched export types. | Added sanitized export summaries, target compatibility checks, and Aeon/Hermes required-file checks. |
+| Verification | Production workflow could be manually dispatched from non-`main`, could pass without deploy secrets, and missed release/Raycast/diff gates. | Added job branch guard, production environment, required secret preflight, pinned Vercel CLI, release/Raycast/diff gates, and `verify:hosted`. |
+| Security/contracts | Real Privy verification was missing; unsigned dev auth could be misconfigured in production; x402 health could over-signal. | Wired `@privy-io/node`, disabled dev auth in production, added verifier tests, and made health report x402 as requested but not enabled. |
+| Operator/release | Docs needed reproducible local smoke, hosted/CLI security wording split, and handoff updates for an existing portal. | Updated setup, PRD, handoff, data model, endpoint contract, deploy plan, and README security copy. |
 
 ## Current Open Issues
 

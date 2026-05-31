@@ -44,6 +44,19 @@ tags: [security, privy, wallet, x402, agents]
 | Audit gate | Every validation, import, run creation, and failed authorization writes an audit event. |
 | x402 gate | No enforcement until replay, verify/settle, refund/failure, and privacy review pass. |
 
+## Current Mitigations
+
+- Server route handlers verify Privy access tokens with `@privy-io/node` when
+  `PRIVY_APP_ID`/`NEXT_PUBLIC_PRIVY_APP_ID` and `PRIVY_APP_SECRET` are present.
+- Unsigned development bearer tokens are ignored in production even if
+  `PRIVY_DEV_ALLOW_UNSIGNED=true` is accidentally configured.
+- Export imports keep sanitized summaries only: target, run id, relative paths,
+  hashes, forbidden writes, and result envelope.
+- Aeon and Hermes import-plan routes reject target mismatches and require their
+  target-specific dry-run artifact paths.
+- x402 discovery remains non-enforcing; health can report that x402 was
+  requested by env, but `x402Enabled` remains false until enforcement exists.
+
 ## x402 Review Checklist
 
 - Endpoint inventory and price policy are approved.

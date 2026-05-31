@@ -6,7 +6,7 @@ import { requireMutableStore } from "@/lib/store-guard";
 export const runtime = "nodejs";
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }): Promise<Response> {
-  const auth = requirePrivyUser(request);
+  const auth = await requirePrivyUser(request);
   if (!auth.ok) return auth.response;
   const storeGuard = requireMutableStore();
   if (storeGuard) return storeGuard;

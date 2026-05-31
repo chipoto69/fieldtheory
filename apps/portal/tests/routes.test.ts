@@ -8,26 +8,37 @@ import { GET as agentsGet } from "../app/api/agents/route";
 import { POST as runsPost } from "../app/api/agents/runs/route";
 import { GET as runGet } from "../app/api/agents/runs/[id]/route";
 import { POST as gordoPlanPost } from "../app/api/gordo/import-plan/route";
+import { POST as hermesPlanPost } from "../app/api/hermes/import-plan/route";
 import { GET as x402Get } from "../app/api/x402/discovery/route";
+import { setPrivyVerifierForTests } from "../src/lib/auth";
 import { hostedStore } from "../src/lib/store";
-import { validAeonManifest, validBriefPack } from "./fixtures";
+import { validAeonManifest, validBriefPack, validHermesManifest } from "./fixtures";
 
 const previousEnv = {
+  PRIVY_APP_ID: process.env.PRIVY_APP_ID,
+  NEXT_PUBLIC_PRIVY_APP_ID: process.env.NEXT_PUBLIC_PRIVY_APP_ID,
   PRIVY_APP_SECRET: process.env.PRIVY_APP_SECRET,
+  PRIVY_JWT_VERIFICATION_KEY: process.env.PRIVY_JWT_VERIFICATION_KEY,
   PRIVY_DEV_ALLOW_UNSIGNED: process.env.PRIVY_DEV_ALLOW_UNSIGNED,
   FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE: process.env.FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE,
   NODE_ENV: process.env.NODE_ENV,
+  X402_ENABLED: process.env.X402_ENABLED,
 };
 
 test.afterEach(() => {
   hostedStore.resetForTests();
+  setPrivyVerifierForTests(undefined);
   restoreEnv();
 });
 
 test("public health and contract routes do not require auth", async () => {
+  process.env.X402_ENABLED = "true";
   const health = await healthGet();
+  const healthBody = await health.json();
   assert.equal(health.status, 200);
-  assert.equal((await health.json()).status, "ready");
+  assert.equal(healthBody.status, "ready");
+  assert.equal(healthBody.x402Enabled, false);
+  assert.equal(healthBody.x402Requested, true);
 
   const contracts = await contractsGet();
   const body = await contracts.json();
@@ -36,6 +47,8 @@ test("public health and contract routes do not require auth", async () => {
 });
 
 test("protected routes fail closed when Privy server config is absent", async () => {
+  delete process.env.PRIVY_APP_ID;
+  delete process.env.NEXT_PUBLIC_PRIVY_APP_ID;
   delete process.env.PRIVY_APP_SECRET;
   delete process.env.PRIVY_DEV_ALLOW_UNSIGNED;
 
@@ -43,6 +56,28 @@ test("protected routes fail closed when Privy server config is absent", async ()
   const body = await response.json();
   assert.equal(response.status, 503);
   assert.equal(body.error.code, "auth_not_configured");
+});
+
+test("protected routes accept a verified Privy access token", async () => {
+  enableMockPrivyAuth("privy-user-a");
+
+  const response = await agentsGet(authRequest("http://localhost/api/agents", {}, "privy.valid"));
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.actor.id, "privy-user-a");
+});
+
+test("production rejects unsigned development tokens", async () => {
+  enableDevAuth();
+  setEnv("NODE_ENV", "production");
+  setPrivyVerifierForTests(async () => {
+    throw new Error("dev token is not a real Privy token");
+  });
+
+  const response = await agentsGet(authRequest("http://localhost/api/agents"));
+  const body = await response.json();
+  assert.equal(response.status, 401);
+  assert.equal(body.error.code, "privy_token_invalid");
 });
 
 test("brief validation writes an import and audit event in development auth mode", async () => {
@@ -53,15 +88,17 @@ test("brief validation writes an import and audit event in development auth mode
   assert.equal(response.status, 200);
   assert.equal(body.report.valid, true);
   assert.match(body.import.id, /^import_/);
+  assert.equal(JSON.stringify(body.import).includes("/tmp/out"), false);
+  assert.equal(JSON.stringify(body.import).includes("path"), false);
   assert.equal(hostedStore.listAuditEvents().length, 1);
 });
 
 test("protected mutation routes fail closed in production without a durable store", async () => {
-  enableDevAuth();
+  enableMockPrivyAuth("operator");
   setEnv("NODE_ENV", "production");
   delete process.env.FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE;
 
-  const response = await briefValidatePost(jsonRequest("/api/briefs/validate", validBriefPack()));
+  const response = await briefValidatePost(authJsonRequest("/api/briefs/validate", validBriefPack(), "privy.valid"));
   const body = await response.json();
   assert.equal(response.status, 503);
   assert.equal(body.error.code, "durable_store_not_configured");
@@ -97,6 +134,8 @@ test("export validation plus dry-run creation returns a run envelope", async () 
   assert.equal(createRun.status, 201);
   assert.equal(runBody.run.target, "aeon");
   assert.equal(runBody.run.resultEnvelope.plan.applyEnabled, false);
+  assert.equal(runBody.run.resultEnvelope.plan.source.runId, "aeon-20260531T130000Z");
+  assert.ok(runBody.run.resultEnvelope.plan.source.fileRelPaths.some((file: string) => file.endsWith("/aeon/aeon.yml.draft")));
 
   const readRun = await runGet(authRequest(`http://localhost/api/agents/runs/${runBody.run.id}`), {
     params: Promise.resolve({ id: runBody.run.id }),
@@ -107,6 +146,21 @@ test("export validation plus dry-run creation returns a run envelope", async () 
     params: Promise.resolve({ id: runBody.run.id }),
   });
   assert.equal(userBRead.status, 404);
+});
+
+test("agent run creation rejects target mismatches", async () => {
+  enableDevAuth();
+  const validate = await exportValidatePost(jsonRequest("/api/exports/validate", validAeonManifest()));
+  const importBody = await validate.json();
+
+  const response = await runsPost(jsonRequest("/api/agents/runs", {
+    target: "hermes",
+    importId: importBody.import.id,
+    mode: "dry-run",
+  }));
+  const body = await response.json();
+  assert.equal(response.status, 422);
+  assert.equal(body.error.code, "target_mismatch");
 });
 
 test("agent run creation rejects apply mode", async () => {
@@ -131,6 +185,7 @@ test("Gordo import plan stays dry-run and x402 discovery stays disabled", async 
   assert.equal(planResponse.status, 200);
   assert.equal(planBody.plan.dryRun, true);
   assert.equal(planBody.plan.applyEnabled, false);
+  assert.equal(planBody.plan.source.runId, "aeon-20260531T130000Z");
 
   const x402 = await x402Get();
   const x402Body = await x402.json();
@@ -139,12 +194,34 @@ test("Gordo import plan stays dry-run and x402 discovery stays disabled", async 
   assert.equal(x402Body.settlement, "not-implemented");
 });
 
+test("target-specific import plans reject mismatched manifests", async () => {
+  enableDevAuth();
+
+  const gordoMismatch = await gordoPlanPost(jsonRequest("/api/gordo/import-plan", validHermesManifest()));
+  assert.equal(gordoMismatch.status, 422);
+  assert.equal((await gordoMismatch.json()).error.code, "target_mismatch");
+
+  const hermesMismatch = await hermesPlanPost(jsonRequest("/api/hermes/import-plan", validAeonManifest()));
+  assert.equal(hermesMismatch.status, 422);
+  assert.equal((await hermesMismatch.json()).error.code, "target_mismatch");
+
+  const hermesPlan = await hermesPlanPost(jsonRequest("/api/hermes/import-plan", validHermesManifest()));
+  const hermesBody = await hermesPlan.json();
+  assert.equal(hermesPlan.status, 200);
+  assert.equal(hermesBody.plan.source.runId, "hermes-20260531T130000Z");
+  assert.ok(hermesBody.plan.source.fileRelPaths.some((file: string) => file.endsWith("/hermes/task-payload.dry-run.json")));
+});
+
 function jsonRequest(path: string, body: unknown): Request {
+  return authJsonRequest(path, body, "dev:operator");
+}
+
+function authJsonRequest(path: string, body: unknown, token: string): Request {
   return authRequest(`http://localhost${path}`, {
     method: "POST",
     body: JSON.stringify(body),
     headers: { "content-type": "application/json" },
-  });
+  }, token);
 }
 
 function authRequest(url: string, init: RequestInit = {}, token = "dev:operator"): Request {
@@ -158,17 +235,40 @@ function authRequest(url: string, init: RequestInit = {}, token = "dev:operator"
 }
 
 function enableDevAuth(): void {
+  process.env.PRIVY_APP_ID = "test-app";
   process.env.PRIVY_APP_SECRET = "test-secret";
   process.env.PRIVY_DEV_ALLOW_UNSIGNED = "true";
 }
 
+function enableMockPrivyAuth(userId: string): void {
+  process.env.PRIVY_APP_ID = "test-app";
+  process.env.PRIVY_APP_SECRET = "test-secret";
+  delete process.env.PRIVY_DEV_ALLOW_UNSIGNED;
+  setPrivyVerifierForTests(async () => ({
+    app_id: "test-app",
+    issuer: "privy.io",
+    issued_at: 1,
+    expiration: 4_102_444_800,
+    session_id: "session_test",
+    user_id: userId,
+  }));
+}
+
 function restoreEnv(): void {
+  if (previousEnv.PRIVY_APP_ID === undefined) delete process.env.PRIVY_APP_ID;
+  else process.env.PRIVY_APP_ID = previousEnv.PRIVY_APP_ID;
+  if (previousEnv.NEXT_PUBLIC_PRIVY_APP_ID === undefined) delete process.env.NEXT_PUBLIC_PRIVY_APP_ID;
+  else process.env.NEXT_PUBLIC_PRIVY_APP_ID = previousEnv.NEXT_PUBLIC_PRIVY_APP_ID;
   if (previousEnv.PRIVY_APP_SECRET === undefined) delete process.env.PRIVY_APP_SECRET;
   else process.env.PRIVY_APP_SECRET = previousEnv.PRIVY_APP_SECRET;
+  if (previousEnv.PRIVY_JWT_VERIFICATION_KEY === undefined) delete process.env.PRIVY_JWT_VERIFICATION_KEY;
+  else process.env.PRIVY_JWT_VERIFICATION_KEY = previousEnv.PRIVY_JWT_VERIFICATION_KEY;
   if (previousEnv.PRIVY_DEV_ALLOW_UNSIGNED === undefined) delete process.env.PRIVY_DEV_ALLOW_UNSIGNED;
   else process.env.PRIVY_DEV_ALLOW_UNSIGNED = previousEnv.PRIVY_DEV_ALLOW_UNSIGNED;
   if (previousEnv.FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE === undefined) delete process.env.FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE;
   else process.env.FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE = previousEnv.FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE;
+  if (previousEnv.X402_ENABLED === undefined) delete process.env.X402_ENABLED;
+  else process.env.X402_ENABLED = previousEnv.X402_ENABLED;
   setEnv("NODE_ENV", previousEnv.NODE_ENV);
 }
 

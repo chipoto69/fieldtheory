@@ -10,6 +10,15 @@ export interface ValidationReport {
   kind?: string;
 }
 
+export interface ExportManifestSummary {
+  target: "aeon" | "hermes" | "soul";
+  runId: string;
+  fileRelPaths: string[];
+  fileHashes: string[];
+  forbiddenWrites: string[];
+  resultEnvelope: Record<string, unknown>;
+}
+
 const BRIEF_VERSION = "agent-brief-pack.v1";
 const EXPORT_VERSION = "fieldtheory.agent-export.v1";
 const REMOTE_FORBIDDEN = new Set([
@@ -17,12 +26,15 @@ const REMOTE_FORBIDDEN = new Set([
   "push_remote",
   "write_github_secret",
   "dispatch_workflow",
+  "write_root_aeon_yml",
   "write_github_workflow",
   "kanban_write",
   "profile_mutation",
   "external_dispatch",
   "gbrain_write",
   "wiki_canon_write",
+  "honcho_write",
+  "target_agent_write",
   "network_call",
   "x402_settle",
   "payment_settlement",
@@ -166,6 +178,31 @@ export function validateExportManifest(input: unknown): ValidationReport {
     issues,
     contractVersion: typeof input.version === "string" ? input.version : undefined,
     kind: typeof input.target === "string" ? input.target : undefined,
+  };
+}
+
+export function summarizeExportManifest(input: unknown): ExportManifestSummary | undefined {
+  if (!isRecord(input)) return undefined;
+  if (input.version !== EXPORT_VERSION) return undefined;
+  if (input.target !== "aeon" && input.target !== "hermes" && input.target !== "soul") return undefined;
+  if (typeof input.runId !== "string" || input.runId.length === 0) return undefined;
+  if (!Array.isArray(input.files) || !Array.isArray(input.forbiddenWrites)) return undefined;
+
+  const fileRelPaths: string[] = [];
+  const fileHashes: string[] = [];
+  for (const file of input.files) {
+    if (!isRecord(file) || typeof file.relPath !== "string") return undefined;
+    fileRelPaths.push(file.relPath);
+    if (typeof file.sha256 === "string") fileHashes.push(file.sha256);
+  }
+
+  return {
+    target: input.target,
+    runId: input.runId,
+    fileRelPaths,
+    fileHashes,
+    forbiddenWrites: input.forbiddenWrites.filter((action): action is string => typeof action === "string"),
+    resultEnvelope: isRecord(input.resultEnvelope) ? input.resultEnvelope : {},
   };
 }
 

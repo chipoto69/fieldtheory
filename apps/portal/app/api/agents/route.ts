@@ -4,7 +4,7 @@ import { targetRegistry } from "@/lib/fixtures";
 export const runtime = "nodejs";
 
 export async function GET(request: Request): Promise<Response> {
-  const auth = requirePrivyUser(request);
+  const auth = await requirePrivyUser(request);
   if (!auth.ok) return auth.response;
 
   return Response.json({

@@ -20,7 +20,7 @@ imports a brief/export artifact.
 |---|---|---|
 | `User` | `id`, `privyUserId`, `createdAt`, `updatedAt` | Internal user row keyed to Privy. |
 | `Identity` | `id`, `userId`, `type`, `subject`, `verifiedAt` | `type` is `github`, `evm`, or `solana`. |
-| `ArtifactImport` | `id`, `ownerUserId`, `contractVersion`, `kind`, `sha256`, `validationStatus`, `createdAt` | Imported `AgentBriefPack` or export manifest. |
+| `ArtifactImport` | `id`, `ownerUserId`, `contractVersion`, `kind`, `sha256`, `validationStatus`, `exportSummary`, `createdAt` | Imported `AgentBriefPack` or export manifest. Export summaries are sanitized and exclude raw payloads and absolute paths. |
 | `ArtifactFile` | `id`, `importId`, `relPath`, `sha256`, `contentType`, `sizeBytes` | Optional file metadata; content storage provider is undecided. |
 | `AgentRun` | `id`, `ownerUserId`, `target`, `mode`, `status`, `importId`, `resultEnvelope`, `createdAt` | M2 permits `dry-run` only. |
 | `AuditEvent` | `id`, `actorUserId`, `action`, `targetType`, `targetId`, `contractHash`, `outcome`, `createdAt` | Append-only. |
@@ -39,9 +39,30 @@ imports a brief/export artifact.
 - Imported artifacts are visible only to the importing user unless explicitly
   shared in a later collaboration model.
 - Agent runs inherit ownership from the artifact import.
+- Aeon and Hermes runs require target-compatible export imports; a Hermes export
+  cannot create a Gordo/Aeon plan and an Aeon export cannot create a Hermes
+  plan.
 - Linked wallets prove identity state; they do not automatically grant payment
   or apply authority.
 - Audit events must be immutable from the application layer.
+
+## Sanitized Export Summary
+
+The portal stores derived export metadata, not the uploaded manifest body:
+
+```json
+{
+  "target": "aeon",
+  "runId": "aeon-20260531T130000Z",
+  "fileRelPaths": ["fieldtheory/exports/aeon-20260531T130000Z/aeon/aeon.yml.draft"],
+  "fileHashes": ["..."],
+  "forbiddenWrites": ["create_repo", "network_call"],
+  "resultEnvelope": { "status": "complete" }
+}
+```
+
+`files[].path` is treated as untrusted source metadata. Only `files[].relPath`
+is accepted for hosted routing and it must pass the path-safety validator.
 
 ## Retention Rules
 

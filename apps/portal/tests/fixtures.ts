@@ -66,9 +66,37 @@ export function validAeonManifest(): Record<string, any> {
         sha256: "a".repeat(64),
       },
       {
-        path: "/tmp/out/fieldtheory/exports/aeon-20260531T130000Z/manifest.json",
-        relPath: "fieldtheory/exports/aeon-20260531T130000Z/manifest.json",
+        path: "/tmp/out/fieldtheory/exports/aeon-20260531T130000Z/aeon/aeon.yml.draft",
+        relPath: "fieldtheory/exports/aeon-20260531T130000Z/aeon/aeon.yml.draft",
         sha256: "b".repeat(64),
+      },
+    ],
+    resultEnvelope: { status: "complete", resultCount: 1, warnings: [], generatedBy: "fieldtheory" },
+  };
+}
+
+export function validHermesManifest(): Record<string, any> {
+  return {
+    version: "fieldtheory.agent-export.v1",
+    target: "hermes",
+    runId: "hermes-20260531T130000Z",
+    generatedAt: "2026-05-31T13:00:00.000Z",
+    contracts: {
+      brief: "agent-brief-pack.v1",
+      capture: "fieldtheory.capture.v1",
+    },
+    inputs: { query: "agent memory", includeBriefs: true },
+    forbiddenWrites: ["kanban_write", "profile_mutation", "external_dispatch", "gbrain_write", "wiki_canon_write", "network_call"],
+    files: [
+      {
+        path: "/tmp/out/fieldtheory/exports/hermes-20260531T130000Z/brief.json",
+        relPath: "fieldtheory/exports/hermes-20260531T130000Z/brief.json",
+        sha256: "c".repeat(64),
+      },
+      {
+        path: "/tmp/out/fieldtheory/exports/hermes-20260531T130000Z/hermes/task-payload.dry-run.json",
+        relPath: "fieldtheory/exports/hermes-20260531T130000Z/hermes/task-payload.dry-run.json",
+        sha256: "d".repeat(64),
       },
     ],
     resultEnvelope: { status: "complete", resultCount: 1, warnings: [], generatedBy: "fieldtheory" },

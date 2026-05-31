@@ -1,14 +1,14 @@
 import { requirePrivyUser } from "@/lib/auth";
-import { validateExportManifest } from "@/lib/contracts";
+import { summarizeExportManifest, validateExportManifest } from "@/lib/contracts";
 import { buildImportPlan } from "@/lib/import-plans";
-import { jsonErrorFrom, jsonOk, readJson, stableHash } from "@/lib/http";
+import { jsonError, jsonErrorFrom, jsonOk, readJson, stableHash } from "@/lib/http";
 import { hostedStore } from "@/lib/store";
 import { requireMutableStore } from "@/lib/store-guard";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request): Promise<Response> {
-  const auth = requirePrivyUser(request);
+  const auth = await requirePrivyUser(request);
   if (!auth.ok) return auth.response;
   const storeGuard = requireMutableStore();
   if (storeGuard) return storeGuard;
@@ -17,7 +17,13 @@ export async function POST(request: Request): Promise<Response> {
     const manifest = await readJson(request);
     const report = validateExportManifest(manifest);
     if (!report.valid) return jsonOk({ report }, { status: 422 });
-    const plan = buildImportPlan("aeon", isRecord(manifest) ? manifest : {});
+    const summary = summarizeExportManifest(manifest);
+    if (!summary) return jsonError("invalid_manifest_summary", "Export manifest summary could not be derived.", 422);
+    if (summary.target !== "aeon") return jsonError("target_mismatch", "Gordo/Aeon import plans require an aeon export manifest.", 422);
+    if (!summary.fileRelPaths.some((file) => file.endsWith("/aeon/aeon.yml.draft"))) {
+      return jsonError("missing_aeon_draft", "Aeon export manifest must include aeon/aeon.yml.draft.", 422);
+    }
+    const plan = buildImportPlan("aeon", summary);
     hostedStore.appendAudit({
       actorUserId: auth.user.id,
       action: "gordo.import_plan",
@@ -30,8 +36,4 @@ export async function POST(request: Request): Promise<Response> {
   } catch (error) {
     return jsonErrorFrom(error);
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

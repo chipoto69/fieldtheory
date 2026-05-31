@@ -67,6 +67,11 @@ The first Milestone 2 scaffold now exists under `apps/portal`:
 - In-memory adapter for imports, runs, and audit events.
 - Preview and production GitHub Actions workflow skeletons that deploy only when
   Vercel secrets are configured.
+- Server-side Privy access-token verification through `@privy-io/node`; unsigned
+  development tokens are local/test only and disabled in production.
+- Sanitized export import summaries that preserve target, run id, run-scoped
+  relative paths, hashes, forbidden writes, and result envelopes without storing
+  absolute source paths.
 
 The scaffold intentionally does not mount the Privy browser SDK yet. The current
 server boundary fails closed when `PRIVY_APP_SECRET` is absent and only accepts
@@ -131,18 +136,18 @@ Compact output from the Aeon smoke export manifest:
   "runId": "aeon-20260531T201513Z",
   "contracts": { "brief": "agent-brief-pack.v1", "capture": "fieldtheory.capture.v1" },
   "files": [
-    "fieldtheory/exports/aeon-20260531T201513Z/brief.json",
-    "fieldtheory/exports/aeon-20260531T201513Z/brief.md",
-    "fieldtheory/exports/aeon-20260531T201513Z/packets/aeon-bookmark-07db95563579.json",
-    "fieldtheory/exports/aeon-20260531T201513Z/packets/aeon-bookmark-07db95563579.md",
-    "fieldtheory/exports/aeon-20260531T201513Z/sources/source-index.json",
-    "fieldtheory/exports/aeon-20260531T201513Z/reports/export-report.json",
-    "fieldtheory/exports/aeon-20260531T201513Z/aeon/aeon.yml.draft",
-    "fieldtheory/exports/aeon-20260531T201513Z/soul/SOUL.md",
-    "fieldtheory/exports/aeon-20260531T201513Z/soul/STYLE.md",
-    "fieldtheory/exports/aeon-20260531T201513Z/soul/MEMORY.md",
-    "fieldtheory/exports/aeon-20260531T201513Z/soul/examples/good-outputs.md",
-    "fieldtheory/exports/aeon-20260531T201513Z/soul/data/source-index.json"
+    {
+      "relPath": "fieldtheory/exports/aeon-20260531T201513Z/brief.json",
+      "sha256": "..."
+    },
+    {
+      "relPath": "fieldtheory/exports/aeon-20260531T201513Z/aeon/aeon.yml.draft",
+      "sha256": "..."
+    },
+    {
+      "relPath": "fieldtheory/exports/aeon-20260531T201513Z/soul/SOUL.md",
+      "sha256": "..."
+    }
   ],
   "forbiddenWrites": [
     "create_repo",
@@ -204,13 +209,15 @@ design payment-gated endpoints around stable Field Theory contracts and must
 not add enforcement until the hosted app, auth model, endpoint inventory, and
 replay/audit strategy are approved.
 
-## First Hosted Work Items
+## Next Hosted Work Items
 
 1. Read the real `agent-brief-pack.v1` JSON from the M1 smoke output.
 2. Read the real Aeon/Hermes export manifests.
-3. Design the Vercel API as a thin consumer of those contracts.
-4. Add Privy auth only after endpoint boundaries are mapped.
-5. Draft x402 endpoint architecture before writing payment enforcement code.
+3. Extend the current portal as a thin consumer of those contracts.
+4. Add browser Privy login and linked GitHub/Base/Solana identity policies after
+   the server verification boundary stays green.
+5. Add a durable store adapter before enabling production mutations.
+6. Draft x402 endpoint architecture before writing payment enforcement code.
 
 ## M2 Entry Gate
 

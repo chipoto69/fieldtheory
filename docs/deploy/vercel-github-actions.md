@@ -12,8 +12,8 @@ tags: [deploy, vercel, github-actions, ci]
 
 Production deployment automation may exist only as a protected `main` workflow.
 Production must deploy from protected `main`, never directly from `codex/*`
-branches. Preview and production deploy steps must skip safely when Vercel
-secrets are absent.
+branches. Preview deploy steps may skip safely when Vercel secrets are absent.
+Production deploy must fail fast when required Vercel secrets are absent.
 
 ## Required Secrets
 
@@ -22,8 +22,10 @@ secrets are absent.
 | `VERCEL_TOKEN` | Authenticates Vercel CLI in GitHub Actions. |
 | `VERCEL_ORG_ID` | Selects Vercel account/team. |
 | `VERCEL_PROJECT_ID` | Selects hosted Field Theory project. |
+| `PRIVY_APP_ID` | Server Privy app id used by route handlers. |
 | `NEXT_PUBLIC_PRIVY_APP_ID` | Browser Privy app id. |
 | `PRIVY_APP_SECRET` | Server-side Privy verification. |
+| `PRIVY_JWT_VERIFICATION_KEY` | Optional Privy verification key to avoid a runtime key fetch. |
 
 ## Preview Workflow Shape
 
@@ -48,10 +50,14 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: HOME="$(mktemp -d)" npm test
+      - run: npm run release:check
+      - run: git diff --check
+      - run: npm --prefix raycast/fieldtheory ci
+      - run: npm --prefix raycast/fieldtheory run lint
+      - run: npm --prefix raycast/fieldtheory run build
       - run: npm --prefix apps/portal ci
-      - run: npm --prefix apps/portal test
-      - run: npm --prefix apps/portal run build
-      - run: npm install --global vercel@latest
+      - run: npm run verify:hosted
+      - run: npm install --global vercel@54.6.1
       - run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
         working-directory: apps/portal
       - run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
@@ -65,10 +71,13 @@ jobs:
 Production is the preview workflow plus:
 
 - trigger only on protected `main`
+- job-level branch guard for manual dispatch
+- GitHub `production` environment
+- required Vercel secret preflight
 - `vercel pull --environment=production`
 - `vercel deploy --prebuilt --prod`
 - post-deploy smoke against `/api/health`, `/api/contracts`, and authenticated
-  route fixtures
+  route fixtures once deployment protection/bypass policy is configured
 
 ## Required Gates Before Enabling
 
@@ -82,7 +91,9 @@ Production is the preview workflow plus:
 Current scaffold status:
 
 - `.github/workflows/vercel-preview.yml` runs root CLI gates, portal tests, and
-  portal build on pull requests, then deploys only when Vercel secrets exist.
-- `.github/workflows/vercel-production.yml` runs the same gates on protected
-  `main`, then deploys `--prod` only when Vercel secrets exist.
+  portal build on pull requests, then deploys preview only when Vercel secrets
+  exist.
+- `.github/workflows/vercel-production.yml` runs the same gates plus release,
+  Raycast, and diff checks on protected `main`; production deploy fails fast
+  when Vercel secrets are missing.
 - `apps/portal/vercel.json` keeps the Vercel project rooted in the portal app.

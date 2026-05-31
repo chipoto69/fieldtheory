@@ -340,7 +340,9 @@ Session sync extracts cookies from your browser's local database. Use `ft sync -
 
 ## Security
 
-**Your data stays local.** No telemetry, no analytics, nothing phoned home. The CLI only makes network requests to X's API during sync.
+**CLI mode keeps your data local.** No telemetry, no analytics, nothing phoned home. The CLI only makes network requests to X's API during sync.
+
+**Hosted mode is separate.** The `apps/portal` scaffold validates uploaded Field Theory briefs/exports and writes hosted audit/run metadata only after Privy server auth and a durable store are configured. It does not read local CLI stores directly.
 
 **Chrome session sync** reads cookies from Chrome's local database, uses them for the sync request, and discards them. Cookies are never stored separately.
 

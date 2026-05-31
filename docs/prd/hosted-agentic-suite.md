@@ -35,7 +35,7 @@ context into Aeon/Gordo and Hermes without losing provenance or write authority.
 
 | User | Job |
 |---|---|
-| Solo operator | Review capture/recall/export state, launch agent handoffs, and connect GitHub plus wallets. |
+| Solo operator | Review capture/recall/export state, launch dry-run agent handoffs, and review planned GitHub plus wallet linking state. |
 | Coding agent | Read stable endpoint contracts and fetch authorized brief/export packets. |
 | Aeon/Gordo workspace | Consume run-scoped Field Theory export bundles and agent soul drafts. |
 | Hermes profile | Import Field Theory packets as explicit staged handoffs, not raw canon. |
@@ -66,7 +66,7 @@ context into Aeon/Gordo and Hermes without losing provenance or write authority.
 | Capability | Required shape | Authority |
 |---|---|---|
 | Next.js portal | `apps/portal` with App Router, dashboard, endpoint docs, and agent run views | Reads staged fixtures and server-side store adapters only. |
-| Auth scaffold | Privy GitHub login plus Base EVM and Solana wallet linking | Authenticates identities; does not authorize payments by itself. |
+| Auth scaffold | Privy server access-token verification plus planned GitHub, Base EVM, and Solana wallet linking | Authenticates identities; does not authorize payments by itself. |
 | Contract API | Route handlers for health, contracts, briefs, exports, agents, and x402 discovery | Returns typed JSON only until apply gates exist. |
 | Gordo/Aeon adapter | Dry-run import of `fieldtheory.agent-export.v1` plus optional apply-plan preview | No repo mutation until explicit apply command. |
 | Hermes adapter | Dry-run profile/task payload import with staged result envelope | No Kanban/profile writeback until explicit apply command. |
@@ -133,11 +133,11 @@ using embedded wallet UI signing flows.
 | Area | Criteria |
 |---|---|
 | Contract fidelity | Hosted validators reject unknown contract versions, missing evidence, target payloads with duplicated forbidden actions, unsafe file paths, and manifests that imply remote writes. |
-| Auth scaffold | App builds without real secrets using documented dummy env values; authenticated routes fail closed when Privy server config is absent. Browser Privy SDK install is deferred until the auth hardening gate to avoid pulling wallet/x402 dependency advisories before real login is enabled. |
+| Auth scaffold | App builds without real secrets using documented dummy env values; authenticated routes fail closed when Privy server config is absent; server routes verify Privy access tokens through `@privy-io/node`; unsigned dev tokens are disabled in production. Browser Privy SDK install remains deferred until the wallet-linking gate. |
 | Wallet linking | UI distinguishes GitHub login, Base EVM wallet, Solana wallet, and linked identity state. |
 | Agent runs | Initial run creation is dry-run only and stores audit envelopes; no external write happens in M2. |
-| Gordo/Aeon | Import plan consumes `fieldtheory/exports/<run-id>/` bundles and keeps `aeon.yml.draft` as a draft. |
-| Hermes | Import plan consumes `hermes/task-payload.dry-run.json` and emits staged profile handoff only. |
+| Gordo/Aeon | Import plan consumes `target: "aeon"` manifests, requires `aeon/aeon.yml.draft`, and keeps it as a draft. |
+| Hermes | Import plan consumes `target: "hermes"` manifests, requires `hermes/task-payload.dry-run.json`, and emits staged profile handoff only. |
 | Vercel CI | Preview and production workflows use `vercel build` and `vercel deploy --prebuilt`; production deploy runs only from protected main. |
 | x402 | Handoff includes endpoint inventory, pricing owner, facilitator assumptions, replay protection, and audit log requirements before enforcement. |
 

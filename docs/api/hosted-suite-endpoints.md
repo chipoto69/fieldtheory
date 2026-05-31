@@ -62,12 +62,21 @@ Every export manifest endpoint must reject:
 - forbidden writes that imply remote side effects
 - any payload containing secret-like content
 
+Target-specific import plan endpoints must also reject mismatches:
+
+- `/api/gordo/import-plan` accepts only `target: "aeon"` manifests that include
+  `aeon/aeon.yml.draft` under the run-scoped export directory.
+- `/api/hermes/import-plan` accepts only `target: "hermes"` manifests that
+  include `hermes/task-payload.dry-run.json`.
+- `/api/agents/runs` rejects an import whose sanitized export target does not
+  match the requested agent target.
+
 ## Agent Run Modes
 
 | Mode | M2 behavior |
 |---|---|
 | `dry-run` | Allowed; writes local hosted run metadata and audit only. |
-| `apply-plan` | Allowed only as a generated plan, not as execution. |
+| `apply-plan` | Returned only inside generated dry-run plans; rejected as a requested run mode. |
 | `apply` | Forbidden until a separate apply-gate PR. |
 
 ## x402 Boundary

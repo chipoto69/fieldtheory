@@ -29,7 +29,7 @@ tags: [release, readiness, vercel, privy, agents]
 | `docs/deploy/vercel-github-actions.md` | required before workflows |
 | `apps/portal` | initial scaffold present |
 | `.github/workflows/vercel-preview.yml` | initial scaffold present |
-| `.github/workflows/vercel-production.yml` | initial scaffold present; protected-main only |
+| `.github/workflows/vercel-production.yml` | guarded production workflow present; protected-main only and fails without Vercel secrets |
 
 ## Implementation Order
 
@@ -37,12 +37,12 @@ tags: [release, readiness, vercel, privy, agents]
 2. Add shared contract validators for brief/export inputs. Done in portal scaffold.
 3. Add local fixture smoke for M1 generated artifacts. Done with portal route fixtures; generated CLI smoke fixtures still pending.
 4. Add read-only dashboard and import validation UI. Dashboard shell done; upload UI pending.
-5. Add Privy auth boundary and fail-closed authenticated route checks. Server fail-closed done; browser SDK login deferred to auth hardening.
-6. Add dry-run agent run creation and audit records. Done in in-memory adapter.
-7. Add Gordo/Aeon import-plan adapter. Done as dry-run plan.
-8. Add Hermes import-plan adapter. Done as dry-run plan.
+5. Add Privy auth boundary and fail-closed authenticated route checks. Server access-token verification done; browser SDK login deferred to wallet-linking gate.
+6. Add dry-run agent run creation and audit records. Done in in-memory adapter with sanitized export metadata.
+7. Add Gordo/Aeon import-plan adapter. Done as dry-run plan with target/file checks.
+8. Add Hermes import-plan adapter. Done as dry-run plan with target/file checks.
 9. Add preview GitHub Action. Done; deploy step skips without secrets.
-10. Add production GitHub Action after preview and portal gates pass. Done as protected-main workflow; deploy step skips without secrets.
+10. Add production GitHub Action after preview and portal gates pass. Done as protected-main workflow; deploy fails fast without secrets.
 11. Draft x402 endpoint handoff and fixtures.
 12. Enable x402 enforcement in a later gate only.
 
