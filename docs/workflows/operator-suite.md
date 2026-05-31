@@ -33,10 +33,10 @@ flowchart LR
 | Operate from launcher | read-only by default | `ft suite raycast scaffold --out ./raycast/fieldtheory` | Raycast extension that wraps CLI commands without new data authority. |
 | Promote durable doctrine | human canon gate | `ft library create <path> --stdin` | Human-readable markdown artifact; wiki canon stays separately gated. |
 
-## Capture-First Build Workflow
+## Capture-First Workflow
 
-The next implementation milestone must build the Field Theory learning substrate
-before any hosted Vercel, wallet, Gordo, Hermes, or x402 layer.
+Milestone 1 local contracts build the Field Theory learning substrate before any
+hosted Vercel, wallet, Gordo, Hermes, or x402 layer.
 
 | Stage | Build gate | Command target | Boundary |
 |---|---|---|---|
@@ -45,6 +45,18 @@ before any hosted Vercel, wallet, Gordo, Hermes, or x402 layer.
 | Packet source | dry-run | `ft packet bookmark <id> --target aeon|hermes|content-os` | Emits packet only; no target-system write. |
 | Draft identity | explicit output path | `ft soul draft --from bookmarks,library,clipboard --out soul/` | Creates editable soul files. |
 | Export handoff | explicit output path | `ft export aeon|hermes|soul ...` | Local files only; no GitHub secrets or workflow dispatch. |
+
+Smoke sequence:
+
+```bash
+printf 'agent note\n' | ft capture text --stdin --type soul --json
+ft recall agent --json
+ft packet bookmark <id> --target aeon --json
+ft soul draft --from bookmarks,library,clipboard --out ./soul --json
+ft export aeon --repo ./aeon-export --query agent --bookmark <id> --soul --briefs --json
+ft export hermes --out ./hermes-export --query agent --bookmark <id> --briefs --json
+ft export soul --out ./soul-export --json
+```
 
 Foundation docs:
 

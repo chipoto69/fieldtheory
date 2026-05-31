@@ -251,3 +251,138 @@ test('capture rejects high-confidence secret-like text', async () => {
     );
   });
 });
+
+function writeCaptureFixture(filePath: string, input: { id: string; type: string; title: string; body: string; hash?: string }): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, [
+    '---',
+    'version: fieldtheory.capture.v1',
+    `id: ${input.id}`,
+    `type: ${input.type}`,
+    'source: text',
+    'captured_at: 2026-05-31T12:00:00.000Z',
+    'promotion_status: captured',
+    `tags: [${input.type}]`,
+    'source_locator: stdin',
+    `content_sha256: ${input.hash ?? 'abc'}`,
+    '---',
+    `# ${input.title}`,
+    '',
+    input.body,
+    '',
+  ].join('\n'));
+}
+
+test('soul draft writes editable soul files under explicit output root', async () => {
+  await withAgenticRoots(async ({ root, library }) => {
+    writeCaptureFixture(path.join(library, 'Captures', 'soul.md'), {
+      id: 'cap_soul',
+      type: 'soul',
+      title: 'Soul capture',
+      body: 'Prefer source-backed work.',
+    });
+    writeCaptureFixture(path.join(library, 'Captures', 'not-soul.md'), {
+      id: 'cap_note',
+      type: 'note',
+      title: 'Note capture',
+      body: 'This should not become identity material.',
+      hash: 'def',
+    });
+
+    const out = path.join(root, 'soul-out');
+    const { draftSoulFiles } = await import('../src/soul-draft.js');
+    const result = await draftSoulFiles({
+      from: ['library', 'clipboard'],
+      outDir: out,
+      now: new Date('2026-05-31T14:00:00.000Z'),
+    });
+
+    assert.deepEqual(result.files.map((file) => file.relPath).sort(), [
+      'MEMORY.md',
+      'SOUL.md',
+      'STYLE.md',
+      'data/source-index.json',
+      'examples/good-outputs.md',
+    ]);
+    const soulBody = fs.readFileSync(path.join(out, 'SOUL.md'), 'utf-8');
+    assert.match(soulBody, /editable draft/i);
+    assert.match(soulBody, /Prefer source-backed work/);
+    assert.doesNotMatch(soulBody, /not become identity material/);
+    const sourceIndex = JSON.parse(fs.readFileSync(path.join(out, 'data', 'source-index.json'), 'utf-8'));
+    assert.equal(sourceIndex.sources[0].type, 'soul');
+    assert.equal(sourceIndex.sources[0].draftStatus, 'editable');
+    assert.equal(fs.existsSync(path.join(out, '.git')), false);
+  });
+});
+
+test('soul draft refuses secret-like source material', async () => {
+  await withAgenticRoots(async ({ root, library }) => {
+    writeCaptureFixture(path.join(library, 'Captures', 'secret-soul.md'), {
+      id: 'cap_secret_soul',
+      type: 'soul',
+      title: 'Secret soul',
+      body: 'Authorization: Bearer abcdefghijklmnopqrstuvwxyz0123456789',
+      hash: 'secret',
+    });
+
+    const { draftSoulFiles } = await import('../src/soul-draft.js');
+    await assert.rejects(
+      () => draftSoulFiles({ from: ['clipboard'], outDir: path.join(root, 'soul-out') }),
+      /secret-like content/i,
+    );
+  });
+});
+
+test('aeon export writes local-only bundle without git or secrets', async () => {
+  await withAgenticRoots(async ({ root }) => {
+    const repo = path.join(root, 'gordo-export');
+    const { exportAeonBundle } = await import('../src/agent-export.js');
+    const result = await exportAeonBundle({
+      repoPath: repo,
+      query: 'agent memory',
+      bookmarkIds: [],
+      includeSoul: true,
+      includeBriefs: true,
+      now: new Date('2026-05-31T15:00:00.000Z'),
+    });
+
+    assert.equal(fs.existsSync(path.join(repo, '.git')), false);
+    assert.equal(fs.existsSync(path.join(repo, 'fieldtheory', 'exports')), true);
+    assert.equal(fs.existsSync(path.join(repo, 'soul', 'SOUL.md')), true);
+    assert.equal(result.manifest.resultEnvelope.status, 'partial');
+    assert.ok(result.files.every((file) => {
+      const rel = path.relative(repo, file.path);
+      return rel && !rel.startsWith('..') && !path.isAbsolute(rel);
+    }));
+    assert.equal(result.files.some((file) => file.relPath.includes('/packets/')), false);
+  });
+});
+
+test('aeon export refuses existing git repo without explicit gate', async () => {
+  await withAgenticRoots(async ({ root }) => {
+    const repo = path.join(root, 'gordo-export');
+    fs.mkdirSync(path.join(repo, '.git'), { recursive: true });
+    const { exportAeonBundle } = await import('../src/agent-export.js');
+    await assert.rejects(
+      () => exportAeonBundle({ repoPath: repo, query: 'agent memory', bookmarkIds: [] }),
+      /existing git repo/i,
+    );
+  });
+});
+
+test('exports refuse secret-like source material', async () => {
+  await withAgenticRoots(async ({ root, library }) => {
+    fs.mkdirSync(path.join(library, 'Captures'), { recursive: true });
+    fs.writeFileSync(path.join(library, 'Captures', 'secret.md'), 'api_key=sk-test-1234567890abcdef\n');
+    const { exportHermesBundle } = await import('../src/agent-export.js');
+    await assert.rejects(
+      () => exportHermesBundle({
+        outDir: path.join(root, 'hermes'),
+        query: 'api key',
+        bookmarkIds: [],
+        includeBriefs: true,
+      }),
+      /secret-like content/i,
+    );
+  });
+});

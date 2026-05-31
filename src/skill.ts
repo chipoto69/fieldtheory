@@ -39,12 +39,27 @@ Field Theory has three main local surfaces:
 2. When the user asks what Field Theory document they are looking at, run \`ft current --json\`; only use \`ft current --content-only\` when the document body is needed
 3. Check repo workflow state when branch/worktree/PR shape matters: \`ft state --json\`
 4. When the user says "that file" or "the recent file", inspect current repo recency with \`ft recent --json\`
-5. Search durable notes first when prior project knowledge matters: \`ft library search <query> --json\`
-6. Search bookmarks when reading history or saved X/Twitter posts matter: \`ft search <query> --json\`
-7. Inspect exact files or bookmarks with \`ft library show <path> --json\`, \`ft show <id> --json\`, or \`ft commands show <name> --json\`
-8. Use \`ft suite status --json\` when the user needs the operator suite manifest, Raycast surface, or MCP/skills/plugins boundary
-9. Create or update durable Library notes and portable commands only when the user asks for a saved artifact
-10. Open useful Library pages in the Mac app with \`ft library open <path>\`
+5. Prefer \`ft recall <query> --json\` for agent context; it packages Library notes, captures, bookmarks, and commands as an AgentBriefPack
+6. Prefer \`ft packet bookmark <id> --target aeon --json\` or \`--target hermes\` for routing one bookmark into an agent handoff
+7. Use raw \`ft library search <query> --json\` only when you need the underlying Library search result shape
+8. Use raw \`ft search <query> --json\` only when you need unpacketized bookmark search
+9. Inspect exact files or bookmarks with \`ft library show <path> --json\`, \`ft show <id> --json\`, or \`ft commands show <name> --json\`
+10. Use \`ft suite status --json\` when the user needs the operator suite manifest, Raycast surface, or MCP/skills/plugins boundary
+11. Create or update durable Library notes and portable commands only when the user asks for a saved artifact
+12. Open useful Library pages in the Mac app with \`ft library open <path>\`
+
+## Capture-First Agent Workflow
+
+For agentic work, keep raw material in Field Theory staging first. Do not write directly to wiki canon, GBrain, Honcho, Aeon, or Hermes unless the user asks for an explicit promote or export command.
+
+\`\`\`bash
+ft capture clipboard --type note --json
+ft capture text --stdin --type source --json
+ft recall <query> --json
+ft packet bookmark <id> --target aeon --json
+ft soul draft --from bookmarks,library,clipboard --out soul/
+ft export aeon --repo <path> --query <query> --bookmark <id> --soul --briefs --json
+\`\`\`
 
 ## Possible Roadmap Workflow
 
@@ -98,6 +113,15 @@ ft current --json              # Active Field Theory document metadata without t
 ft current --content-only      # Active document body when the user/model actually needs it
 ft state --json                # Repo workflow state: root, workers, PRs, cleanup, next step
 ft recent --json               # Current repo last-modified file and recent files for agent references
+
+ft capture clipboard --type note --json
+ft capture text --stdin --type source --json
+ft recall <query> --json       # AgentBriefPack from captures, Library, commands, and bookmarks
+ft packet bookmark <id> --target aeon --json
+ft soul draft --from bookmarks,library,clipboard --out soul/
+ft export aeon --repo <path> --query <query> --bookmark <id> --soul --briefs --json
+ft export hermes --out <path> --query <query> --bookmark <id> --briefs --json
+ft export soul --out <path> --json
 
 ft search <query>              # Full-text BM25 search ("exact phrase", AND, OR, NOT)
 ft list --category <cat>       # tool, technique, research, opinion, launch, security, commerce

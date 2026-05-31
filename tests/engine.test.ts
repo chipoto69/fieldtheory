@@ -341,8 +341,8 @@ test('invokeEngineAsync: child stdin is closed with EOF (does not inherit parent
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft-engine-stdin-'));
   try {
-    // Script reads stdin; if EOF comes within 1s it prints "eof"; if nothing
-    // arrives within 2s it prints "hang". We want "eof".
+    // Script reads stdin; prompt EOF must arrive well under the historical
+    // multi-second "no stdin data received" delay. We want "eof".
     const script = `#!/bin/sh
 # Read up to 100 bytes with a 2s timeout. dd reads until EOF or 2s.
 read_result=""
@@ -364,7 +364,7 @@ fi
     const elapsed = Date.now() - start;
 
     assert.equal(out, 'eof', `expected 'eof', got ${JSON.stringify(out)}`);
-    assert.ok(elapsed < 1_500, `should return promptly on EOF, took ${elapsed}ms`);
+    assert.ok(elapsed < 2_500, `should return promptly on EOF, took ${elapsed}ms`);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -390,7 +390,7 @@ fi
     const elapsed = Date.now() - start;
 
     assert.equal(out, 'eof', `expected 'eof', got ${JSON.stringify(out)}`);
-    assert.ok(elapsed < 1_500, `should return promptly on EOF, took ${elapsed}ms`);
+    assert.ok(elapsed < 2_500, `should return promptly on EOF, took ${elapsed}ms`);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

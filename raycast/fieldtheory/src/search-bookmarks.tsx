@@ -24,22 +24,36 @@ export default function Command() {
           const parsed = JSON.parse(stdout);
           setItems(parsed.results || parsed);
         })
-        .catch((error) => showToast({ style: Toast.Style.Failure, title: "Search failed", message: String(error.message || error) }));
+        .catch((error) =>
+          showToast({
+            style: Toast.Style.Failure,
+            title: "Search failed",
+            message: String(error.message || error),
+          }),
+        );
     }, 250);
     return () => clearTimeout(timer);
   }, [query]);
 
   return (
-    <List searchBarPlaceholder="Search local bookmarks..." onSearchTextChange={setQuery} throttle>
+    <List
+      searchBarPlaceholder="Search local bookmarks..."
+      onSearchTextChange={setQuery}
+      throttle
+    >
       {items.map((item) => (
         <List.Item
           key={item.id}
           title={(item.text || item.id).slice(0, 90)}
           subtitle={item.author}
-          actions={<ActionPanel>{item.url ? <Action.OpenInBrowser url={item.url} /> : null}<Action.CopyToClipboard content={item.id} /></ActionPanel>}
+          actions={
+            <ActionPanel>
+              {item.url ? <Action.OpenInBrowser url={item.url} /> : null}
+              <Action.CopyToClipboard content={item.id} />
+            </ActionPanel>
+          }
         />
       ))}
     </List>
   );
 }
-

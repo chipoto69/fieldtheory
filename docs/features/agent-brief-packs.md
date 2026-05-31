@@ -1,11 +1,11 @@
 # Field Theory Agent Brief Packs
 
-Status: proposed feature plan.
+Status: Milestone 1 implemented for capture, recall, packet, soul draft, and dry-run exports; dispatch remains proposed.
 Audience: solo AI builders, operator agents, Hermes/ORBEL fleets, and future MCP/Raycast wrappers.
 
 ## Working Decision
 
-Build **Agent Brief Packs** as the next Field Theory feature.
+Build **Agent Brief Packs** as the Field Theory capture-first agent contract.
 
 Implementation must start with the capture-first foundation documented in:
 
@@ -70,6 +70,13 @@ ft recall "agent memory infrastructure" --md
 ft recall "agent memory infrastructure" --captures 5 --library 5 --bookmarks 8 --commands 3
 
 ft packet bookmark <bookmark-id> --target content-os --json
+ft packet bookmark <bookmark-id> --target aeon --json
+ft packet bookmark <bookmark-id> --target hermes --md
+
+ft soul draft --from bookmarks,library,clipboard --out soul/ --json
+ft export aeon --repo <path> --query "agent memory" --bookmark <bookmark-id> --soul --briefs --json
+ft export hermes --out <path> --query "agent memory" --bookmark <bookmark-id> --briefs --json
+ft export soul --out <path> --json
 
 ft possible dispatch <node-id> --target hermes-kanban --board orbel --dry-run --json
 ft possible dispatch <node-id> --target legolas --tier scout --dry-run --md

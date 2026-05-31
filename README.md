@@ -192,6 +192,9 @@ local-first control plane instead of separate tool surfaces.
 - **Capture-first PRD**: `docs/prd/capture-first-agentic-suite.md` defines the
   local-first build order for clipboard/manual capture, recall packs, source
   packets, soul drafts, and Aeon/Hermes export bundles.
+- **Capture-first CLI**: `ft capture`, `ft recall`, `ft packet bookmark`,
+  `ft soul draft`, and `ft export aeon|hermes|soul` now provide the local
+  contracts that hosted agents must consume.
 - **Environment runbook**: `docs/setup/capture-first-environment.md` lists local
   stores, safe environment variables, validation commands, and deferred hosted
   secrets.

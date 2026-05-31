@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { deflateSync } from 'node:zlib';
 
 const require = createRequire(import.meta.url);
 
@@ -48,7 +49,7 @@ export interface OperatorSuiteStatus {
 
 export interface RaycastExtensionFile {
   path: string;
-  content: string;
+  content: string | Buffer;
 }
 
 export interface RaycastScaffoldResult {
@@ -475,31 +476,53 @@ export async function runFt(args: string[]): Promise<string> {
 }
 `;
 
-const RAYCAST_OPERATOR_SUITE = `import { Detail, ActionPanel, Action, showToast, Toast } from "@raycast/api";
+const RAYCAST_OPERATOR_SUITE = `import { Action, ActionPanel, Detail, Toast, showToast } from "@raycast/api";
 import { useEffect, useState } from "react";
 import { runFt } from "./lib/ft";
 
+type OperatorSuiteStatus = {
+  name: string;
+  version: string;
+  surfaces: string[];
+  workflows: Array<{ name: string; command: string }>;
+};
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export default function Command() {
-  const [markdown, setMarkdown] = useState("Loading Field Theory operator suite...");
+  const [markdown, setMarkdown] = useState(
+    "Loading Field Theory operator suite...",
+  );
 
   useEffect(() => {
     runFt(["suite", "status", "--json"])
       .then((stdout) => {
-        const status = JSON.parse(stdout);
-        setMarkdown([
-          "# " + status.name,
-          "",
-          "**Version:** " + status.version,
-          "",
-          "## Surfaces",
-          ...status.surfaces.map((surface: string) => "- " + surface),
-          "",
-          "## Workflows",
-          ...status.workflows.map((workflow: any) => "- **" + workflow.name + "**: \`" + workflow.command + "\`"),
-        ].join("\\n"));
+        const status = JSON.parse(stdout) as OperatorSuiteStatus;
+        setMarkdown(
+          [
+            "# " + status.name,
+            "",
+            "**Version:** " + status.version,
+            "",
+            "## Surfaces",
+            ...status.surfaces.map((surface: string) => "- " + surface),
+            "",
+            "## Workflows",
+            ...status.workflows.map(
+              (workflow) =>
+                "- **" + workflow.name + "**: \`" + workflow.command + "\`",
+            ),
+          ].join("\\n"),
+        );
       })
       .catch((error) => {
-        showToast({ style: Toast.Style.Failure, title: "ft suite failed", message: String(error.message || error) });
+        showToast({
+          style: Toast.Style.Failure,
+          title: "ft suite failed",
+          message: errorMessage(error),
+        });
         setMarkdown("Could not run \`ft suite status --json\`.");
       });
   }, []);
@@ -507,7 +530,11 @@ export default function Command() {
   return (
     <Detail
       markdown={markdown}
-      actions={<ActionPanel><Action.CopyToClipboard title="Copy Status" content={markdown} /></ActionPanel>}
+      actions={
+        <ActionPanel>
+          <Action.CopyToClipboard title="Copy Status" content={markdown} />
+        </ActionPanel>
+      }
     />
   );
 }
@@ -535,20 +562,38 @@ export default function Command() {
     }
     const timer = setTimeout(() => {
       runFt(["search", query, "--limit", "12", "--json"])
-        .then((stdout) => setItems(JSON.parse(stdout).results || JSON.parse(stdout)))
-        .catch((error) => showToast({ style: Toast.Style.Failure, title: "Search failed", message: String(error.message || error) }));
+        .then((stdout) => {
+          const parsed = JSON.parse(stdout);
+          setItems(parsed.results || parsed);
+        })
+        .catch((error) =>
+          showToast({
+            style: Toast.Style.Failure,
+            title: "Search failed",
+            message: String(error.message || error),
+          }),
+        );
     }, 250);
     return () => clearTimeout(timer);
   }, [query]);
 
   return (
-    <List searchBarPlaceholder="Search local bookmarks..." onSearchTextChange={setQuery} throttle>
+    <List
+      searchBarPlaceholder="Search local bookmarks..."
+      onSearchTextChange={setQuery}
+      throttle
+    >
       {items.map((item) => (
         <List.Item
           key={item.id}
           title={(item.text || item.id).slice(0, 90)}
           subtitle={item.author}
-          actions={<ActionPanel>{item.url ? <Action.OpenInBrowser url={item.url} /> : null}<Action.CopyToClipboard content={item.id} /></ActionPanel>}
+          actions={
+            <ActionPanel>
+              {item.url ? <Action.OpenInBrowser url={item.url} /> : null}
+              <Action.CopyToClipboard content={item.id} />
+            </ActionPanel>
+          }
         />
       ))}
     </List>
@@ -556,16 +601,21 @@ export default function Command() {
 }
 `;
 
-const RAYCAST_RUN_COMMAND = `import { Action, ActionPanel, List, showToast, Toast } from "@raycast/api";
+const RAYCAST_RUN_COMMAND = `import { Action, ActionPanel, List, Toast, showToast } from "@raycast/api";
 import { useEffect, useState } from "react";
 import { runFt } from "./lib/ft";
 
 const COMMANDS = [
   { title: "Status", args: ["status", "--json"] },
   { title: "Paths", args: ["paths", "--json"] },
+  { title: "Recall Pack", args: ["recall", "agent memory", "--json"] },
   { title: "Suite", args: ["suite", "status", "--json"] },
   { title: "Commands Validate", args: ["commands", "validate", "--json"] },
 ];
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 export default function Command() {
   const [detail, setDetail] = useState("Select a command.");
@@ -573,12 +623,18 @@ export default function Command() {
   async function run(args: string[]) {
     try {
       setDetail(await runFt(args));
-    } catch (error: any) {
-      showToast({ style: Toast.Style.Failure, title: "Command failed", message: String(error.message || error) });
+    } catch (error: unknown) {
+      showToast({
+        style: Toast.Style.Failure,
+        title: "Command failed",
+        message: errorMessage(error),
+      });
     }
   }
 
-  useEffect(() => { run(COMMANDS[0].args); }, []);
+  useEffect(() => {
+    run(COMMANDS[0].args);
+  }, []);
 
   return (
     <List isShowingDetail>
@@ -587,14 +643,121 @@ export default function Command() {
           key={command.title}
           title={command.title}
           subtitle={"ft " + command.args.join(" ")}
-          detail={<List.Item.Detail markdown={"\`\`\`json\\n" + detail + "\\n\`\`\`"} />}
-          actions={<ActionPanel><Action title="Run" onAction={() => run(command.args)} /></ActionPanel>}
+          detail={
+            <List.Item.Detail markdown={"\`\`\`json\\n" + detail + "\\n\`\`\`"} />
+          }
+          actions={
+            <ActionPanel>
+              <Action title="Run" onAction={() => run(command.args)} />
+            </ActionPanel>
+          }
         />
       ))}
     </List>
   );
 }
 `;
+
+const RAYCAST_ESLINT_CONFIG = `const prettier = require("eslint-config-prettier/flat");
+const typescript = require("typescript-eslint");
+const raycast = require("@raycast/eslint-plugin");
+const js = require("@eslint/js");
+const globals = require("globals");
+
+const raycastRecommended = raycast.configs.recommended;
+
+module.exports = [
+  js.configs.recommended,
+  ...typescript.configs.recommended,
+  {
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+  ...(Array.isArray(raycastRecommended) ? raycastRecommended : [raycastRecommended]),
+  prettier,
+];
+`;
+
+const RAYCAST_TSCONFIG = `{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["node", "@raycast/api"]
+  },
+  "include": ["src/**/*", "raycast-env.d.ts"]
+}
+`;
+
+const CRC_TABLE = new Uint32Array(256).map((_, index) => {
+  let crc = index;
+  for (let bit = 0; bit < 8; bit += 1) {
+    crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1;
+  }
+  return crc >>> 0;
+});
+
+function crc32(buffer: Buffer): number {
+  let crc = 0xffffffff;
+  for (const byte of buffer) {
+    crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type: string, data: Buffer): Buffer {
+  const typeBuffer = Buffer.from(type, 'ascii');
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length, 0);
+  const checksum = Buffer.alloc(4);
+  checksum.writeUInt32BE(crc32(Buffer.concat([typeBuffer, data])), 0);
+  return Buffer.concat([length, typeBuffer, data, checksum]);
+}
+
+function raycastIconPng(): Buffer {
+  const width = 64;
+  const height = 64;
+  const rows: Buffer[] = [];
+  for (let y = 0; y < height; y += 1) {
+    const row = Buffer.alloc(1 + width * 4);
+    row[0] = 0;
+    for (let x = 0; x < width; x += 1) {
+      const offset = 1 + x * 4;
+      const onDiagonal = Math.abs(x - y) < 4 || Math.abs(x + y - width) < 4;
+      row[offset] = onDiagonal ? 255 : 20;
+      row[offset + 1] = onDiagonal ? 255 : 184;
+      row[offset + 2] = onDiagonal ? 255 : 166;
+      row[offset + 3] = 255;
+    }
+    rows.push(row);
+  }
+
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  ihdr[10] = 0;
+  ihdr[11] = 0;
+  ihdr[12] = 0;
+
+  return Buffer.concat([
+    signature,
+    pngChunk('IHDR', ihdr),
+    pngChunk('IDAT', deflateSync(Buffer.concat(rows))),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ]);
+}
 
 export function getRaycastExtensionFiles(): RaycastExtensionFile[] {
   return [
@@ -618,6 +781,18 @@ export function getRaycastExtensionFiles(): RaycastExtensionFile[] {
       path: 'src/run-command.tsx',
       content: RAYCAST_RUN_COMMAND,
     },
+    {
+      path: 'assets/extension-icon.png',
+      content: raycastIconPng(),
+    },
+    {
+      path: 'eslint.config.js',
+      content: RAYCAST_ESLINT_CONFIG,
+    },
+    {
+      path: 'tsconfig.json',
+      content: RAYCAST_TSCONFIG,
+    },
   ];
 }
 
@@ -633,7 +808,7 @@ export function scaffoldRaycastExtension(root: string, options: { force?: boolea
       continue;
     }
     fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(target, file.content, 'utf8');
+    fs.writeFileSync(target, file.content);
     written.push(target);
   }
 

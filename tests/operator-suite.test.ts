@@ -76,6 +76,8 @@ test('raycast run-command shows command output detail by default', () => {
 
     assert.match(scaffoldedRunCommand, /<List\s+isShowingDetail>/);
     assert.match(committedRunCommand, /<List\s+isShowingDetail>/);
+    assert.match(committedRunCommand, /Recall Pack/);
+    assert.equal(scaffoldedRunCommand, committedRunCommand);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

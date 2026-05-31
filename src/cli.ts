@@ -156,6 +156,13 @@ import { saveSeedFromCandidates } from './seeds-save.js';
 import { captureClipboard, captureText, type CaptureResult, type CaptureType } from './capture.js';
 import { buildRecallPack } from './recall.js';
 import { buildBookmarkPacket } from './packet.js';
+import { draftSoulFiles, type SoulDraftSourceName } from './soul-draft.js';
+import {
+  exportAeonBundle,
+  exportHermesBundle,
+  exportSoulBundle,
+  type AgentExportResult,
+} from './agent-export.js';
 import {
   formatAgentBriefPackMarkdown,
   type AgentBriefPack,
@@ -770,6 +777,21 @@ function parseAgentBriefTarget(value: string | undefined): AgentBriefTarget {
   throw new Error(`Unsupported target: ${value}`);
 }
 
+function parseSoulSources(value: string | undefined): SoulDraftSourceName[] {
+  const raw = value ?? 'bookmarks,library,clipboard';
+  const sources = raw.split(',').map((entry) => entry.trim()).filter(Boolean);
+  const valid = new Set(['bookmarks', 'library', 'clipboard']);
+  for (const source of sources) {
+    if (!valid.has(source)) throw new Error(`Unsupported soul source: ${source}`);
+  }
+  return sources as SoulDraftSourceName[];
+}
+
+function requiredOption(value: string | undefined, flag: string): string {
+  if (!value || !value.trim()) throw new Error(`Missing ${flag}.`);
+  return value;
+}
+
 function printCaptureResult(result: CaptureResult, options: { json?: boolean; md?: boolean }): void {
   if (options.json) {
     console.log(JSON.stringify(result, null, 2));
@@ -788,6 +810,25 @@ function printAgentBriefPack(pack: AgentBriefPack, options: { json?: boolean; md
     return;
   }
   process.stdout.write(formatAgentBriefPackMarkdown(pack));
+}
+
+function printSoulDraftResult(result: Awaited<ReturnType<typeof draftSoulFiles>>, options: { json?: boolean }): void {
+  if (options.json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  console.log(`Soul draft written: ${result.root}`);
+  for (const file of result.files) console.log(`  ${file.relPath}`);
+}
+
+function printExportResult(result: AgentExportResult, options: { json?: boolean }): void {
+  if (options.json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  console.log(`Export written: ${result.root}`);
+  console.log(`Run: ${result.runId}`);
+  for (const file of result.files) console.log(`  ${file.relPath}`);
 }
 
 function collectOption(value: string, previous: string[]): string[] {
@@ -3492,7 +3533,15 @@ export function buildCli() {
     .option('--from <sources>', 'Comma-separated sources: bookmarks, library, clipboard')
     .option('--out <path>', 'Output directory')
     .option('--json', 'JSON output')
-    .option('--force', 'Overwrite existing files', false);
+    .option('--force', 'Overwrite existing files', false)
+    .action(safe(async (options) => {
+      const result = await draftSoulFiles({
+        from: parseSoulSources(options.from),
+        outDir: requiredOption(options.out, '--out'),
+        force: options.force,
+      });
+      printSoulDraftResult(result, options);
+    }));
 
   const exportCommand = program
     .command('export')
@@ -3508,7 +3557,19 @@ export function buildCli() {
     .option('--briefs', 'Include brief pack files', false)
     .option('--json', 'JSON output')
     .option('--force', 'Overwrite existing files', false)
-    .option('--allow-existing-repo', 'Allow writing into an existing Git repository', false);
+    .option('--allow-existing-repo', 'Allow writing into an existing Git repository', false)
+    .action(safe(async (options) => {
+      const result = await exportAeonBundle({
+        repoPath: requiredOption(options.repo, '--repo'),
+        query: options.query,
+        bookmarkIds: options.bookmark,
+        includeSoul: options.soul,
+        includeBriefs: options.briefs,
+        force: options.force,
+        allowExistingRepo: options.allowExistingRepo,
+      });
+      printExportResult(result, options);
+    }));
 
   exportCommand
     .command('hermes')
@@ -3518,14 +3579,31 @@ export function buildCli() {
     .option('--bookmark <id>', 'Bookmark id to include as a source packet', collectOption, [])
     .option('--briefs', 'Include brief pack files', false)
     .option('--json', 'JSON output')
-    .option('--force', 'Overwrite existing files', false);
+    .option('--force', 'Overwrite existing files', false)
+    .action(safe(async (options) => {
+      const result = await exportHermesBundle({
+        outDir: requiredOption(options.out, '--out'),
+        query: options.query,
+        bookmarkIds: options.bookmark,
+        includeBriefs: options.briefs,
+        force: options.force,
+      });
+      printExportResult(result, options);
+    }));
 
   exportCommand
     .command('soul')
     .description('Export soul files')
     .option('--out <path>', 'Output directory')
     .option('--json', 'JSON output')
-    .option('--force', 'Overwrite existing files', false);
+    .option('--force', 'Overwrite existing files', false)
+    .action(safe(async (options) => {
+      const result = await exportSoulBundle({
+        outDir: requiredOption(options.out, '--out'),
+        force: options.force,
+      });
+      printExportResult(result, options);
+    }));
 
   // ── hidden backward-compat aliases ────────────────────────────────────
 

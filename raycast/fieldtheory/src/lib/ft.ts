@@ -17,4 +17,3 @@ export async function runFt(args: string[]): Promise<string> {
   });
   return stdout;
 }
-

@@ -31,6 +31,11 @@ describe('skill content', () => {
       assert.ok(content.includes('ft possible grid'));
       assert.ok(content.includes('ft possible prompt'));
       assert.ok(content.includes('ft possible nightly install'));
+      assert.ok(content.includes('ft capture clipboard --type note --json'));
+      assert.ok(content.includes('ft recall <query> --json'));
+      assert.ok(content.includes('ft packet bookmark <id> --target aeon --json'));
+      assert.ok(content.includes('ft soul draft --from bookmarks,library,clipboard --out soul/'));
+      assert.ok(content.includes('ft export aeon --repo <path> --query <query> --bookmark <id> --soul --briefs --json'));
       assert.ok(content.includes('ft library search'));
       assert.ok(content.includes('ft library show'));
       assert.ok(content.includes('ft commands list'));

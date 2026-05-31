@@ -3,3 +3,4 @@ dist/
 *.js.map
 .env
 .env.local
+raycast/fieldtheory/raycast-env.d.ts

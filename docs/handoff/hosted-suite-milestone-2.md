@@ -1,7 +1,7 @@
 ---
 title: Hosted Suite Milestone 2 Handoff
 created: 2026-05-31
-status: draft-template
+status: milestone-1-smoke-ready
 scope: Vercel, Privy, Gordo/Aeon, Hermes, and x402 work after local contracts pass
 tags: [handoff, vercel, privy, x402, aeon, hermes]
 ---
@@ -9,9 +9,9 @@ tags: [handoff, vercel, privy, x402, aeon, hermes]
 # Hosted Suite Milestone 2 Handoff
 
 This document is the required bridge from Milestone 1 local CLI contracts to the
-hosted suite. It must be refreshed with real smoke outputs before Vercel,
-Privy, wallet gating, Gordo/Aeon control-plane work, Hermes writeback, or x402
-enforcement starts.
+hosted suite. The examples below come from the isolated Milestone 1 smoke path:
+capture, recall, bookmark packet, soul draft, Aeon export, Hermes export, and
+soul export.
 
 ## Entry Gate
 
@@ -31,48 +31,50 @@ Milestone 2 may start only after these Milestone 1 gates pass:
 
 - Capture: `fieldtheory.capture.v1`
 - Agent brief pack: `agent-brief-pack.v1`
-- Export bundle: `fieldtheory.export-bundle.v1`
+- Export bundle: `fieldtheory.agent-export.v1`
 
 ## Sample AgentBriefPack
 
-This is the expected smoke-fixture shape. Replace it with the actual
-`ft recall agent --json` output before M2 implementation.
+Compact output from `ft recall agent --json` after seeding one soul capture and
+one bookmark fixture:
 
 ```json
 {
-  "id": "pack_smoke",
+  "id": "recall_3781d7834051a8e1",
   "version": "agent-brief-pack.v1",
   "kind": "recall_pack",
-  "generatedAt": "2026-05-31T00:00:00.000Z",
   "input": { "query": "agent" },
-  "limits": { "captures": 5, "library": 5, "commands": 3, "bookmarks": 8 },
   "storeStatus": [
     { "store": "captures", "status": "available" },
-    { "store": "library", "status": "available" },
-    { "store": "commands", "status": "available" },
+    { "store": "library", "status": "empty" },
+    { "store": "commands", "status": "empty" },
     { "store": "bookmarks", "status": "available" }
   ],
-  "summary": "Smoke fixture pack generated from local Field Theory sources.",
-  "summaryClaims": [],
-  "evidence": [],
-  "typedSlots": [],
-  "suggestedCommands": [],
-  "boundaries": [
+  "evidence": [
     {
-      "id": "boundary_local_only",
-      "authority": "local-only",
-      "gate": "operator-review",
-      "rule": "No hosted writes before Milestone 2.",
-      "reason": "Milestone 1 proves local contracts only.",
-      "forbiddenActions": ["vercel_deploy", "privy_config_write", "x402_enforce"],
-      "evidenceIds": []
+      "id": "capture:cap_20260531_201512_prefer_source_backed_agent_work",
+      "sourceType": "capture",
+      "locator": "Captures/2026-05-31-201512-prefer-source-backed-agent-work.md",
+      "rank": 1
+    },
+    {
+      "id": "bookmark:bm_test",
+      "sourceType": "bookmark",
+      "locator": "https://x.com/test/status/1",
+      "rank": 2
     }
   ],
-  "promotionCandidates": [],
+  "boundaries": [
+    {
+      "authority": "local-only",
+      "gate": "Milestone 1 local contract",
+      "forbiddenActions": ["write_wiki", "write_gbrain", "network_export", "create_repo"]
+    }
+  ],
   "resultEnvelope": {
-    "status": "partial",
-    "resultCount": 0,
-    "warnings": ["Template sample, not runtime output. M2 entry requires real smoke output."],
+    "status": "complete",
+    "resultCount": 2,
+    "warnings": [],
     "generatedBy": "fieldtheory"
   }
 }
@@ -80,36 +82,50 @@ This is the expected smoke-fixture shape. Replace it with the actual
 
 ## Sample Export Manifest
 
-This is the expected manifest shape. Replace it with the actual
-`fieldtheory/exports/<run-id>/manifest.json` from Aeon and Hermes smoke before
-M2 implementation.
+Compact output from the Aeon smoke export manifest:
 
 ```json
 {
-  "version": "fieldtheory.export-bundle.v1",
+  "version": "fieldtheory.agent-export.v1",
   "target": "aeon",
-  "createdAt": "2026-05-31T00:00:00.000Z",
-  "contractVersions": {
-    "capture": "fieldtheory.capture.v1",
-    "agentBriefPack": "agent-brief-pack.v1"
-  },
+  "runId": "aeon-20260531T201513Z",
+  "contracts": { "brief": "agent-brief-pack.v1", "capture": "fieldtheory.capture.v1" },
   "files": [
-    "fieldtheory/exports/run-smoke/brief.json",
-    "fieldtheory/exports/run-smoke/brief.md",
-    "fieldtheory/exports/run-smoke/reports/export-report.json"
+    "fieldtheory/exports/aeon-20260531T201513Z/brief.json",
+    "fieldtheory/exports/aeon-20260531T201513Z/brief.md",
+    "fieldtheory/exports/aeon-20260531T201513Z/packets/aeon-bookmark-07db95563579.json",
+    "fieldtheory/exports/aeon-20260531T201513Z/packets/aeon-bookmark-07db95563579.md",
+    "fieldtheory/exports/aeon-20260531T201513Z/sources/source-index.json",
+    "fieldtheory/exports/aeon-20260531T201513Z/reports/export-report.json",
+    "fieldtheory/exports/aeon-20260531T201513Z/aeon/aeon.yml.draft",
+    "soul/SOUL.md",
+    "soul/STYLE.md",
+    "soul/MEMORY.md",
+    "soul/examples/good-outputs.md",
+    "soul/data/source-index.json",
+    "fieldtheory/exports/aeon-20260531T201513Z/manifest.json"
   ],
-  "forbiddenActions": [
+  "forbiddenWrites": [
     "create_repo",
+    "push_remote",
     "write_github_secret",
     "dispatch_workflow",
-    "vercel_deploy"
+    "write_root_aeon_yml",
+    "write_github_workflow",
+    "network_call"
   ],
   "resultEnvelope": {
-    "status": "partial",
-    "warnings": ["Template sample, not runtime output. M2 entry requires real export smoke output."]
+    "status": "complete",
+    "resultCount": 4,
+    "warnings": ["whySavedStatus remains unknown because no explicit saved-intent evidence was found."],
+    "generatedBy": "fieldtheory"
   }
 }
 ```
+
+Hermes smoke uses the same export contract and writes only under
+`fieldtheory/exports/<run-id>/`, including `hermes/task-payload.dry-run.json`,
+`hermes/profile-handoff.md`, and `hermes/result-envelope.json`.
 
 ## Forbidden Writes
 
@@ -123,6 +139,8 @@ Milestone 2 workers must not assume Milestone 1 produced any of these:
 - x402 payment enforcement
 - live Hermes Kanban mutation
 - GBrain or wiki canon writes from Field Theory commands
+- Vercel deploy calls, Privy config writes, and x402 enforcement from Milestone
+  1 commands
 
 ## Privy Assumptions
 
@@ -150,3 +168,10 @@ replay/audit strategy are approved.
 3. Design the Vercel API as a thin consumer of those contracts.
 4. Add Privy auth only after endpoint boundaries are mapped.
 5. Draft x402 endpoint architecture before writing payment enforcement code.
+
+## M2 Entry Gate
+
+Hosted work starts only after Milestone 1 release checks stay green on the final
+release branch: isolated `npm test`, `npm run build`, `npm run release:check`,
+full CLI smoke, Raycast scaffold agreement, and Raycast lint/build where the
+Raycast toolchain is available.

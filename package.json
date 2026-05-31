@@ -1,6 +1,6 @@
 {
   "name": "fieldtheory",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Field Theory CLI. Self-custody for your X/Twitter bookmarks. Local sync, full-text search, classification, and terminal dashboards.",
   "type": "module",
   "bin": {
@@ -12,7 +12,8 @@
     "test": "tsx --test tests/**/*.test.ts",
     "dev": "tsx src/cli.ts",
     "start": "node dist/cli.js",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "release:check": "npm run build && npm pack --dry-run && node bin/ft.mjs --help"
   },
   "files": [
     "apps/operator-suite/",
@@ -20,7 +21,12 @@
     "dist/",
     "docs/",
     "LICENSE",
-    "raycast/fieldtheory/",
+    "raycast/fieldtheory/assets/",
+    "raycast/fieldtheory/eslint.config.js",
+    "raycast/fieldtheory/package-lock.json",
+    "raycast/fieldtheory/package.json",
+    "raycast/fieldtheory/src/",
+    "raycast/fieldtheory/tsconfig.json",
     "README.md"
   ],
   "engines": {
