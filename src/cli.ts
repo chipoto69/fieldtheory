@@ -153,6 +153,15 @@ import { formatSeedCandidates, queryRandomSeedCandidates, querySeedCandidates } 
 import { formatSeedOrganization, organizeSeedCandidatesBy } from './seeds-organize.js';
 import { modelOrganizeSeeds } from './seeds-model.js';
 import { saveSeedFromCandidates } from './seeds-save.js';
+import { captureClipboard, captureText, type CaptureResult, type CaptureType } from './capture.js';
+import { buildRecallPack } from './recall.js';
+import { buildBookmarkPacket } from './packet.js';
+import {
+  formatAgentBriefPackMarkdown,
+  type AgentBriefPack,
+  type AgentBriefTarget,
+} from './agent-brief-pack.js';
+import { readStdin } from './document-ops.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -743,6 +752,42 @@ function parsePositiveInteger(value: string): number {
     throw new InvalidArgumentError('value must be a positive integer');
   }
   return parsed;
+}
+
+function parseCaptureType(value: string | undefined): CaptureType {
+  if (value === 'note' || value === 'source' || value === 'idea' || value === 'soul') return value;
+  if (!value) throw new Error('Missing --type. Expected note, source, idea, or soul.');
+  throw new Error(`Unsupported capture type: ${value}`);
+}
+
+function parseCaptureTags(value: string | undefined): string[] {
+  return (value ?? '').split(',').map((tag) => tag.trim()).filter(Boolean);
+}
+
+function parseAgentBriefTarget(value: string | undefined): AgentBriefTarget {
+  if (value === 'aeon' || value === 'hermes' || value === 'content-os') return value;
+  if (!value) throw new Error('Missing --target. Expected aeon, hermes, or content-os.');
+  throw new Error(`Unsupported target: ${value}`);
+}
+
+function printCaptureResult(result: CaptureResult, options: { json?: boolean; md?: boolean }): void {
+  if (options.json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  if (options.md) {
+    process.stdout.write(fs.readFileSync(result.path, 'utf-8'));
+    return;
+  }
+  console.log(`Captured: ${result.relPath}`);
+}
+
+function printAgentBriefPack(pack: AgentBriefPack, options: { json?: boolean; md?: boolean }): void {
+  if (options.json) {
+    console.log(JSON.stringify(pack, null, 2));
+    return;
+  }
+  process.stdout.write(formatAgentBriefPackMarkdown(pack));
 }
 
 function collectOption(value: string, previous: string[]): string[] {
@@ -3366,20 +3411,36 @@ export function buildCli() {
 
   capture
     .command('text')
-    .description('Capture text from stdin')
+    .description('Capture text from stdin. Do not capture secrets, tokens, private keys, or wallet seed phrases.')
     .option('--stdin', 'Read capture text from stdin', false)
     .option('--type <type>', 'Capture type: note, source, idea, or soul')
     .option('--tags <tags>', 'Comma-separated tags')
     .option('--json', 'JSON output')
-    .option('--md', 'Print created markdown');
+    .option('--md', 'Print created markdown')
+    .action(safe(async (options) => {
+      if (!options.stdin) throw new Error('ft capture text requires --stdin.');
+      const result = await captureText({
+        text: await readStdin(),
+        type: parseCaptureType(options.type),
+        tags: parseCaptureTags(options.tags),
+      });
+      printCaptureResult(result, options);
+    }));
 
   capture
     .command('clipboard')
-    .description('Capture macOS clipboard text')
+    .description('Capture macOS clipboard text. Do not capture secrets, tokens, private keys, or wallet seed phrases.')
     .option('--type <type>', 'Capture type: note, source, idea, or soul')
     .option('--tags <tags>', 'Comma-separated tags')
     .option('--json', 'JSON output')
-    .option('--md', 'Print created markdown');
+    .option('--md', 'Print created markdown')
+    .action(safe(async (options) => {
+      const result = await captureClipboard({
+        type: parseCaptureType(options.type),
+        tags: parseCaptureTags(options.tags),
+      });
+      printCaptureResult(result, options);
+    }));
 
   program
     .command('recall')
@@ -3390,7 +3451,18 @@ export function buildCli() {
     .option('--captures <n>', 'Capture result limit', parsePositiveInteger, 5)
     .option('--library <n>', 'Library result limit', parsePositiveInteger, 5)
     .option('--commands <n>', 'Command result limit', parsePositiveInteger, 3)
-    .option('--bookmarks <n>', 'Bookmark result limit', parsePositiveInteger, 8);
+    .option('--bookmarks <n>', 'Bookmark result limit', parsePositiveInteger, 8)
+    .action(safe(async (query, options) => {
+      const pack = await buildRecallPack(query, {
+        limits: {
+          captures: options.captures,
+          library: options.library,
+          commands: options.commands,
+          bookmarks: options.bookmarks,
+        },
+      });
+      printAgentBriefPack(pack, options);
+    }));
 
   const packet = program
     .command('packet')
@@ -3402,7 +3474,13 @@ export function buildCli() {
     .argument('<id>', 'Bookmark record id')
     .option('--target <target>', 'Target: aeon, hermes, or content-os')
     .option('--json', 'JSON output')
-    .option('--md', 'Markdown output');
+    .option('--md', 'Markdown output')
+    .action(safe(async (id, options) => {
+      const pack = await buildBookmarkPacket(id, {
+        target: parseAgentBriefTarget(options.target),
+      });
+      printAgentBriefPack(pack, options);
+    }));
 
   const soul = program
     .command('soul')

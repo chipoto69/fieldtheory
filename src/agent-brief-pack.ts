@@ -86,6 +86,7 @@ export interface PromotionCandidate {
   status: 'candidate' | 'blocked' | 'not_recommended';
   reason: string;
   evidenceIds: string[];
+  operatorAuthored?: boolean;
 }
 
 export interface ResultEnvelope {
