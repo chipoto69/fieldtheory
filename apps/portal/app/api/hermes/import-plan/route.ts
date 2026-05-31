@@ -2,7 +2,7 @@ import { requirePrivyUser } from "@/lib/auth";
 import { summarizeExportManifest, validateExportManifest } from "@/lib/contracts";
 import { buildImportPlan } from "@/lib/import-plans";
 import { jsonError, jsonErrorFrom, jsonOk, readJson, stableHash } from "@/lib/http";
-import { hostedStore } from "@/lib/store";
+import { getHostedStore } from "@/lib/store";
 import { requireMutableStore } from "@/lib/store-guard";
 
 export const runtime = "nodejs";
@@ -24,7 +24,7 @@ export async function POST(request: Request): Promise<Response> {
       return jsonError("missing_hermes_payload", "Hermes export manifest must include hermes/task-payload.dry-run.json.", 422);
     }
     const plan = buildImportPlan("hermes", summary);
-    hostedStore.appendAudit({
+    await getHostedStore().appendAudit({
       actorUserId: auth.user.id,
       action: "hermes.import_plan",
       targetType: "import_plan",

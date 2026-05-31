@@ -10,6 +10,20 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fieldtheory
+          POSTGRES_PASSWORD: fieldtheory
+          POSTGRES_DB: fieldtheory_portal_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fieldtheory -d fieldtheory_portal_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -40,6 +54,7 @@ jobs:
       - run: npm --prefix raycast/fieldtheory run lint
       - run: npm --prefix raycast/fieldtheory run build
       - run: npm --prefix apps/portal ci
+      - run: DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal_ci" npm --prefix apps/portal run db:migrate
       - run: npm run verify:hosted
       - run: npm install --global "vercel@$VERCEL_CLI_VERSION"
       - name: Pull Vercel production environment

@@ -1,3 +1,6 @@
+import { validateMnemonic } from "@scure/bip39";
+import { wordlist } from "@scure/bip39/wordlists/english";
+
 export interface ValidationIssue {
   path: string;
   message: string;
@@ -21,6 +24,7 @@ export interface ExportManifestSummary {
 
 const BRIEF_VERSION = "agent-brief-pack.v1";
 const EXPORT_VERSION = "fieldtheory.agent-export.v1";
+const BIP39_WORD_COUNTS = [12, 15, 18, 21, 24] as const;
 const REMOTE_FORBIDDEN = new Set([
   "create_repo",
   "push_remote",
@@ -172,6 +176,9 @@ export function validateExportManifest(input: unknown): ValidationReport {
   if (looksSecretLike(JSON.stringify(input.inputs ?? {}))) {
     issues.push({ path: "inputs", message: "Inputs contain secret-like content." });
   }
+  if (looksSecretLike(JSON.stringify(input.resultEnvelope ?? {}))) {
+    issues.push({ path: "resultEnvelope", message: "Result envelope contains secret-like content." });
+  }
 
   return {
     valid: issues.length === 0,
@@ -258,7 +265,18 @@ function arrayAt(input: Record<string, unknown>, key: string, issues: Validation
 }
 
 function looksSecretLike(value: string): boolean {
-  return /\b(sk-[a-zA-Z0-9_-]{16,}|xox[baprs]-|ghp_[a-zA-Z0-9_]{20,}|auth_token|ct0|mnemonic|seed phrase|private[_-]?key|bearer [a-zA-Z0-9._-]{16,})\b/i.test(value);
+  return /\b(sk-[a-zA-Z0-9_-]{16,}|xox[baprs]-|ghp_[a-zA-Z0-9_]{20,}|auth_token|ct0|mnemonic|seed phrase|private[_-]?key|bearer [a-zA-Z0-9._-]{16,})\b/i.test(value)
+    || hasWalletSeedPhrase(value);
+}
+
+function hasWalletSeedPhrase(content: string): boolean {
+  const words = [...content.matchAll(/\b[a-z]{3,8}\b/gi)].map((match) => match[0].toLowerCase());
+  for (const wordCount of BIP39_WORD_COUNTS) {
+    for (let index = 0; index <= words.length - wordCount; index += 1) {
+      if (validateMnemonic(words.slice(index, index + wordCount).join(" "), wordlist)) return true;
+    }
+  }
+  return false;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

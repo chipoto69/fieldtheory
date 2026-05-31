@@ -19,7 +19,7 @@ then produces audited plans for Aeon/Gordo, Hermes, and future x402 endpoints.
 | Plane | Components | Authority |
 |---|---|---|
 | Local Field Theory | CLI stores, captures, recall packs, export bundles | Owns raw capture and source provenance. |
-| Hosted portal | Next.js UI, route handlers, validators, audit log | Owns review, auth, and staged run plans. |
+| Hosted portal | Next.js UI, route handlers, validators, Postgres store | Owns review, auth, staged run plans, and hosted audit metadata. |
 | Auth | Privy GitHub, Base EVM wallet, Solana wallet | Owns identity proof and account linking. |
 | Agent adapters | Gordo/Aeon import plan, Hermes import plan | Emit dry-run plans until apply gates are added. |
 | Deployment | Vercel project plus GitHub Actions | Owns preview/production build and deploy. |
@@ -40,7 +40,8 @@ flowchart TB
     Portal["Next.js portal"] --> Auth["Privy identity"]
     Portal --> Api["Route handlers"]
     Api --> Validator["contract validators"]
-    Api --> Audit["append-only audit log"]
+    Api --> Store["Postgres hosted store"]
+    Store --> Audit["append-only audit log"]
     Validator --> Runs["dry-run agent runs"]
     Api --> X402Discovery["x402 discovery"]
   end
@@ -73,7 +74,7 @@ sequenceDiagram
   participant Web as Vercel Portal
   participant Auth as Privy
   participant API as Route Handler
-  participant Audit as Audit Log
+  participant Store as Postgres Store
   participant Agent as Agent Adapter
 
   O->>CLI: ft export aeon --soul --briefs --json
@@ -82,11 +83,11 @@ sequenceDiagram
   Web->>Auth: verify GitHub and wallet identity
   Web->>API: POST /api/exports/validate
   API->>API: validate contract and forbidden writes
-  API->>Audit: append validation event
+  API->>Store: insert import + audit event
   Web->>API: POST /api/agents/runs
   API->>Agent: build dry-run import plan
   Agent-->>API: staged plan, no writeback
-  API->>Audit: append run event
+  API->>Store: insert run + audit event
   API-->>Web: run status + artifacts
 ```
 
@@ -105,7 +106,7 @@ sequenceDiagram
 | Actor | Allowed in M2 | Forbidden in M2 |
 |---|---|---|
 | Portal UI | Upload/import manifests, show plans, create dry-run runs | Direct filesystem access to operator stores. |
-| Route handlers | Validate contracts, write audit log, store run metadata | Git pushes, Vercel deploy calls, GitHub secret writes, Hermes writeback. |
+| Route handlers | Validate contracts, write audit log, store run metadata through `HostedStore` | Git pushes, Vercel deploy calls, GitHub secret writes, Hermes writeback. |
 | Gordo adapter | Generate apply plan from export bundle | Create repos, write workflows, dispatch GitHub Actions. |
 | Hermes adapter | Generate staged task payload preview | Mutate Hermes Kanban/profile state. |
 | x402 module | Publish endpoint inventory and test fixtures | Enforce payment or settle funds. |
@@ -127,15 +128,17 @@ sequenceDiagram
 
 ## Storage Model
 
-M2 should start with a small typed persistence layer that can run locally and on
-Vercel without binding the contracts to one vendor:
+M2 uses a small typed persistence layer. Memory is local/test only. Postgres is
+selected by `DATABASE_URL`; production requires schema version `1` from
+`npm --prefix apps/portal run db:migrate`. Import/audit and run/audit writes go
+through composite store methods so durable writes are transactional.
 
 | Store | Contents |
 |---|---|
-| `users` | Privy user id, GitHub identity, linked EVM/Solana wallet summaries. |
-| `imports` | Uploaded/imported contract metadata, hashes, owner id, validation status. |
-| `agent_runs` | Dry-run plan, target, status, owner id, result envelope. |
-| `audit_events` | Append-only event log with actor, target, contract hash, and outcome. |
+| `users` | Planned: Privy user id, GitHub identity, linked EVM/Solana wallet summaries. |
+| `fieldtheory_imports` | Uploaded/imported contract metadata, hashes, owner id, validation status. |
+| `fieldtheory_agent_runs` | Dry-run plan, target, status, owner id, result envelope. |
+| `fieldtheory_audit_events` | Append-only event log with actor, target, contract hash, and outcome. |
 | `x402_endpoint_plans` | Planned endpoint id, price policy, facilitator assumptions, enforcement status. |
 
 ## Deployment Flow
@@ -143,7 +146,7 @@ Vercel without binding the contracts to one vendor:
 ```mermaid
 flowchart LR
   PR["pull request"] --> Preview["GitHub Action: Vercel preview"]
-  Preview --> Tests["npm test + portal tests + smoke"]
+  Preview --> Tests["npm test + portal tests + db:migrate smoke"]
   Tests --> Merge["protected main merge"]
   Merge --> Prod["GitHub Action: Vercel production"]
   Prod --> Audit["deployment audit note"]
@@ -157,7 +160,7 @@ production workflows.
 
 | Decision | Default until decided |
 |---|---|
-| Database provider | Keep adapter boundary; no provider-specific code in PRD. |
+| Database provider | Postgres via `DATABASE_URL`; backup/restore and migration versioning still need release gates. |
 | Agent execution location | Vercel owns control plane; long-running work may need GitHub Actions or external worker. |
 | x402 facilitator | Document assumptions only; no enforcement. |
 | Apply gates | Dry-run only until a human-reviewed apply plan exists. |

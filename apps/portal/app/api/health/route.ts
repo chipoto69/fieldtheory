@@ -5,7 +5,7 @@ export async function GET(): Promise<Response> {
     ok: true,
     service: "fieldtheory-portal",
     status: "ready",
-    version: "0.1.0",
+    version: "0.2.0",
     x402Enabled: false,
     x402Requested: process.env.X402_ENABLED === "true",
   });

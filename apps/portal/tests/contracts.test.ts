@@ -29,6 +29,15 @@ test("AgentBriefPack validator rejects secret-like content before persistence", 
   assert.ok(report.issues.some((issue) => issue.path === "$"));
 });
 
+test("AgentBriefPack validator rejects wallet seed phrases before persistence", () => {
+  const pack = validBriefPack();
+  pack.evidence[0].excerpt = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+
+  const report = validateAgentBriefPack(pack);
+  assert.equal(report.valid, false);
+  assert.ok(report.issues.some((issue) => issue.path === "$"));
+});
+
 test("export manifest validator accepts a run-scoped Aeon manifest", () => {
   const report = validateExportManifest(validAeonManifest());
   assert.equal(report.valid, true);
@@ -57,4 +66,22 @@ test("export manifest validator rejects traversal, hidden paths, and secret-like
   assert.equal(report.valid, false);
   assert.ok(report.issues.some((issue) => issue.message.includes("hidden, dot, traversal")));
   assert.ok(report.issues.some((issue) => issue.path === "inputs"));
+});
+
+test("export manifest validator rejects result envelope secrets before summaries persist", () => {
+  const tokenManifest = validAeonManifest();
+  tokenManifest.resultEnvelope.warnings = ["bearer abcdefghijklmnopqrstuvwxyz123456"];
+
+  const tokenReport = validateExportManifest(tokenManifest);
+  assert.equal(tokenReport.valid, false);
+  assert.ok(tokenReport.issues.some((issue) => issue.path === "resultEnvelope"));
+
+  const seedManifest = validAeonManifest();
+  seedManifest.resultEnvelope.warnings = [
+    "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+  ];
+
+  const seedReport = validateExportManifest(seedManifest);
+  assert.equal(seedReport.valid, false);
+  assert.ok(seedReport.issues.some((issue) => issue.path === "resultEnvelope"));
 });

@@ -64,7 +64,10 @@ The first Milestone 2 scaffold now exists under `apps/portal`:
 - Public `/api/health`, `/api/contracts`, and `/api/x402/discovery` routes.
 - Fail-closed protected routes for brief/export validation, agent target list,
   dry-run run creation/status, Gordo/Aeon import plans, and Hermes import plans.
-- In-memory adapter for imports, runs, and audit events.
+- In-memory local/test adapter plus `DATABASE_URL` Postgres adapter for imports,
+  runs, and audit events.
+- `npm --prefix apps/portal run db:migrate` creates schema version `1`; production
+  checks that marker and fails closed instead of auto-creating tables.
 - Preview and production GitHub Actions workflow skeletons that deploy only when
   Vercel secrets are configured.
 - Server-side Privy access-token verification through `@privy-io/node`; unsigned
@@ -72,6 +75,8 @@ The first Milestone 2 scaffold now exists under `apps/portal`:
 - Sanitized export import summaries that preserve target, run id, run-scoped
   relative paths, hashes, forbidden writes, and result envelopes without storing
   absolute source paths.
+- Owner-scoped artifact import IDs prevent two users importing the same contract
+  payload from overwriting each other's ownership.
 
 The scaffold intentionally does not mount the Privy browser SDK yet. The current
 server boundary fails closed when `PRIVY_APP_SECRET` is absent and only accepts
@@ -216,8 +221,11 @@ replay/audit strategy are approved.
 3. Extend the current portal as a thin consumer of those contracts.
 4. Add browser Privy login and linked GitHub/Base/Solana identity policies after
    the server verification boundary stays green.
-5. Add a durable store adapter before enabling production mutations.
-6. Draft x402 endpoint architecture before writing payment enforcement code.
+5. Add browser Privy login and identity-link policy before enabling production
+   access.
+6. Add backup/restore and migration-version gates before declaring the durable
+   store production-complete.
+7. Draft x402 endpoint architecture before writing payment enforcement code.
 
 ## M2 Entry Gate
 
@@ -228,7 +236,8 @@ Raycast toolchain is available.
 
 ## Hosted Planning Artifacts
 
-Before writing the Vercel app, use these M2 implementation contracts:
+Before extending the hosted implementation, use these M2 implementation
+contracts:
 
 - PRD: `docs/prd/hosted-agentic-suite.md`
 - Architecture: `docs/architecture/hosted-agentic-suite.md`

@@ -11,7 +11,8 @@ import { POST as gordoPlanPost } from "../app/api/gordo/import-plan/route";
 import { POST as hermesPlanPost } from "../app/api/hermes/import-plan/route";
 import { GET as x402Get } from "../app/api/x402/discovery/route";
 import { setPrivyVerifierForTests } from "../src/lib/auth";
-import { hostedStore } from "../src/lib/store";
+import { requireMutableStore } from "../src/lib/store-guard";
+import { getHostedStore, hostedStore } from "../src/lib/store";
 import { validAeonManifest, validBriefPack, validHermesManifest } from "./fixtures";
 
 const previousEnv = {
@@ -21,9 +22,14 @@ const previousEnv = {
   PRIVY_JWT_VERIFICATION_KEY: process.env.PRIVY_JWT_VERIFICATION_KEY,
   PRIVY_DEV_ALLOW_UNSIGNED: process.env.PRIVY_DEV_ALLOW_UNSIGNED,
   FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE: process.env.FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE,
+  DATABASE_URL: process.env.DATABASE_URL,
   NODE_ENV: process.env.NODE_ENV,
   X402_ENABLED: process.env.X402_ENABLED,
 };
+
+test.beforeEach(() => {
+  delete process.env.DATABASE_URL;
+});
 
 test.afterEach(() => {
   hostedStore.resetForTests();
@@ -104,6 +110,31 @@ test("protected mutation routes fail closed in production without a durable stor
   assert.equal(body.error.code, "durable_store_not_configured");
 });
 
+test("production mutable-store guard ignores memory override", () => {
+  setEnv("NODE_ENV", "production");
+  process.env.FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE = "true";
+  delete process.env.DATABASE_URL;
+
+  const response = requireMutableStore();
+  assert.equal(response?.status, 503);
+});
+
+test("production mutable-store guard allows configured durable database", () => {
+  setEnv("NODE_ENV", "production");
+  process.env.DATABASE_URL = "postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory";
+  delete process.env.FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE;
+
+  assert.equal(requireMutableStore(), null);
+});
+
+test("production store selection ignores memory override when database is configured", () => {
+  setEnv("NODE_ENV", "production");
+  process.env.DATABASE_URL = "postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory";
+  process.env.FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE = "true";
+
+  assert.notEqual(getHostedStore(), hostedStore);
+});
+
 test("oversized JSON bodies are rejected before parsing", async () => {
   enableDevAuth();
   const response = await briefValidatePost(authRequest("http://localhost/api/briefs/validate", {
@@ -146,6 +177,36 @@ test("export validation plus dry-run creation returns a run envelope", async () 
     params: Promise.resolve({ id: runBody.run.id }),
   });
   assert.equal(userBRead.status, 404);
+});
+
+test("same artifact imports are owner-scoped", async () => {
+  enableDevAuth();
+
+  const first = await exportValidatePost(authJsonRequest("/api/exports/validate", validAeonManifest(), "dev:user-a"));
+  const firstBody = await first.json();
+  const second = await exportValidatePost(authJsonRequest("/api/exports/validate", validAeonManifest(), "dev:user-b"));
+  const secondBody = await second.json();
+
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 200);
+  assert.equal(firstBody.import.sha256, secondBody.import.sha256);
+  assert.notEqual(firstBody.import.id, secondBody.import.id);
+  assert.equal(firstBody.import.ownerUserId, "user-a");
+  assert.equal(secondBody.import.ownerUserId, "user-b");
+
+  const crossUserRun = await runsPost(authJsonRequest("/api/agents/runs", {
+    target: "aeon",
+    importId: firstBody.import.id,
+    mode: "dry-run",
+  }, "dev:user-b"));
+  assert.equal(crossUserRun.status, 404);
+
+  const ownRun = await runsPost(authJsonRequest("/api/agents/runs", {
+    target: "aeon",
+    importId: secondBody.import.id,
+    mode: "dry-run",
+  }, "dev:user-b"));
+  assert.equal(ownRun.status, 201);
 });
 
 test("agent run creation rejects target mismatches", async () => {
@@ -267,6 +328,8 @@ function restoreEnv(): void {
   else process.env.PRIVY_DEV_ALLOW_UNSIGNED = previousEnv.PRIVY_DEV_ALLOW_UNSIGNED;
   if (previousEnv.FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE === undefined) delete process.env.FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE;
   else process.env.FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE = previousEnv.FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE;
+  if (previousEnv.DATABASE_URL === undefined) delete process.env.DATABASE_URL;
+  else process.env.DATABASE_URL = previousEnv.DATABASE_URL;
   if (previousEnv.X402_ENABLED === undefined) delete process.env.X402_ENABLED;
   else process.env.X402_ENABLED = previousEnv.X402_ENABLED;
   setEnv("NODE_ENV", previousEnv.NODE_ENV);

@@ -1,5 +1,6 @@
 import { stableHash } from "@/lib/http";
 import type { ExportManifestSummary } from "@/lib/contracts";
+import { getPostgresHostedStore } from "@/lib/postgres-store";
 
 export type AgentTarget = "aeon" | "hermes" | "content-os";
 export type RunMode = "dry-run" | "apply-plan";
@@ -37,16 +38,32 @@ export interface AuditEvent {
   createdAt: string;
 }
 
-class MemoryHostedStore {
+export type CreateImportInput = Omit<ArtifactImport, "id" | "sha256" | "createdAt"> & { payload: unknown };
+export type CreateRunInput = Omit<AgentRun, "id" | "createdAt" | "status">;
+export type AppendAuditInput = Omit<AuditEvent, "id" | "createdAt">;
+export type CreateImportAuditInput = Omit<AppendAuditInput, "targetId" | "contractHash">;
+export type CreateRunAuditInput = Omit<AppendAuditInput, "targetId">;
+
+export interface HostedStore {
+  createImport(input: CreateImportInput): Promise<ArtifactImport>;
+  createImportWithAudit(input: CreateImportInput, audit: CreateImportAuditInput): Promise<{ artifact: ArtifactImport; audit: AuditEvent }>;
+  getImport(id: string): Promise<ArtifactImport | undefined>;
+  createRun(input: CreateRunInput): Promise<AgentRun>;
+  createRunWithAudit(input: CreateRunInput, audit: CreateRunAuditInput): Promise<{ run: AgentRun; audit: AuditEvent }>;
+  getRun(id: string): Promise<AgentRun | undefined>;
+  appendAudit(input: AppendAuditInput): Promise<AuditEvent>;
+}
+
+export class MemoryHostedStore implements HostedStore {
   private imports = new Map<string, ArtifactImport>();
   private runs = new Map<string, AgentRun>();
   private auditEvents: AuditEvent[] = [];
 
-  createImport(input: Omit<ArtifactImport, "id" | "sha256" | "createdAt"> & { payload: unknown }): ArtifactImport {
+  async createImport(input: CreateImportInput): Promise<ArtifactImport> {
     const now = new Date().toISOString();
     const sha256 = stableHash(input.payload);
     const item: ArtifactImport = {
-      id: idFor("import", sha256),
+      id: idFor("import", `${input.ownerUserId}:${sha256}`),
       ownerUserId: input.ownerUserId,
       contractVersion: input.contractVersion,
       kind: input.kind,
@@ -59,11 +76,21 @@ class MemoryHostedStore {
     return item;
   }
 
-  getImport(id: string): ArtifactImport | undefined {
+  async createImportWithAudit(input: CreateImportInput, audit: CreateImportAuditInput): Promise<{ artifact: ArtifactImport; audit: AuditEvent }> {
+    const artifact = await this.createImport(input);
+    const auditEvent = await this.appendAudit({
+      ...audit,
+      targetId: artifact.id,
+      contractHash: artifact.sha256,
+    });
+    return { artifact, audit: auditEvent };
+  }
+
+  async getImport(id: string): Promise<ArtifactImport | undefined> {
     return this.imports.get(id);
   }
 
-  createRun(input: Omit<AgentRun, "id" | "createdAt" | "status">): AgentRun {
+  async createRun(input: CreateRunInput): Promise<AgentRun> {
     const now = new Date().toISOString();
     const run: AgentRun = {
       ...input,
@@ -75,11 +102,20 @@ class MemoryHostedStore {
     return run;
   }
 
-  getRun(id: string): AgentRun | undefined {
+  async createRunWithAudit(input: CreateRunInput, audit: CreateRunAuditInput): Promise<{ run: AgentRun; audit: AuditEvent }> {
+    const run = await this.createRun(input);
+    const auditEvent = await this.appendAudit({
+      ...audit,
+      targetId: run.id,
+    });
+    return { run, audit: auditEvent };
+  }
+
+  async getRun(id: string): Promise<AgentRun | undefined> {
     return this.runs.get(id);
   }
 
-  appendAudit(input: Omit<AuditEvent, "id" | "createdAt">): AuditEvent {
+  async appendAudit(input: AppendAuditInput): Promise<AuditEvent> {
     const now = new Date().toISOString();
     const event: AuditEvent = {
       ...input,
@@ -105,6 +141,14 @@ const globalStore = globalThis as typeof globalThis & { __fieldTheoryPortalStore
 export const hostedStore = globalStore.__fieldTheoryPortalStore ?? new MemoryHostedStore();
 globalStore.__fieldTheoryPortalStore = hostedStore;
 
-function idFor(prefix: string, value: string): string {
+export function getHostedStore(): HostedStore {
+  const allowMemoryStore = process.env.NODE_ENV !== "production" && process.env.FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE === "true";
+  if (process.env.DATABASE_URL && !allowMemoryStore) {
+    return getPostgresHostedStore();
+  }
+  return hostedStore;
+}
+
+export function idFor(prefix: string, value: string): string {
   return `${prefix}_${stableHash(value).slice(0, 16)}`;
 }

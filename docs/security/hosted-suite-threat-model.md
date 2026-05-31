@@ -29,6 +29,7 @@ tags: [security, privy, wallet, x402, agents]
 | Replayed auth or payment payload | Idempotency keys, nonce windows, and audit event dedupe. |
 | Webhook spoofing | Verify provider signatures before accepting webhook state. |
 | Secret ingestion | Run server-side secret scanning before DB writes, logs, exports, or adapter calls. |
+| Durable store misconfiguration | Fail closed without `DATABASE_URL`; require migrated schema marker in production. |
 | Path escape in manifests | Reuse output-path validation semantics and reject dot/hidden/git paths. |
 | Hidden remote write | Keep Gordo/Hermes adapters dry-run until apply gates. |
 | Payment metadata leak | Review x402 endpoint descriptions and resource URLs before enforcement. |
@@ -50,8 +51,20 @@ tags: [security, privy, wallet, x402, agents]
   `PRIVY_APP_ID`/`NEXT_PUBLIC_PRIVY_APP_ID` and `PRIVY_APP_SECRET` are present.
 - Unsigned development bearer tokens are ignored in production even if
   `PRIVY_DEV_ALLOW_UNSIGNED=true` is accidentally configured.
+- Production mutation routes ignore the memory-store override and require
+  `DATABASE_URL`.
+- The Postgres adapter returns generic `store_unavailable` or
+  `store_schema_not_ready` errors instead of exposing driver messages, SQL, or
+  connection strings.
+- Import/audit and run/audit writes use composite store methods; the Postgres
+  adapter commits each pair in a single transaction.
+- Import IDs are owner-scoped from `ownerUserId + sha256`, so two users can
+  import the same artifact without overwriting ownership.
 - Export imports keep sanitized summaries only: target, run id, relative paths,
   hashes, forbidden writes, and result envelope.
+- Briefs, manifests, file metadata, inputs, and result envelopes are screened
+  for token, cookie, private-key, and BIP39 seed phrase patterns before
+  persistence.
 - Aeon and Hermes import-plan routes reject target mismatches and require their
   target-specific dry-run artifact paths.
 - x402 discovery remains non-enforcing; health can report that x402 was

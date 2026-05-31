@@ -20,7 +20,7 @@ imports a brief/export artifact.
 |---|---|---|
 | `User` | `id`, `privyUserId`, `createdAt`, `updatedAt` | Internal user row keyed to Privy. |
 | `Identity` | `id`, `userId`, `type`, `subject`, `verifiedAt` | `type` is `github`, `evm`, or `solana`. |
-| `ArtifactImport` | `id`, `ownerUserId`, `contractVersion`, `kind`, `sha256`, `validationStatus`, `exportSummary`, `createdAt` | Imported `AgentBriefPack` or export manifest. Export summaries are sanitized and exclude raw payloads and absolute paths. |
+| `ArtifactImport` | `id`, `ownerUserId`, `contractVersion`, `kind`, `sha256`, `validationStatus`, `exportSummary`, `createdAt` | Imported `AgentBriefPack` or export manifest. IDs are owner-scoped from `ownerUserId + sha256`. Export summaries are sanitized and exclude raw payloads and absolute paths. |
 | `ArtifactFile` | `id`, `importId`, `relPath`, `sha256`, `contentType`, `sizeBytes` | Optional file metadata; content storage provider is undecided. |
 | `AgentRun` | `id`, `ownerUserId`, `target`, `mode`, `status`, `importId`, `resultEnvelope`, `createdAt` | M2 permits `dry-run` only. |
 | `AuditEvent` | `id`, `actorUserId`, `action`, `targetType`, `targetId`, `contractHash`, `outcome`, `createdAt` | Append-only. |
@@ -63,6 +63,28 @@ The portal stores derived export metadata, not the uploaded manifest body:
 
 `files[].path` is treated as untrusted source metadata. Only `files[].relPath`
 is accepted for hosted routing and it must pass the path-safety validator.
+`inputs`, file metadata, brief content, and `resultEnvelope` are rejected before
+persistence when they contain token, cookie, private-key, or BIP39 seed phrase
+patterns.
+
+## Store Adapter
+
+Postgres is the first durable hosted adapter. It is selected when
+`DATABASE_URL` is present and stores these tables:
+
+| Table | Purpose |
+|---|---|
+| `fieldtheory_schema_version` | Migration marker; version `1` is required in production. |
+| `fieldtheory_imports` | Owner-scoped artifact import metadata and sanitized export summary. |
+| `fieldtheory_agent_runs` | Dry-run agent run records and result envelopes. |
+| `fieldtheory_audit_events` | Append-only hosted action records. |
+
+Run `npm --prefix apps/portal run db:migrate` with `DATABASE_URL` before
+production traffic. Request handlers may auto-create the schema only outside
+production. Production returns `store_schema_not_ready` when the migration marker
+is absent. Validation import + audit writes and run + audit writes use composite
+store methods so the Postgres adapter commits those paired records in one
+transaction.
 
 ## Retention Rules
 
@@ -74,9 +96,9 @@ is accepted for hosted routing and it must pass the path-safety validator.
 | `AuditEvent` | Append-only; retention policy must be explicit before production. |
 | `X402EndpointPlan` | Keep as deployment policy record. |
 
-## Open Provider Decision
+## Remaining Provider Work
 
-The data model intentionally does not pick a database provider. The first portal
-scaffold uses an in-memory adapter for local tests only. In production mode,
-protected mutation routes fail closed until a durable adapter is added and
-reviewed.
+Backups, restore drills, migration versioning beyond v1, and retention policy
+are still release gates before treating the hosted store as production-complete.
+The in-memory adapter remains local/test only and is ignored by production
+mutations when `DATABASE_URL` is absent.

@@ -15,6 +15,10 @@ create dry-run plans, and write audit records. They do not write to wiki,
 GBrain, Hermes, Aeon/Gordo, GitHub, Vercel, or x402 settlement state until a
 later apply gate exists.
 
+State-changing hosted routes use `HostedStore`. In production, `DATABASE_URL`
+must select the Postgres adapter and schema version `1` must be migrated before
+requests are accepted.
+
 ## Route Table
 
 | Route | Method | Auth | Body | Response | Side effects |
@@ -60,7 +64,7 @@ Every export manifest endpoint must reject:
 - files outside `fieldtheory/exports/<run-id>/` except standalone soul export
   manifests
 - forbidden writes that imply remote side effects
-- any payload containing secret-like content
+- any payload containing secret-like content, including `resultEnvelope`
 
 Target-specific import plan endpoints must also reject mismatches:
 
@@ -75,7 +79,7 @@ Target-specific import plan endpoints must also reject mismatches:
 
 | Mode | M2 behavior |
 |---|---|
-| `dry-run` | Allowed; writes local hosted run metadata and audit only. |
+| `dry-run` | Allowed; writes hosted run metadata and audit only. |
 | `apply-plan` | Returned only inside generated dry-run plans; rejected as a requested run mode. |
 | `apply` | Forbidden until a separate apply-gate PR. |
 

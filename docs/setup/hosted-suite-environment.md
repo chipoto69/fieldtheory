@@ -20,12 +20,13 @@ surfaces, and the first Milestone 2 hosted scaffold:
   Gordo/Aeon import plans, Hermes import plans, and x402 discovery
 - server-side Privy access-token verification with a local/test-only dev token
   bypass
+- `DATABASE_URL`-backed Postgres adapter for imports, runs, and audit events
+- explicit `npm --prefix apps/portal run db:migrate` schema bootstrap
 
 It still does not have:
 
 - real Privy browser SDK login mounted
 - production Vercel project linkage or secrets
-- durable database provider
 - apply gates
 - x402 enforcement
 
@@ -40,9 +41,11 @@ pass in CI and the Vercel project is explicitly linked.
 | `NEXT_PUBLIC_PRIVY_APP_ID` | M2 scaffold | Public Privy app id for browser auth. |
 | `PRIVY_APP_SECRET` | M2 server | Server-side Privy verification where needed. |
 | `PRIVY_JWT_VERIFICATION_KEY` | M2 server optional | Dashboard verification key; avoids a runtime key fetch when set. |
+| `DATABASE_URL` | M2 production | Postgres connection string for hosted imports, runs, and audit events. Required for production mutations. |
 | `FIELD_THEORY_CONTRACT_FIXTURE_DIR` | M2 tests | Points tests at generated M1 smoke fixtures. |
 | `FIELD_THEORY_AUDIT_STORE` | M2 local | Local JSON/sqlite audit store path for development. |
-| `FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE` | tests only | Allows in-memory mutations in production-like tests; keep `false` in deployed environments. |
+| `FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE` | tests only | Allows in-memory mutations outside production; production ignores it when `DATABASE_URL` is absent. |
+| `FIELD_THEORY_PORTAL_AUTO_CREATE_SCHEMA` | local only | Optional local bootstrap convenience. Keep `false` in production and run `db:migrate`. |
 | `NEXT_PUBLIC_BASE_CHAIN_ID` | M2 scaffold | Base network selection; default is Base Sepolia (`84532`) until configured. |
 | `NEXT_PUBLIC_SOLANA_CLUSTER` | M2 scaffold | Solana cluster selection; default is `devnet` until configured. |
 | `X402_ENABLED` | M3 only | Must default false. |
@@ -60,6 +63,7 @@ pass in CI and the Vercel project is explicitly linked.
 | `NEXT_PUBLIC_PRIVY_APP_ID` | after auth scaffold | Public but environment-specific. |
 | `PRIVY_APP_SECRET` | after auth scaffold | Server-only; never expose to browser. |
 | `PRIVY_JWT_VERIFICATION_KEY` | optional | Server-only verification key from the Privy dashboard. |
+| `DATABASE_URL` | before production mutations | Vercel Postgres/Neon/Supabase connection string; run schema migration before deploy. |
 
 Vercel's GitHub Actions documentation recommends installing Vercel CLI, running
 `vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}`,
@@ -119,6 +123,53 @@ The final POST should fail closed without a valid Privy access token. For local
 route-handler tests only, the test suite sets `PRIVY_DEV_ALLOW_UNSIGNED=true`
 and injects a verifier. Do not enable that bypass in production.
 
+## Postgres Durable Store Smoke
+
+Production mutations require `DATABASE_URL` and a migrated schema. Use any
+Postgres-compatible provider Vercel can reach, or run a local container:
+
+```bash
+docker run --rm --name fieldtheory-postgres \
+  -e POSTGRES_USER=fieldtheory \
+  -e POSTGRES_PASSWORD=fieldtheory \
+  -e POSTGRES_DB=fieldtheory_portal \
+  -p 5432:5432 \
+  postgres:16
+```
+
+In a second shell:
+
+```bash
+export DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal"
+export PRIVY_APP_ID=local-dev
+export NEXT_PUBLIC_PRIVY_APP_ID=local-dev
+export PRIVY_APP_SECRET=local-secret
+export PRIVY_DEV_ALLOW_UNSIGNED=true
+unset FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE
+
+npm --prefix apps/portal run db:migrate
+npm --prefix apps/portal run dev -- --hostname 127.0.0.1 --port 3000
+```
+
+Smoke the public routes, then prove authenticated imports write durable rows:
+
+```bash
+curl -fsS http://127.0.0.1:3000/api/health
+curl -fsS http://127.0.0.1:3000/api/contracts
+curl -fsS http://127.0.0.1:3000/api/x402/discovery
+curl -i -H "Authorization: Bearer dev:operator" \
+  -H "Content-Type: application/json" \
+  --data @"$FIELD_THEORY_CONTRACT_FIXTURE_DIR/recall.json" \
+  http://127.0.0.1:3000/api/briefs/validate
+psql "$DATABASE_URL" -c "select count(*) from fieldtheory_imports;"
+psql "$DATABASE_URL" -c "select count(*) from fieldtheory_audit_events;"
+```
+
+The route adapter can auto-create schema only outside production, or in
+production only when `FIELD_THEORY_PORTAL_AUTO_CREATE_SCHEMA=true` is explicitly
+set for a controlled recovery. Normal production deploys must run
+`db:migrate` before traffic.
+
 ## CI Matrix
 
 | Gate | Command |
@@ -130,15 +181,18 @@ and injects a verifier. Do not enable that bypass in production.
 | Portal unit tests | `npm --prefix apps/portal test` |
 | Portal build | `npm --prefix apps/portal run build` |
 | Portal route smoke | `npm --prefix apps/portal test:e2e` |
+| Portal DB schema | `DATABASE_URL=postgres://... npm --prefix apps/portal run db:migrate` |
 | Vercel preview | `vercel build && vercel deploy --prebuilt` from GitHub Actions |
 | Vercel production | same as preview, but only from protected `main` |
 
 Portal gates now execute against `apps/portal`. Production deploy remains blocked
 until those gates pass in CI and real Vercel/Privy secrets are configured.
 
-The current in-memory import/run/audit adapter is local/test only. In production
-mode, protected mutation routes return `durable_store_not_configured` unless a
-later durable adapter gate replaces it.
+The in-memory import/run/audit adapter is local/test only. In production mode,
+protected mutation routes return `durable_store_not_configured` unless
+`DATABASE_URL` is set. When `DATABASE_URL` is present, production checks the
+schema marker created by `db:migrate` and returns `store_schema_not_ready`
+instead of creating tables from request handlers.
 
 Export imports currently persist only sanitized metadata: target, run id,
 run-scoped `relPath` values, file hashes, forbidden writes, and result envelope.
@@ -152,6 +206,7 @@ Production deploy is allowed only when:
 - Branch has merged through protected `main`.
 - CLI gates and portal gates pass in GitHub Actions.
 - Vercel project id and org id are set as GitHub secrets.
+- `DATABASE_URL` is set in Vercel and the schema migration has run.
 - Privy redirect URLs include the production domain.
 - `X402_ENABLED=false` unless the x402 handoff has passed.
 - The deployment workflow uses `vercel deploy --prebuilt --prod`.

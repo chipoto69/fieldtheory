@@ -37,6 +37,8 @@ Follow-up scaffold evidence:
 | `apps/portal/package.json` | `@privy-io/node` is installed for server access-token verification; Privy browser SDK remains deferred. |
 | `apps/portal/src/lib/auth.ts` | Server auth verifies real Privy access tokens, requires server app config, and disables unsigned dev tokens in production. |
 | `apps/portal/src/lib/contracts.ts` | Export manifests produce sanitized summaries from `relPath` values only. |
+| `apps/portal/src/lib/postgres-store.ts` | `DATABASE_URL` now selects a Postgres hosted store; production checks a migrated schema marker. |
+| `apps/portal/src/lib/postgres-schema.ts` | Schema version `1` is explicit and can be applied through `db:migrate`. |
 
 ## Required Plan Change
 
@@ -57,20 +59,20 @@ The next milestone is not "deploy what exists." It is:
 | Requirement | Current status | Evidence needed before completion |
 |---|---|---|
 | Vercel-hosted app | Scaffolded, not deployed | `apps/portal`, portal `vercel.json`, passing local portal build, deployed preview URL still needed. |
-| Agents live with the app | Dry-run scaffolded | Route handlers for agent run creation/status and in-memory audit exist; durable artifacts still needed. |
+| Agents live with the app | Dry-run scaffolded | Route handlers for agent run creation/status and Postgres-backed audit/import records exist; apply authority still disabled. |
 | Privy GitHub/wallet login | Server verification scaffolded | `@privy-io/node` verifies server access tokens; browser SDK login and linked identity policy are still pending. |
 | Base EVM and Solana wallet scaffold | Env/UI scaffolded | UI distinguishes GitHub, Base chain id, and Solana cluster; real wallet linking pending Privy SDK gate. |
 | Gordo/Aeon control plane | Dry-run scaffolded | Import-plan endpoint and tests exist; target mismatch and `aeon/aeon.yml.draft` checks exist; no repo mutation authority. |
 | Hermes integration | Dry-run scaffolded | Import-plan endpoint and tests exist; target mismatch and `hermes/task-payload.dry-run.json` checks exist; no Kanban/profile write authority. |
 | x402 architecture handoff | Partial | Endpoint inventory, replay/audit/threat model, payment metadata review. |
-| GitHub Actions Vercel deployment | Scaffolded, secrets pending | Preview deploy skips without secrets; production workflow is guarded to `main` and fails without required Vercel secrets. |
+| GitHub Actions Vercel deployment | Scaffolded, secrets pending | Preview deploy skips without secrets; production workflow is guarded to `main`, fails without required Vercel secrets, and runs a Postgres schema gate. |
 | Raycast continuity | Present for local CLI | Docs explaining how Raycast remains local while portal is hosted. |
 
 ## Blockers Before Coding
 
 1. No authoritative hosted endpoint inventory exists.
-2. No auth/session ownership model exists for imported Field Theory artifacts.
-3. No audit store model exists for hosted actions.
+2. Browser Privy login and linked GitHub/Base/Solana identity policy are still pending.
+3. Audit storage exists for hosted actions, but audit readback envelopes and retention policy are still pending.
 4. No Vercel/GitHub secret boundary exists.
 5. x402 replay/payment metadata threat model exists as planning docs, but fixtures/handoff are not yet implemented in code beyond discovery.
 
@@ -118,14 +120,24 @@ Their findings should be appended below before the next implementation commit.
 | Security/contracts | Real Privy verification was missing; unsigned dev auth could be misconfigured in production; x402 health could over-signal. | Wired `@privy-io/node`, disabled dev auth in production, added verifier tests, and made health report x402 as requested but not enabled. |
 | Operator/release | Docs needed reproducible local smoke, hosted/CLI security wording split, and handoff updates for an existing portal. | Updated setup, PRD, handoff, data model, endpoint contract, deploy plan, and README security copy. |
 
+## Third Review Findings Integrated
+
+| Lane | Findings | Action |
+|---|---|---|
+| Durable architecture | Routes needed an async store interface and Postgres adapter without route-level database imports. | Added `HostedStore`, `MemoryHostedStore`, `PostgresHostedStore`, composite import/run audit methods, and `getHostedStore()`. |
+| Verification | Durable storage needed schema CI, owner-isolation regression tests, and a migration command. | Added `db:migrate`, schema version `1`, GitHub Actions Postgres services, and same-artifact owner-scope tests. |
+| Security/contracts | Import IDs could collide across users; production memory override was unsafe; result envelopes could carry secrets into durable summaries. | Owner-scoped import IDs, production memory fail-close, generic store errors, and result-envelope token/BIP39 scanning are now in place. |
+| Operator/release | Docs still said memory-only and provider-open. | Updated setup, data model, threat model, handoff, deploy plan, release checklist, README, and env examples for `DATABASE_URL` and migration. |
+
 ## Current Open Issues
 
 - The output guard has tests for non-concurrent symlink swaps, but a malicious
   concurrent filesystem attacker could still race between final path check and
   write. Treat that as out of M1 scope and document it as a hosted threat when
   accepting uploaded/exported manifests.
-- `release:check` remains package-focused. Add a broader `verify:*` script set
-  when portal code exists.
+- Durable store migrations are versioned only at schema v1. Add backup/restore
+  drills and forward migration tests before treating hosted persistence as
+  production-complete.
 
 Closed in this planning pass:
 

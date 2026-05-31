@@ -1,6 +1,6 @@
 {
   "name": "fieldtheory",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Field Theory CLI. Self-custody for your X/Twitter bookmarks. Local sync, full-text search, classification, and terminal dashboards.",
   "type": "module",
   "bin": {
@@ -21,6 +21,16 @@
   },
   "files": [
     "apps/operator-suite/",
+    "apps/portal/app/",
+    "apps/portal/scripts/",
+    "apps/portal/src/",
+    "apps/portal/tests/",
+    "apps/portal/next-env.d.ts",
+    "apps/portal/next.config.mjs",
+    "apps/portal/package-lock.json",
+    "apps/portal/package.json",
+    "apps/portal/tsconfig.json",
+    "apps/portal/vercel.json",
     "bin/",
     "dist/",
     "docs/",

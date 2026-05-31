@@ -1,6 +1,6 @@
 import { requirePrivyUser } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/lib/http";
-import { hostedStore } from "@/lib/store";
+import { getHostedStore } from "@/lib/store";
 import { requireMutableStore } from "@/lib/store-guard";
 
 export const runtime = "nodejs";
@@ -12,7 +12,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   if (storeGuard) return storeGuard;
 
   const { id } = await context.params;
-  const run = hostedStore.getRun(id);
+  const run = await getHostedStore().getRun(id);
   if (!run || run.ownerUserId !== auth.user.id) {
     return jsonError("run_not_found", "Run was not found for this user.", 404);
   }

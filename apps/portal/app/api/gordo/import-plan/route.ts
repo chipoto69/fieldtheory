@@ -2,7 +2,7 @@ import { requirePrivyUser } from "@/lib/auth";
 import { summarizeExportManifest, validateExportManifest } from "@/lib/contracts";
 import { buildImportPlan } from "@/lib/import-plans";
 import { jsonError, jsonErrorFrom, jsonOk, readJson, stableHash } from "@/lib/http";
-import { hostedStore } from "@/lib/store";
+import { getHostedStore } from "@/lib/store";
 import { requireMutableStore } from "@/lib/store-guard";
 
 export const runtime = "nodejs";
@@ -24,7 +24,7 @@ export async function POST(request: Request): Promise<Response> {
       return jsonError("missing_aeon_draft", "Aeon export manifest must include aeon/aeon.yml.draft.", 422);
     }
     const plan = buildImportPlan("aeon", summary);
-    hostedStore.appendAudit({
+    await getHostedStore().appendAudit({
       actorUserId: auth.user.id,
       action: "gordo.import_plan",
       targetType: "import_plan",

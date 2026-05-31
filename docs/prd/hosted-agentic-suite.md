@@ -68,6 +68,7 @@ context into Aeon/Gordo and Hermes without losing provenance or write authority.
 | Next.js portal | `apps/portal` with App Router, dashboard, endpoint docs, and agent run views | Reads staged fixtures and server-side store adapters only. |
 | Auth scaffold | Privy server access-token verification plus planned GitHub, Base EVM, and Solana wallet linking | Authenticates identities; does not authorize payments by itself. |
 | Contract API | Route handlers for health, contracts, briefs, exports, agents, and x402 discovery | Returns typed JSON only until apply gates exist. |
+| Durable store | `DATABASE_URL` Postgres adapter plus explicit schema migration | Stores only hosted metadata, sanitized summaries, runs, and audit records. |
 | Gordo/Aeon adapter | Dry-run import of `fieldtheory.agent-export.v1` plus optional apply-plan preview | No repo mutation until explicit apply command. |
 | Hermes adapter | Dry-run profile/task payload import with staged result envelope | No Kanban/profile writeback until explicit apply command. |
 | Operator audit | Append-only action log for hosted operations | Stores who requested what, from which contract version, with which auth identity. |
@@ -121,19 +122,23 @@ using embedded wallet UI signing flows.
 
 1. Operator runs local Field Theory capture/recall/export commands.
 2. Operator uploads or imports a generated brief/export manifest into the portal.
-3. Portal validates contract version and forbidden writes.
-4. Portal creates a dry-run agent handoff plan.
-5. Operator reviews the plan and audit envelope.
-6. Later apply gates can dispatch to Gordo/Aeon or Hermes.
-7. Later x402 gates can challenge paid endpoint calls with HTTP 402 and verify
+3. Portal validates contract version, secret boundaries, owner scope, and
+   forbidden writes.
+4. Portal stores sanitized import metadata and audit events through
+   `HostedStore`.
+5. Portal creates a dry-run agent handoff plan.
+6. Operator reviews the plan and audit envelope.
+7. Later apply gates can dispatch to Gordo/Aeon or Hermes.
+8. Later x402 gates can challenge paid endpoint calls with HTTP 402 and verify
    settlement before returning protected output.
 
 ## Acceptance Criteria
 
 | Area | Criteria |
 |---|---|
-| Contract fidelity | Hosted validators reject unknown contract versions, missing evidence, target payloads with duplicated forbidden actions, unsafe file paths, and manifests that imply remote writes. |
+| Contract fidelity | Hosted validators reject unknown contract versions, missing evidence, target payloads with duplicated forbidden actions, unsafe file paths, secret-like content in result envelopes, and manifests that imply remote writes. |
 | Auth scaffold | App builds without real secrets using documented dummy env values; authenticated routes fail closed when Privy server config is absent; server routes verify Privy access tokens through `@privy-io/node`; unsigned dev tokens are disabled in production. Browser Privy SDK install remains deferred until the wallet-linking gate. |
+| Durable store | Production mutations require `DATABASE_URL`, ignore memory-store override, and require the schema marker created by `npm --prefix apps/portal run db:migrate`. |
 | Wallet linking | UI distinguishes GitHub login, Base EVM wallet, Solana wallet, and linked identity state. |
 | Agent runs | Initial run creation is dry-run only and stores audit envelopes; no external write happens in M2. |
 | Gordo/Aeon | Import plan consumes `target: "aeon"` manifests, requires `aeon/aeon.yml.draft`, and keeps it as a draft. |

@@ -1,7 +1,7 @@
 import { requirePrivyUser } from "@/lib/auth";
 import { buildImportPlan } from "@/lib/import-plans";
 import { jsonError, jsonErrorFrom, jsonOk, readJson } from "@/lib/http";
-import { hostedStore, type AgentTarget, type RunMode } from "@/lib/store";
+import { getHostedStore, type AgentTarget, type RunMode } from "@/lib/store";
 import { requireMutableStore } from "@/lib/store-guard";
 
 export const runtime = "nodejs";
@@ -23,7 +23,8 @@ export async function POST(request: Request): Promise<Response> {
     if (!isRunMode(mode)) return jsonError("invalid_mode", "mode must be dry-run or apply-plan.", 400);
     if (mode !== "dry-run") return jsonError("apply_disabled", "Only dry-run agent runs are enabled in Milestone 2.", 403);
 
-    const artifact = hostedStore.getImport(importId);
+    const store = getHostedStore();
+    const artifact = await store.getImport(importId);
     if (!artifact || artifact.ownerUserId !== auth.user.id) {
       return jsonError("import_not_found", "Import was not found for this user.", 404);
     }
@@ -35,24 +36,25 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const plan = buildImportPlan(target, artifact.exportSummary ?? { runId: importId, fileRelPaths: [], forbiddenWrites: [] });
-    const run = hostedStore.createRun({
-      ownerUserId: auth.user.id,
-      target,
-      mode,
-      importId,
-      resultEnvelope: {
-        status: "dry-run",
-        plan,
+    const { run } = await store.createRunWithAudit(
+      {
+        ownerUserId: auth.user.id,
+        target,
+        mode,
+        importId,
+        resultEnvelope: {
+          status: "dry-run",
+          plan,
+        },
       },
-    });
-    hostedStore.appendAudit({
-      actorUserId: auth.user.id,
-      action: "agent.run.create",
-      targetType: "agent_run",
-      targetId: run.id,
-      contractHash: artifact.sha256,
-      outcome: "accepted",
-    });
+      {
+        actorUserId: auth.user.id,
+        action: "agent.run.create",
+        targetType: "agent_run",
+        contractHash: artifact.sha256,
+        outcome: "accepted",
+      },
+    );
     return jsonOk({ run }, { status: 201 });
   } catch (error) {
     return jsonErrorFrom(error);

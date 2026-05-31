@@ -26,6 +26,7 @@ Production deploy must fail fast when required Vercel secrets are absent.
 | `NEXT_PUBLIC_PRIVY_APP_ID` | Browser Privy app id. |
 | `PRIVY_APP_SECRET` | Server-side Privy verification. |
 | `PRIVY_JWT_VERIFICATION_KEY` | Optional Privy verification key to avoid a runtime key fetch. |
+| `DATABASE_URL` | Postgres durable store used by hosted mutation routes. |
 
 ## Preview Workflow Shape
 
@@ -37,6 +38,20 @@ on:
 jobs:
   preview:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fieldtheory
+          POSTGRES_PASSWORD: fieldtheory
+          POSTGRES_DB: fieldtheory_portal_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fieldtheory -d fieldtheory_portal_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -56,6 +71,7 @@ jobs:
       - run: npm --prefix raycast/fieldtheory run lint
       - run: npm --prefix raycast/fieldtheory run build
       - run: npm --prefix apps/portal ci
+      - run: DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal_ci" npm --prefix apps/portal run db:migrate
       - run: npm run verify:hosted
       - run: npm install --global vercel@54.6.1
       - run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
@@ -74,6 +90,7 @@ Production is the preview workflow plus:
 - job-level branch guard for manual dispatch
 - GitHub `production` environment
 - required Vercel secret preflight
+- Postgres schema migration gate before Vercel build
 - `vercel pull --environment=production`
 - `vercel deploy --prebuilt --prod`
 - post-deploy smoke against `/api/health`, `/api/contracts`, and authenticated
@@ -85,15 +102,17 @@ Production is the preview workflow plus:
 - Portal has unit tests and build script.
 - Contract fixture smoke runs in CI.
 - Privy app URLs include preview and production domains.
+- `DATABASE_URL` is configured in Vercel and schema version `1` has been
+  migrated.
 - `X402_ENABLED=false` in production until x402 review passes.
 - Rollback instructions exist in the release checklist.
 
 Current scaffold status:
 
 - `.github/workflows/vercel-preview.yml` runs root CLI gates, portal tests, and
-  portal build on pull requests, then deploys preview only when Vercel secrets
-  exist.
+  portal build on pull requests, runs a throwaway Postgres schema migration, then
+  deploys preview only when Vercel secrets exist.
 - `.github/workflows/vercel-production.yml` runs the same gates plus release,
-  Raycast, and diff checks on protected `main`; production deploy fails fast
-  when Vercel secrets are missing.
+  Raycast, diff checks, and a throwaway Postgres schema migration on protected
+  `main`; production deploy fails fast when Vercel secrets are missing.
 - `apps/portal/vercel.json` keeps the Vercel project rooted in the portal app.

@@ -215,8 +215,10 @@ local-first control plane instead of separate tool surfaces.
   `docs/deploy/vercel-github-actions.md`, and
   `docs/release/milestone-2-hosted-readiness.md` are the required M2 gates.
 - **Hosted portal scaffold**: `apps/portal` is the initial Next.js App Router
-  control plane with dry-run validation and agent-plan APIs. Run
-  `npm run verify:hosted`.
+  control plane with dry-run validation, agent-plan APIs, and
+  `DATABASE_URL`-backed Postgres persistence for hosted import/run/audit
+  metadata. Run `npm run verify:hosted`; run
+  `npm --prefix apps/portal run db:migrate` before production traffic.
 - **Next feature plan**: `docs/features/agent-brief-packs.md` specifies the
   proposed recall/source-packet/dispatch bridge from bookmarks to agent work.
 
@@ -342,7 +344,7 @@ Session sync extracts cookies from your browser's local database. Use `ft sync -
 
 **CLI mode keeps your data local.** No telemetry, no analytics, nothing phoned home. The CLI only makes network requests to X's API during sync.
 
-**Hosted mode is separate.** The `apps/portal` scaffold validates uploaded Field Theory briefs/exports and writes hosted audit/run metadata only after Privy server auth and a durable store are configured. It does not read local CLI stores directly.
+**Hosted mode is separate.** The `apps/portal` scaffold validates uploaded Field Theory briefs/exports and writes hosted audit/run metadata only after Privy server auth and `DATABASE_URL` are configured. Production ignores the memory-store override, requires the Postgres schema marker from `db:migrate`, and does not read local CLI stores directly.
 
 **Chrome session sync** reads cookies from Chrome's local database, uses them for the sync request, and discards them. Cookies are never stored separately.
 
