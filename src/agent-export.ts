@@ -360,7 +360,7 @@ export async function exportAeonBundle(
   if (options.includeSoul) {
     const soul = await draftSoulFiles({
       from: ["clipboard", "library"],
-      outDir: path.join(root.resolved, "soul"),
+      outDir: path.join(root.resolved, "fieldtheory", "exports", id, "soul"),
       now,
       force,
     });

@@ -6,6 +6,7 @@ export interface OutputRoot {
   requested: string;
   resolved: string;
   realParent: string;
+  realRoot: string;
 }
 
 export interface WriteFixedBundleFileOptions {
@@ -61,11 +62,13 @@ export function resolveOutputRoot(outDir: string): OutputRoot {
 
   const existingParent = nearestExistingPath(path.dirname(resolved));
   const realParent = realpathIfPossible(existingParent);
+  const realRoot = path.resolve(realParent, path.relative(existingParent, resolved));
 
   return {
     requested,
     resolved,
     realParent,
+    realRoot,
   };
 }
 
@@ -75,10 +78,9 @@ export function assertInsideOutputRoot(root: OutputRoot, filePath: string): void
     throw new Error(`Path is outside output root: ${filePath}`);
   }
 
-  const rootReal = resolveThroughExistingPrefix(root.resolved);
   const realCandidate = resolveThroughExistingPrefix(candidate);
 
-  if (!isPathInside(rootReal, realCandidate)) {
+  if (!isPathInside(root.realRoot, realCandidate)) {
     throw new Error(`Path is outside output root: ${filePath}`);
   }
 }

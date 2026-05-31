@@ -55,12 +55,12 @@ Milestone 1 ships:
 
 | Capability | CLI shape | Authority |
 |---|---|---|
-| Clipboard capture | `ft capture clipboard --type note|source|idea|soul` | Writes local Library capture markdown. |
-| Text/stdin capture | `ft capture text --stdin --type note|source|idea|soul` | Writes local Library capture markdown. |
-| Recall pack | `ft recall <query> --json|--md` | Reads Library, Captures, Commands, bookmarks. |
-| Bookmark packet | `ft packet bookmark <id> --target aeon|hermes|content-os --json|--md` | Reads one bookmark and emits dry-run packet. |
+| Clipboard capture | `ft capture clipboard --type note\|source\|idea\|soul` | Writes local Library capture markdown. |
+| Text/stdin capture | `ft capture text --stdin --type note\|source\|idea\|soul` | Writes local Library capture markdown. |
+| Recall pack | `ft recall <query> --json\|--md` | Reads Library, Captures, Commands, bookmarks. |
+| Bookmark packet | `ft packet bookmark <id> --target aeon\|hermes\|content-os --json\|--md` | Reads one bookmark and emits dry-run packet. |
 | Soul draft | `ft soul draft --from bookmarks,library,clipboard --out soul/` | Writes local output directory only. |
-| Agent exports | `ft export aeon|hermes|soul ...` | Writes local export bundles only. |
+| Agent exports | `ft export aeon\|hermes\|soul ...` | Writes local export bundles only. |
 
 Milestone 1 does not ship:
 
@@ -146,7 +146,7 @@ is authoritative; target payloads must not duplicate a nested
 | Clipboard | Use `pbpaste` on macOS; produce a clear error when clipboard read fails; stdin path remains available. |
 | Recall | Works when bookmarks DB is missing, Library is empty, or Commands are absent; output remains valid partial JSON with `storeStatus`. |
 | Packets | `ft packet bookmark` fails clearly for unknown bookmark IDs and never writes to target systems in v1; every target has required boundaries and top-level forbidden actions. |
-| Soul draft | Produces `SOUL.md`, `STYLE.md`, `MEMORY.md`, `examples/good-outputs.md`, and `data/source-index.json` in the requested output root; soul material only comes from valid `type: soul` captures or selected Library sources. |
+| Soul draft | Produces `SOUL.md`, `STYLE.md`, `MEMORY.md`, `examples/good-outputs.md`, and `data/source-index.json` in the requested output root; identity material in `SOUL.md` comes from valid `type: soul` captures, while stored clipboard captures can inform `STYLE.md`, `MEMORY.md`, examples, and the source index. |
 | Exports | Aeon/Hermes/soul exports write files only under the operator-specified path and do not create `.git`, root `aeon.yml`, `.github/workflows`, secrets, or remote calls; existing Git repos require an explicit `--allow-existing-repo` gate. |
 | Output safety | Soul/export reject symlinked roots, symlink child escapes, `../` escapes, sibling-prefix escapes, and overwrites without `--force`. |
 | Docs | README, operator workflow docs, PRD, environment docs, and architecture docs agree on scope and commands. |

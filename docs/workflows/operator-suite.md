@@ -40,11 +40,11 @@ hosted Vercel, wallet, Gordo, Hermes, or x402 layer.
 
 | Stage | Build gate | Command target | Boundary |
 |---|---|---|---|
-| Capture signal | local Library write | `ft capture clipboard --type note|source|idea|soul` and `ft capture text --stdin --type ...` | Writes only to `Library/Captures/`. |
-| Recall context | read-only | `ft recall <query> --json|--md` | Reads bookmarks, Library, Captures, and Commands. |
-| Packet source | dry-run | `ft packet bookmark <id> --target aeon|hermes|content-os` | Emits packet only; no target-system write. |
-| Draft identity | explicit output path | `ft soul draft --from bookmarks,library,clipboard --out soul/` | Creates editable soul files. |
-| Export handoff | explicit output path | `ft export aeon|hermes|soul ...` | Local files only; no GitHub secrets or workflow dispatch. |
+| Capture signal | local Library write | `ft capture clipboard --type note\|source\|idea\|soul` and `ft capture text --stdin --type ...` | Writes only to `Library/Captures/`. |
+| Recall context | read-only | `ft recall <query> --json\|--md` | Reads bookmarks, Library, Captures, and Commands. |
+| Packet source | dry-run | `ft packet bookmark <id> --target aeon\|hermes\|content-os` | Emits packet only; no target-system write. |
+| Draft identity | explicit output path | `ft soul draft --from bookmarks,library,clipboard --out soul/` | Creates editable soul files from bookmarks, Library notes, and stored Captures. |
+| Export handoff | explicit output path | `ft export aeon\|hermes\|soul ...` | Local files only; no GitHub secrets or workflow dispatch. |
 
 Smoke sequence after the CLI is installed. During branch validation, use the
 full isolated `npm run --silent dev -- ...` smoke in
@@ -59,6 +59,11 @@ ft export aeon --repo ./aeon-export --query agent --bookmark bm_test --soul --br
 ft export hermes --out ./hermes-export --query agent --bookmark bm_test --briefs --json
 ft export soul --out ./soul-export --json
 ```
+
+`--from clipboard` reads prior clipboard captures staged under
+`Library/Captures/`; it does not read the live clipboard. Use
+`ft capture clipboard --type ...` first when the current clipboard should become
+source material.
 
 Foundation docs:
 

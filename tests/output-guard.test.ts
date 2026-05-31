@@ -85,6 +85,46 @@ test('writeFixedBundleFile creates a nested output root through existing parents
   });
 });
 
+test('writeFixedBundleFile rejects a root replaced by symlink after resolution', async () => {
+  const { resolveOutputRoot, writeFixedBundleFile } = await import('../src/output-guard.js');
+
+  await withTempRoot((rootDir) => {
+    const approvedParent = path.join(rootDir, 'approved');
+    const outside = path.join(rootDir, 'outside');
+    fs.mkdirSync(approvedParent, { recursive: true });
+    fs.mkdirSync(outside, { recursive: true });
+
+    const root = resolveOutputRoot(path.join(approvedParent, 'export-root'));
+    fs.symlinkSync(outside, root.resolved, 'dir');
+
+    assert.throws(
+      () => writeFixedBundleFile(root, 'bundle/file.txt', 'nope\n'),
+      /outside output root/i,
+    );
+    assert.equal(fs.existsSync(path.join(outside, 'bundle', 'file.txt')), false);
+  });
+});
+
+test('writeFixedBundleFile rejects a missing parent replaced by symlink after resolution', async () => {
+  const { resolveOutputRoot, writeFixedBundleFile } = await import('../src/output-guard.js');
+
+  await withTempRoot((rootDir) => {
+    const approvedParent = path.join(rootDir, 'approved');
+    const outside = path.join(rootDir, 'outside');
+    fs.mkdirSync(approvedParent, { recursive: true });
+    fs.mkdirSync(outside, { recursive: true });
+
+    const root = resolveOutputRoot(path.join(approvedParent, 'missing', 'nested', 'export-root'));
+    fs.symlinkSync(outside, path.join(approvedParent, 'missing'), 'dir');
+
+    assert.throws(
+      () => writeFixedBundleFile(root, 'bundle/file.txt', 'nope\n'),
+      /outside output root/i,
+    );
+    assert.equal(fs.existsSync(path.join(outside, 'nested', 'export-root', 'bundle', 'file.txt')), false);
+  });
+});
+
 test('safeId returns the first twelve characters of the sha256 digest', async () => {
   const { safeId } = await import('../src/output-guard.js');
 

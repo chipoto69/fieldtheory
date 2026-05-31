@@ -26,7 +26,7 @@ export interface SoulDraftFile {
 
 export interface SoulDraftSource {
   id: string;
-  type: "soul" | "library" | "bookmark";
+  type: "soul" | "capture" | "library" | "bookmark";
   locator: string;
   title: string;
   excerpt: string;
@@ -50,6 +50,7 @@ interface ParsedCapture {
   valid: boolean;
   id?: string;
   type?: string;
+  source?: string;
   hash?: string;
   body: string;
 }
@@ -87,6 +88,7 @@ function parseCapture(content: string): ParsedCapture {
     valid: true,
     id: frontmatter.id,
     type: frontmatter.type,
+    source: frontmatter.source,
     hash: frontmatter.content_sha256,
     body,
   };
@@ -123,12 +125,15 @@ function captureSources(): SoulDraftSource[] {
   }).flatMap((doc) => {
     const content = fs.readFileSync(doc.path, "utf-8");
     const capture = parseCapture(content);
-    if (!capture.valid || capture.type !== "soul") return [];
+    const includeCapture =
+      capture.valid &&
+      (capture.type === "soul" || capture.source === "clipboard");
+    if (!includeCapture) return [];
     assertNoSensitiveContent(capture.body, `soul source ${doc.relPath}`);
     return [
       {
         id: capture.id ?? `capture_${sha256(doc.relPath).slice(0, 12)}`,
-        type: "soul" as const,
+        type: capture.type === "soul" ? "soul" as const : "capture" as const,
         locator: doc.relPath,
         title: titleFromMarkdown(capture.body, doc.title),
         excerpt: excerpt(capture.body),

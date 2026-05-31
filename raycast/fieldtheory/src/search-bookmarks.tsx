@@ -14,29 +14,39 @@ export default function Command() {
   const [items, setItems] = useState<BookmarkResult[]>([]);
 
   useEffect(() => {
+    let cancelled = false;
     if (!query.trim()) {
       setItems([]);
-      return;
+      return () => {
+        cancelled = true;
+      };
     }
     const timer = setTimeout(() => {
       runFt(["search", query, "--limit", "12", "--json"])
         .then((stdout) => {
+          if (cancelled) return;
           const parsed = JSON.parse(stdout);
           setItems(parsed.results || parsed);
         })
-        .catch((error) =>
-          showToast({
-            style: Toast.Style.Failure,
-            title: "Search failed",
-            message: String(error.message || error),
-          }),
-        );
+        .catch((error) => {
+          if (!cancelled) {
+            showToast({
+              style: Toast.Style.Failure,
+              title: "Search failed",
+              message: String(error.message || error),
+            });
+          }
+        });
     }, 250);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [query]);
 
   return (
     <List
+      filtering={false}
       searchBarPlaceholder="Search local bookmarks..."
       onSearchTextChange={setQuery}
       throttle

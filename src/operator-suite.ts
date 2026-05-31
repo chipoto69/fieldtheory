@@ -408,9 +408,15 @@ export const RAYCAST_EXTENSION_PACKAGE = {
     '@raycast/api': '^1.100.0',
   },
   devDependencies: {
+    '@eslint/js': '^9.39.4',
     '@raycast/eslint-config': '^2.0.4',
+    '@raycast/eslint-plugin': '^2.1.1',
     '@types/node': '^20.11.30',
+    eslint: '^9.39.4',
+    'eslint-config-prettier': '^10.1.8',
+    globals: '^16.5.0',
     typescript: '^5.4.5',
+    'typescript-eslint': '^8.60.0',
   },
 };
 
@@ -556,29 +562,39 @@ export default function Command() {
   const [items, setItems] = useState<BookmarkResult[]>([]);
 
   useEffect(() => {
+    let cancelled = false;
     if (!query.trim()) {
       setItems([]);
-      return;
+      return () => {
+        cancelled = true;
+      };
     }
     const timer = setTimeout(() => {
       runFt(["search", query, "--limit", "12", "--json"])
         .then((stdout) => {
+          if (cancelled) return;
           const parsed = JSON.parse(stdout);
           setItems(parsed.results || parsed);
         })
-        .catch((error) =>
-          showToast({
-            style: Toast.Style.Failure,
-            title: "Search failed",
-            message: String(error.message || error),
-          }),
-        );
+        .catch((error) => {
+          if (!cancelled) {
+            showToast({
+              style: Toast.Style.Failure,
+              title: "Search failed",
+              message: String(error.message || error),
+            });
+          }
+        });
     }, 250);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [query]);
 
   return (
     <List
+      filtering={false}
       searchBarPlaceholder="Search local bookmarks..."
       onSearchTextChange={setQuery}
       throttle

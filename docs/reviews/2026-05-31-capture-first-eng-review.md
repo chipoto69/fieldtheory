@@ -200,3 +200,31 @@ Remaining scope boundary:
 - Do not start Vercel, Privy, Gordo/Aeon writeback, Hermes writeback, or x402
   implementation from this milestone. Milestone 2 must consume the checked
   `AgentBriefPack` and export-manifest contracts.
+
+## PR Feedback Hardening Addendum
+
+Fourth review lane closed post-PR contract issues without expanding into
+Milestone 2:
+
+| Finding | Resolution |
+|---|---|
+| `BoundaryNote.evidenceIds` were not validated. | `AgentBriefPack` validation now checks boundary evidence references; operator-authored boundaries can be marked explicitly. |
+| Output roots could be swapped with symlinks after initial resolution. | Output guards now retain the real root and compare writes against it; regression tests cover root and missing-parent symlink swaps. |
+| Wallet seed redaction used a broad 12-word replacement. | BIP39 detection now records exact ranges, supports 12/15/18/21/24-word phrases, and redacts multiple seed phrases without swallowing surrounding prose. |
+| `ft soul draft --from clipboard` was ambiguous. | Docs and skill text now say it reads stored clipboard captures, not live clipboard; non-`soul` clipboard captures can inform `STYLE.md`, `MEMORY.md`, examples, and source index only. |
+| Aeon `--soul` exports wrote a fixed root `soul/` directory. | Aeon soul files now live under `fieldtheory/exports/<run-id>/soul/`, keeping each export replayable and collision-free. |
+| Raycast lint/build relied on transitive tooling and search could show stale results. | Raycast declares direct lint dependencies, the scaffold has a dependency-contract test, and search disables client-side filtering with cancellation guards. |
+| Markdown command tables rendered pipe options as extra columns. | PRD and workflow tables now escape command-option pipes. |
+| EOF prompt threshold was loose. | Engine EOF prompt assertions now use a 1.5s threshold while preserving SIGKILL escalation coverage. |
+
+Updated validation run:
+
+| Gate | Result |
+|---|---|
+| Focused hardening tests | Passed: 67 tests. |
+| `npm run build` | Passed. |
+| Raycast lint/build | Passed. |
+| `HOME="$(mktemp -d)" npm test` | Passed: 593 tests. |
+| `npm run release:check` | Passed: build, `npm pack --dry-run`, packed-bin help smoke. |
+| Milestone 1 temp-root CLI smoke | Passed: `{"smoke":"ok"}`. |
+| `git diff --check` | Passed. |

@@ -121,11 +121,11 @@ Compact output from the Aeon smoke export manifest:
     "fieldtheory/exports/aeon-20260531T201513Z/sources/source-index.json",
     "fieldtheory/exports/aeon-20260531T201513Z/reports/export-report.json",
     "fieldtheory/exports/aeon-20260531T201513Z/aeon/aeon.yml.draft",
-    "soul/SOUL.md",
-    "soul/STYLE.md",
-    "soul/MEMORY.md",
-    "soul/examples/good-outputs.md",
-    "soul/data/source-index.json"
+    "fieldtheory/exports/aeon-20260531T201513Z/soul/SOUL.md",
+    "fieldtheory/exports/aeon-20260531T201513Z/soul/STYLE.md",
+    "fieldtheory/exports/aeon-20260531T201513Z/soul/MEMORY.md",
+    "fieldtheory/exports/aeon-20260531T201513Z/soul/examples/good-outputs.md",
+    "fieldtheory/exports/aeon-20260531T201513Z/soul/data/source-index.json"
   ],
   "forbiddenWrites": [
     "create_repo",

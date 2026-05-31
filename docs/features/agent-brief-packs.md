@@ -82,6 +82,10 @@ ft possible dispatch <node-id> --target hermes-kanban --board orbel --dry-run --
 ft possible dispatch <node-id> --target legolas --tier scout --dry-run --md
 ```
 
+For soul drafts, `--from clipboard` means stored clipboard captures in
+`Library/Captures/`, not live clipboard access. Capture the clipboard first,
+then draft from staged sources.
+
 `ft recall` is the schema MVP. `ft packet bookmark` is the Content-OS bridge
 and is dry-run by design in v1. `ft packet search` and `ft possible dispatch`
 come after those are stable and should use a separate dispatch target enum.
@@ -258,6 +262,7 @@ interface BoundaryNote {
   reason: string;
   forbiddenActions: string[];
   evidenceIds: string[];
+  operatorAuthored?: boolean;
 }
 
 interface EvidenceItem {

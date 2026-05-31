@@ -79,6 +79,7 @@ export interface BoundaryNote {
   reason: string;
   forbiddenActions: string[];
   evidenceIds: string[];
+  operatorAuthored?: boolean;
 }
 
 export interface PromotionCandidate {
@@ -158,6 +159,9 @@ export function validateAgentBriefPack(pack: AgentBriefPack): string[] {
   });
   pack.promotionCandidates.forEach((item, index) => {
     validateEvidenceReferences(issues, evidenceIds, `promotionCandidates[${index}]`, item);
+  });
+  pack.boundaries.forEach((item, index) => {
+    validateEvidenceReferences(issues, evidenceIds, `boundaries[${index}]`, item);
   });
 
   if (pack.kind === 'source_packet') {

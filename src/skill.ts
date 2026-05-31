@@ -57,7 +57,7 @@ ft capture clipboard --type note --json
 ft capture text --stdin --type source --json
 ft recall <query> --json
 ft packet bookmark <id> --target aeon --json
-ft soul draft --from bookmarks,library,clipboard --out soul/
+ft soul draft --from bookmarks,library,clipboard --out soul/  # clipboard = staged Captures, not live clipboard
 ft export aeon --repo <path> --query <query> --bookmark <id> --soul --briefs --json
 \`\`\`
 
@@ -118,7 +118,7 @@ ft capture clipboard --type note --json
 ft capture text --stdin --type source --json
 ft recall <query> --json       # AgentBriefPack from captures, Library, commands, and bookmarks
 ft packet bookmark <id> --target aeon --json
-ft soul draft --from bookmarks,library,clipboard --out soul/
+ft soul draft --from bookmarks,library,clipboard --out soul/  # clipboard = staged Captures
 ft export aeon --repo <path> --query <query> --bookmark <id> --soul --briefs --json
 ft export hermes --out <path> --query <query> --bookmark <id> --briefs --json
 ft export soul --out <path> --json

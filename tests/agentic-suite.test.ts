@@ -134,6 +134,49 @@ test('validateAgentBriefPack rejects uncited claims and source packets without b
   });
 });
 
+test('validateAgentBriefPack rejects boundary evidence references that do not exist', async () => {
+  await withAgenticRoots(async () => {
+    const { validateAgentBriefPack } = await import('../src/agent-brief-pack.js');
+    const pack = {
+      id: 'pack_boundary',
+      version: 'agent-brief-pack.v1',
+      kind: 'source_packet',
+      generatedAt: '2026-05-31T13:00:00.000Z',
+      input: { sourceBookmarkId: 'b1', target: 'aeon' },
+      limits: { captures: 5, library: 5, commands: 3, bookmarks: 8 },
+      storeStatus: [],
+      summary: 'Test summary',
+      summaryClaims: [],
+      evidence: [],
+      typedSlots: [],
+      suggestedCommands: [],
+      sourcePacket: {
+        target: 'aeon',
+        agentRoute: 'build_handoff',
+        sourceId: 'b1',
+        whySavedStatus: 'unknown',
+        confidence: 0,
+        forbiddenActions: ['create_repo'],
+        payload: {},
+      },
+      boundaries: [{
+        id: 'boundary_test',
+        authority: 'dry-run',
+        gate: 'operator export',
+        rule: 'No writeback',
+        reason: 'Local only',
+        forbiddenActions: ['create_repo'],
+        evidenceIds: ['missing_evidence'],
+      }],
+      promotionCandidates: [],
+      resultEnvelope: { status: 'partial', resultCount: 0, warnings: [], generatedBy: 'fieldtheory' },
+    };
+
+    const issues = validateAgentBriefPack(pack as never);
+    assert.ok(issues.some((issue) => issue.includes('boundaries[0] references missing evidence id: missing_evidence')));
+  });
+});
+
 test('capture text writes markdown under Library/Captures with metadata', async () => {
   await withAgenticRoots(async ({ library }) => {
     const { captureText } = await import('../src/capture.js');
@@ -224,7 +267,7 @@ test('capture clipboard uses injected text source and macOS locator', async () =
 });
 
 test('sensitive content detector catches capture-blocking secret forms', async () => {
-  const { detectSensitiveContent } = await import('../src/sensitive-content.js');
+  const { detectSensitiveContent, redactSensitiveContent } = await import('../src/sensitive-content.js');
   const samples = [
     ['github_token', 'ghp_1234567890abcdefghijklmnopqrstuvwx'],
     ['bearer_token', 'Authorization: Bearer abcdefghijklmnopqrstuvwxyz1234567890'],
@@ -242,6 +285,18 @@ test('sensitive content detector catches capture-blocking secret forms', async (
       `${kind} should be detected`,
     );
   }
+
+  const redacted = redactSensitiveContent('keep these harmless words then zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong and keep these too');
+  assert.equal(
+    redacted.content,
+    'keep these harmless words then [REDACTED_WALLET_SEED_PHRASE] and keep these too',
+  );
+  const multipleSeeds = redactSensitiveContent([
+    'first abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
+    'second zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong',
+  ].join('\n'));
+  assert.equal(multipleSeeds.content.includes('abandon abandon'), false);
+  assert.equal(multipleSeeds.content.includes('zoo zoo'), false);
 });
 
 test('capture rejects high-confidence secret-like text', async () => {
@@ -254,14 +309,14 @@ test('capture rejects high-confidence secret-like text', async () => {
   });
 });
 
-function writeCaptureFixture(filePath: string, input: { id: string; type: string; title: string; body: string; hash?: string }): void {
+function writeCaptureFixture(filePath: string, input: { id: string; type: string; title: string; body: string; hash?: string; source?: string }): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, [
     '---',
     'version: fieldtheory.capture.v1',
     `id: ${input.id}`,
     `type: ${input.type}`,
-    'source: text',
+    `source: ${input.source ?? 'text'}`,
     'captured_at: 2026-05-31T12:00:00.000Z',
     'promotion_status: captured',
     `tags: [${input.type}]`,
@@ -290,6 +345,14 @@ test('soul draft writes editable soul files under explicit output root', async (
       body: 'This should not become identity material.',
       hash: 'def',
     });
+    writeCaptureFixture(path.join(library, 'Captures', 'clipboard-note.md'), {
+      id: 'cap_clipboard_note',
+      type: 'note',
+      source: 'clipboard',
+      title: 'Clipboard note',
+      body: 'Clipboard captures can shape memory without becoming identity.',
+      hash: 'clip',
+    });
 
     const out = path.join(root, 'soul-out');
     const { draftSoulFiles } = await import('../src/soul-draft.js');
@@ -310,8 +373,12 @@ test('soul draft writes editable soul files under explicit output root', async (
     assert.match(soulBody, /editable draft/i);
     assert.match(soulBody, /Prefer source-backed work/);
     assert.doesNotMatch(soulBody, /not become identity material/);
+    assert.doesNotMatch(soulBody, /Clipboard captures can shape memory/);
+    const memoryBody = fs.readFileSync(path.join(out, 'MEMORY.md'), 'utf-8');
+    assert.match(memoryBody, /Clipboard captures can shape memory/);
     const sourceIndex = JSON.parse(fs.readFileSync(path.join(out, 'data', 'source-index.json'), 'utf-8'));
-    assert.equal(sourceIndex.sources[0].type, 'soul');
+    assert.ok(sourceIndex.sources.some((source: { type: string; id: string }) => source.type === 'soul' && source.id === 'cap_soul'));
+    assert.ok(sourceIndex.sources.some((source: { type: string; id: string }) => source.type === 'capture' && source.id === 'cap_clipboard_note'));
     assert.equal(sourceIndex.sources[0].draftStatus, 'editable');
     assert.equal(fs.existsSync(path.join(out, '.git')), false);
   });
@@ -350,7 +417,8 @@ test('aeon export writes local-only bundle without git or secrets', async () => 
 
     assert.equal(fs.existsSync(path.join(repo, '.git')), false);
     assert.equal(fs.existsSync(path.join(repo, 'fieldtheory', 'exports')), true);
-    assert.equal(fs.existsSync(path.join(repo, 'soul', 'SOUL.md')), true);
+    assert.equal(fs.existsSync(path.join(repo, 'soul')), false);
+    assert.equal(fs.existsSync(path.join(repo, 'fieldtheory', 'exports', result.runId, 'soul', 'SOUL.md')), true);
     assert.equal(result.manifest.resultEnvelope.status, 'partial');
     const manifestPath = path.join(repo, 'fieldtheory', 'exports', result.runId, 'manifest.json');
     assert.equal(fs.existsSync(manifestPath), true);

@@ -4,6 +4,9 @@ import { wordlist } from '@scure/bip39/wordlists/english';
 export interface SensitiveFinding {
   kind: 'github_token' | 'bearer_token' | 'api_key' | 'auth_token' | 'cookie' | 'private_key' | 'wallet_seed_phrase';
   label: string;
+  text?: string;
+  start?: number;
+  end?: number;
 }
 
 type SensitiveKind = SensitiveFinding['kind'];
@@ -54,6 +57,12 @@ const SECRET_PATTERNS: SensitivePattern[] = [
 
 const BIP39_WORD_COUNTS = [12, 15, 18, 21, 24] as const;
 
+interface WordSpan {
+  word: string;
+  start: number;
+  end: number;
+}
+
 function uniqueFindings(findings: SensitiveFinding[]): SensitiveFinding[] {
   const seen = new Set<SensitiveKind>();
   return findings.filter((finding) => {
@@ -63,17 +72,43 @@ function uniqueFindings(findings: SensitiveFinding[]): SensitiveFinding[] {
   });
 }
 
-function detectWalletSeedPhrase(content: string): SensitiveFinding | null {
-  const words = content.toLowerCase().match(/\b[a-z]{3,8}\b/g) ?? [];
+function detectWalletSeedPhrases(content: string): SensitiveFinding[] {
+  const candidates: SensitiveFinding[] = [];
+  const words: WordSpan[] = [...content.matchAll(/\b[a-z]{3,8}\b/gi)].map((match) => ({
+    word: match[0].toLowerCase(),
+    start: match.index ?? 0,
+    end: (match.index ?? 0) + match[0].length,
+  }));
   for (const wordCount of BIP39_WORD_COUNTS) {
     for (let i = 0; i <= words.length - wordCount; i += 1) {
-      const phrase = words.slice(i, i + wordCount).join(' ');
+      const phraseWords = words.slice(i, i + wordCount);
+      const phrase = phraseWords.map((item) => item.word).join(' ');
       if (validateMnemonic(phrase, wordlist)) {
-        return { kind: 'wallet_seed_phrase', label: 'Wallet seed phrase' };
+        const start = phraseWords[0].start;
+        const end = phraseWords[phraseWords.length - 1].end;
+        candidates.push({
+          kind: 'wallet_seed_phrase',
+          label: 'Wallet seed phrase',
+          text: content.slice(start, end),
+          start,
+          end,
+        });
       }
     }
   }
-  return null;
+  const ranges: Array<{ start: number; end: number }> = [];
+  return candidates
+    .sort((left, right) => {
+      if ((left.start ?? 0) !== (right.start ?? 0)) return (left.start ?? 0) - (right.start ?? 0);
+      return (right.end ?? 0) - (right.start ?? 0) - ((left.end ?? 0) - (left.start ?? 0));
+    })
+    .filter((finding) => {
+      const start = finding.start ?? 0;
+      const end = finding.end ?? 0;
+      if (ranges.some((range) => start < range.end && end > range.start)) return false;
+      ranges.push({ start, end });
+      return true;
+    });
 }
 
 export function detectSensitiveContent(content: string): SensitiveFinding[] {
@@ -82,8 +117,7 @@ export function detectSensitiveContent(content: string): SensitiveFinding[] {
     pattern.lastIndex = 0;
     if (pattern.test(content)) findings.push({ kind, label });
   }
-  const seedPhrase = detectWalletSeedPhrase(content);
-  if (seedPhrase) findings.push(seedPhrase);
+  findings.push(...detectWalletSeedPhrases(content));
   return uniqueFindings(findings);
 }
 
@@ -97,12 +131,16 @@ export function assertNoSensitiveContent(content: string, context: string): void
 export function redactSensitiveContent(content: string): { content: string; findings: SensitiveFinding[] } {
   const findings = detectSensitiveContent(content);
   let redacted = content;
+  if (findings.some((finding) => finding.kind === 'wallet_seed_phrase')) {
+    const ranges = detectWalletSeedPhrases(content)
+      .sort((left, right) => (right.start ?? 0) - (left.start ?? 0));
+    for (const finding of ranges) {
+      redacted = `${redacted.slice(0, finding.start)}[REDACTED_WALLET_SEED_PHRASE]${redacted.slice(finding.end)}`;
+    }
+  }
   for (const { kind, pattern } of SECRET_PATTERNS) {
     pattern.lastIndex = 0;
     redacted = redacted.replace(pattern, `[REDACTED_${kind.toUpperCase()}]`);
-  }
-  if (findings.some((finding) => finding.kind === 'wallet_seed_phrase')) {
-    redacted = redacted.replace(/\b(?:[a-z]{3,8}\s+){11}[a-z]{3,8}\b/gi, '[REDACTED_WALLET_SEED_PHRASE]');
   }
   return { content: redacted, findings };
 }

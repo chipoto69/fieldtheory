@@ -48,6 +48,23 @@ test('raycast manifest wraps the CLI instead of declaring store authority', () =
   assert.ok(JSON.stringify(manifest).includes('ft CLI'));
 });
 
+test('raycast package declares direct lint and TypeScript dependencies', () => {
+  const packageFile = getRaycastExtensionFiles().find((file) => file.path === 'package.json');
+  assert.ok(packageFile);
+  assert.equal(Buffer.isBuffer(packageFile.content), false);
+  const manifest = JSON.parse(packageFile.content as string);
+  for (const dependency of [
+    '@eslint/js',
+    '@raycast/eslint-plugin',
+    'eslint',
+    'eslint-config-prettier',
+    'globals',
+    'typescript-eslint',
+  ]) {
+    assert.ok(manifest.devDependencies[dependency], `${dependency} should be declared directly`);
+  }
+});
+
 test('raycast scaffold writes extension files and respects existing files', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft-raycast-'));
   try {

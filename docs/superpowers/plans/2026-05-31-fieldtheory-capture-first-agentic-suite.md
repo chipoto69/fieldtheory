@@ -38,7 +38,7 @@ nice-to-have note.
 | Sensitive content | A/C | Captures reject high-confidence secrets by default. Soul/export tests seed token, key, cookie, private-key, and wallet-seed examples and prove raw values never enter generated soul/export files. |
 | Bookmark index checks | B/C | Recall and packet check `twitterBookmarksIndexPath()` before calling `searchBookmarks()` or `getBookmarkById()`, so missing indexes become valid partial JSON or clear packet errors. |
 | Output containment | C | Soul/export use a shared realpath-aware writer and tests reject `../` escapes, sibling-prefix escapes, symlink roots, symlink children, and overwrite without `--force`. |
-| Existing Git repos | C | `ft export aeon --repo <path>` refuses an existing `.git` repo unless `--allow-existing-repo` is explicit; even then it may write only `fieldtheory/exports/<run-id>/` and optional `soul/` files. |
+| Existing Git repos | C | `ft export aeon --repo <path>` refuses an existing `.git` repo unless `--allow-existing-repo` is explicit; even then it may write only under `fieldtheory/exports/<run-id>/`, including optional soul files. |
 | Export inputs | C | Export APIs must accept explicit `query` and `bookmarkIds` or produce an empty-but-honest brief with `resultEnvelope.status: "partial"` and no fake packet files. |
 | Raycast/package release | D | Final gates include Raycast source/scaffold agreement, Raycast lint/build when tooling is installed, package + lockfile version bump, packed-bin smoke, and `npm run release:check`. |
 | Hosted handoff | D | After Milestone 1 passes, refresh `docs/handoff/hosted-suite-milestone-2.md` with real smoke output for the sample pack and export manifest, forbidden writes, Privy assumptions, and x402 architecture-only status. |
@@ -1077,9 +1077,10 @@ test('soul draft refuses secret-like source material', async () => {
 - Refuse to write if any output path escapes the root.
 - Resolve existing output roots and parents with `realpath` where possible, reject symlinked output roots, and never follow a symlink out of the root.
 - Refuse existing files unless `--force` is explicit.
-- Treat `clipboard` as prior `type: soul` captures in `Library/Captures/`, not live clipboard access.
+- Treat `clipboard` as prior stored captures in `Library/Captures/`, not live clipboard access.
 - Ignore captures without valid flat `fieldtheory.capture.v1` frontmatter, and
-  ignore non-`soul` captures for the `clipboard` source.
+  use non-`soul` clipboard captures for `STYLE.md`, `MEMORY.md`, examples, and
+  source index context, not as `SOUL.md` identity material.
 - Run `assertNoSensitiveContent()` on every selected source before writing.
 - Mark every file as editable draft, not final identity.
 
@@ -1166,7 +1167,7 @@ Bundle layout:
     sources/source-index.json
     reports/export-report.json
     aeon/aeon.yml.draft
-  soul/
+  fieldtheory/exports/<run-id>/soul/
     SOUL.md
     STYLE.md
     MEMORY.md
@@ -1194,7 +1195,7 @@ Export functions must not call `git`, `gh`, `vercel`, network APIs, or model eng
 Do not write root `aeon.yml`, `.github/workflows`, `.git`, secrets, or dispatch files in v1. Keep `aeon.yml.draft` inside the export bundle until a later explicit apply gate exists.
 If `--repo` points at an existing `.git` repo, refuse unless
 `--allow-existing-repo` is passed. With `--allow-existing-repo`, writes are still
-limited to `fieldtheory/exports/<run-id>/` and optional `soul/` files.
+limited to `fieldtheory/exports/<run-id>/`, including optional soul files.
 Use fixed relative paths only. Never interpolate raw bookmark text, author handles, target names, or operator input into filenames. Use `safe-id = sha256(id).slice(0, 12)` or strict `[A-Za-z0-9_-]`.
 Resolve output roots/parents with `realpath` where possible, reject symlinked output roots, and refuse existing files unless `--force` is explicit.
 Export APIs accept `query` and `bookmarkIds`. If `bookmarkIds` is empty, emit an

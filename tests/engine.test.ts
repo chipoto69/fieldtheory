@@ -364,7 +364,7 @@ fi
     const elapsed = Date.now() - start;
 
     assert.equal(out, 'eof', `expected 'eof', got ${JSON.stringify(out)}`);
-    assert.ok(elapsed < 2_500, `should return promptly on EOF, took ${elapsed}ms`);
+    assert.ok(elapsed < 1_500, `should return promptly on EOF, took ${elapsed}ms`);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -390,7 +390,7 @@ fi
     const elapsed = Date.now() - start;
 
     assert.equal(out, 'eof', `expected 'eof', got ${JSON.stringify(out)}`);
-    assert.ok(elapsed < 2_500, `should return promptly on EOF, took ${elapsed}ms`);
+    assert.ok(elapsed < 1_500, `should return promptly on EOF, took ${elapsed}ms`);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

@@ -459,6 +459,7 @@ export async function buildRecallPack(query: string, options: BuildRecallPackOpt
       reason: 'Milestone 1 recall is a local context contract.',
       forbiddenActions: ['write_wiki', 'write_gbrain', 'network_export', 'create_repo'],
       evidenceIds,
+      operatorAuthored: evidenceIds.length === 0 ? true : undefined,
     }],
     promotionCandidates: evidenceIds.length > 0
       ? [{
