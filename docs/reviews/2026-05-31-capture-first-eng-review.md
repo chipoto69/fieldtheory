@@ -99,7 +99,7 @@ Integrated reviewer findings:
 - Require realpath/symlink output-root checks for soul and export writers.
 - Keep `aeon.yml.draft` inside export bundles; do not write root `aeon.yml` or
   GitHub workflow files in Milestone 1.
-- Use branch-local smoke commands through `npm run dev -- ...` until the new CLI
+- Use branch-local smoke commands through `npm run --silent dev -- ...` until the new CLI
   commands are installed globally.
 
 ## Implementation Order
@@ -171,3 +171,32 @@ inventing a separate backend truth layer:
 
 The hosted product starts after the local CLI can prove capture, recall, packet,
 soul, and export behavior with tests.
+
+## Final Integration Addendum
+
+Third review lane:
+
+| Reviewer | Finding | Resolution |
+|---|---|---|
+| Mendel | Hermes and soul exports lacked happy-path manifest coverage. | Added persisted-manifest assertions for Aeon, Hermes, soul exports, and `ft export soul --json`. |
+| Anscombe | Setup smoke used branch-local commands but did not prove reproducible JSON outputs. | Added a temp-root smoke script and corrected it to use `npm run --silent dev -- ...` for redirected JSON. |
+| Boyle | Export manifests could diverge between returned JSON and persisted files; soul export had no manifest file. | Export manifests now snapshot payload files before writing `manifest.json`; soul export writes `manifest.json`. |
+| Linnaeus | Secret scanning missed cookies, BIP39 coverage was partial, existing-repo gate missed subdirectories, and Raycast scaffold drift was under-tested. | Added cookie detection, `@scure/bip39` validation, ancestor `.git` gate, `.git` metadata rejection, full text scaffold agreement, and `prepublishOnly` -> `release:check`. |
+
+Final validation run:
+
+| Gate | Result |
+|---|---|
+| Focused agentic/operator tests | Passed: 35 tests. |
+| `npm run build` | Passed. |
+| `HOME="$(mktemp -d)" npm test` | Passed: 589 tests. |
+| `npm run release:check` | Passed: build, `npm pack --dry-run`, packed-bin help smoke. |
+| Raycast lint/build | Passed: `npm --prefix raycast/fieldtheory run lint && npm --prefix raycast/fieldtheory run build`. |
+| Milestone 1 temp-root CLI smoke | Passed after switching docs to `npm run --silent dev -- ...`; produced `{"smoke":"ok"}` with capture, recall, packets, soul draft, Aeon export, Hermes export, and soul export JSON. |
+| `git diff --check` | Passed. |
+
+Remaining scope boundary:
+
+- Do not start Vercel, Privy, Gordo/Aeon writeback, Hermes writeback, or x402
+  implementation from this milestone. Milestone 2 must consume the checked
+  `AgentBriefPack` and export-manifest contracts.

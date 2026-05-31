@@ -23,7 +23,7 @@ Current repo scripts:
 ```bash
 npm run build
 npm test
-npm run dev -- --help
+npm run --silent dev -- --help
 ```
 
 ## Local Stores
@@ -101,7 +101,7 @@ printf '# agent-recall\n\nUse this when building recall packs.\n\n## Steps\n\n1.
 ```
 
 Before the new commands are installed globally, prefer branch-local smoke
-commands through `npm run dev -- ...` so validation uses the current checkout.
+commands through `npm run --silent dev -- ...` so validation uses the current checkout.
 
 ## Security Rules
 
@@ -126,10 +126,52 @@ commands through `npm run dev -- ...` so validation uses the current checkout.
 | Type/build | `npm run build` |
 | Full unit tests | `HOME="$(mktemp -d)" npm test` |
 | Whitespace | `git diff --check` |
-| Package smoke | `npm run release:check` after the release script lands |
-| Raycast smoke | `npm --prefix raycast/fieldtheory run lint && npm --prefix raycast/fieldtheory run build` when Raycast tooling is available |
-| Capture smoke | `printf 'agent note' | npm run dev -- capture text --stdin --type note --json` |
-| Recall smoke | `npm run dev -- recall agent --json` |
-| Packet smoke | `npm run dev -- packet bookmark <id> --target aeon --json` |
-| Soul smoke | `npm run dev -- soul draft --from bookmarks,library,clipboard --out /tmp/ft-soul` |
-| Export smoke | `npm run dev -- export aeon --repo /tmp/gordo --query agent --bookmark <id> --soul --briefs --json` |
+| Package smoke | `npm run release:check` |
+| Raycast smoke | `npm --prefix raycast/fieldtheory run lint && npm --prefix raycast/fieldtheory run build` |
+| Capture smoke | `printf 'agent note' | npm run --silent dev -- capture text --stdin --type note --json` |
+| Recall smoke | `npm run --silent dev -- recall agent --json` |
+| Packet smoke | `npm run --silent dev -- packet bookmark bm_test --target aeon --json` |
+| Soul smoke | `npm run --silent dev -- soul draft --from bookmarks,library,clipboard --out "$tmp/soul" --json` |
+| Export smoke | `npm run --silent dev -- export aeon --repo "$tmp/aeon-repo" --query agent --bookmark bm_test --soul --briefs --json` |
+
+## Reproducible Milestone 1 Smoke
+
+Run this from the repo checkout before handing work to hosted/Vercel agents. It
+uses branch-local `npm run --silent dev --` commands and writes all outputs under one
+temporary directory.
+
+```bash
+tmp="$(mktemp -d)"
+export HOME="$tmp/home"
+export FT_DATA_DIR="$tmp/data"
+export FT_LIBRARY_DIR="$tmp/library"
+export FT_COMMANDS_DIR="$FT_LIBRARY_DIR/Commands"
+mkdir -p "$HOME" "$FT_DATA_DIR" "$FT_COMMANDS_DIR"
+
+printf 'agent note\n' | npm run --silent dev -- capture text --stdin --type soul --json > "$tmp/capture.json"
+
+cat > "$FT_DATA_DIR/bookmarks.jsonl" <<'JSONL'
+{"id":"bm_test","tweetId":"1","url":"https://x.com/test/status/1","text":"Agent packet smoke fixture for Field Theory recall and export.","authorHandle":"test","syncedAt":"2026-05-31T00:00:00Z","postedAt":"2026-05-31T00:00:00Z","links":[],"tags":[],"mediaObjects":[],"ingestedVia":"graphql"}
+JSONL
+
+npm run --silent dev -- index --force > "$tmp/index.txt"
+npm run --silent dev -- recall agent --json > "$tmp/recall.json"
+npm run --silent dev -- packet bookmark bm_test --target aeon --json > "$tmp/packet-aeon.json"
+npm run --silent dev -- packet bookmark bm_test --target hermes --md > "$tmp/packet-hermes.md"
+npm run --silent dev -- packet bookmark bm_test --target content-os --json > "$tmp/packet-content-os.json"
+npm run --silent dev -- soul draft --from bookmarks,library,clipboard --out "$tmp/soul" --json > "$tmp/soul-draft.json"
+npm run --silent dev -- export aeon --repo "$tmp/aeon-repo" --query agent --bookmark bm_test --soul --briefs --json > "$tmp/export-aeon.json"
+npm run --silent dev -- export hermes --out "$tmp/hermes-export" --query agent --bookmark bm_test --briefs --json > "$tmp/export-hermes.json"
+npm run --silent dev -- export soul --out "$tmp/soul-export" --json > "$tmp/export-soul.json"
+
+node -e '
+const fs = require("fs");
+const root = process.argv[1];
+for (const name of ["capture","recall","packet-aeon","packet-content-os","soul-draft","export-aeon","export-hermes","export-soul"]) JSON.parse(fs.readFileSync(`${root}/${name}.json`, "utf8"));
+const aeon = JSON.parse(fs.readFileSync(`${root}/export-aeon.json`, "utf8"));
+const hermes = JSON.parse(fs.readFileSync(`${root}/export-hermes.json`, "utf8"));
+if (aeon.manifest.version !== "fieldtheory.agent-export.v1") throw new Error("bad aeon manifest");
+if (hermes.manifest.target !== "hermes") throw new Error("bad hermes target");
+console.log(JSON.stringify({ smoke: "ok", outputRoot: root }, null, 2));
+' "$tmp"
+```

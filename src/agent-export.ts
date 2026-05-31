@@ -239,9 +239,29 @@ function assertExistingGitGate(
   rootPath: string,
   allowExistingRepo: boolean | undefined,
 ): void {
-  if (fs.existsSync(path.join(rootPath, ".git")) && !allowExistingRepo) {
+  let current = path.resolve(rootPath);
+  while (true) {
+    if (fs.existsSync(path.join(current, ".git"))) {
+      if (!allowExistingRepo) {
+        throw new Error(
+          `Refusing to export into an existing git repo (${current}) without --allow-existing-repo.`,
+        );
+      }
+      return;
+    }
+
+    const parent = path.dirname(current);
+    if (parent === current) return;
+    current = parent;
+  }
+}
+
+function assertExportRootNotGitMetadata(rootPath: string): void {
+  const resolved = path.resolve(rootPath);
+  const segments = resolved.split(path.sep);
+  if (segments.includes(".git")) {
     throw new Error(
-      "Refusing to export into an existing git repo without --allow-existing-repo.",
+      "Refusing to export inside a .git metadata directory.",
     );
   }
 }
@@ -250,6 +270,7 @@ export async function exportAeonBundle(
   options: ExportAeonBundleOptions,
 ): Promise<AgentExportResult> {
   const root = resolveOutputRoot(options.repoPath);
+  assertExportRootNotGitMetadata(root.resolved);
   assertExistingGitGate(root.resolved, options.allowExistingRepo);
 
   const now = options.now ?? new Date();
@@ -378,7 +399,7 @@ export async function exportAeonBundle(
       allowExistingRepo: options.allowExistingRepo ?? false,
     },
     forbiddenWrites: AEON_FORBIDDEN_WRITES,
-    files,
+    files: [...files],
     resultEnvelope,
   };
   files.push(
@@ -397,6 +418,7 @@ export async function exportHermesBundle(
   options: ExportHermesBundleOptions,
 ): Promise<AgentExportResult> {
   const root = resolveOutputRoot(options.outDir);
+  assertExportRootNotGitMetadata(root.resolved);
   const now = options.now ?? new Date();
   const generatedAt = now.toISOString();
   const id = runId("hermes", now);
@@ -504,7 +526,7 @@ export async function exportHermesBundle(
       includeBriefs: options.includeBriefs ?? false,
     },
     forbiddenWrites: HERMES_FORBIDDEN_WRITES,
-    files,
+    files: [...files],
     resultEnvelope,
   };
   files.push(
@@ -522,16 +544,17 @@ export async function exportHermesBundle(
 export async function exportSoulBundle(
   options: ExportSoulBundleOptions,
 ): Promise<AgentExportResult> {
+  const root = resolveOutputRoot(options.outDir);
+  assertExportRootNotGitMetadata(root.resolved);
   const now = options.now ?? new Date();
   const generatedAt = now.toISOString();
   const id = runId("soul", now);
   const soul = await draftSoulFiles({
     from: options.from ?? ["clipboard", "library", "bookmarks"],
-    outDir: options.outDir,
+    outDir: root.resolved,
     now,
     force: options.force,
   });
-  const root = resolveOutputRoot(options.outDir);
   const files = [...soul.files];
   const resultEnvelope = resultEnvelopeFrom(
     [],
@@ -549,9 +572,17 @@ export async function exportSoulBundle(
     },
     inputs: { from: options.from ?? ["clipboard", "library", "bookmarks"] },
     forbiddenWrites: SOUL_FORBIDDEN_WRITES,
-    files,
+    files: [...files],
     resultEnvelope,
   };
+  files.push(
+    writeBundleFile(
+      root,
+      "manifest.json",
+      manifestContent(manifest),
+      options.force ?? false,
+    ),
+  );
 
   return { root: root.resolved, runId: id, files, manifest };
 }

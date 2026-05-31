@@ -259,6 +259,7 @@ Data is stored locally under `~/.fieldtheory/`:
 
 ~/.fieldtheory/library/
   index.md                # markdown knowledge base (ft wiki / ft md)
+  Captures/               # clipboard/manual capture staging
 
 ~/.fieldtheory/library/Commands/
   *.md                    # portable commands used by Field Theory and agents

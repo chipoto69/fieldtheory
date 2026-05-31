@@ -230,8 +230,10 @@ test('sensitive content detector catches capture-blocking secret forms', async (
     ['bearer_token', 'Authorization: Bearer abcdefghijklmnopqrstuvwxyz1234567890'],
     ['api_key', 'api_key = "abcdefghijklmnopqrstuvwxyz1234567890"'],
     ['auth_token', 'auth_token: "abcdefghijklmnopqrstuvwxyz1234567890"'],
+    ['cookie', 'Cookie: ct0=abcdefghijklmnopqrstuvwxyz1234567890; auth_token=abcdefghijklmnopqrstuvwxyz1234567890'],
     ['private_key', '-----BEGIN OPENSSH PRIVATE KEY-----'],
-    ['wallet_seed_phrase', 'abandon ability able about above absent absorb abstract absurd abuse access accident'],
+    ['wallet_seed_phrase', 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'],
+    ['wallet_seed_phrase', 'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong'],
   ];
 
   for (const [kind, content] of samples) {
@@ -350,11 +352,112 @@ test('aeon export writes local-only bundle without git or secrets', async () => 
     assert.equal(fs.existsSync(path.join(repo, 'fieldtheory', 'exports')), true);
     assert.equal(fs.existsSync(path.join(repo, 'soul', 'SOUL.md')), true);
     assert.equal(result.manifest.resultEnvelope.status, 'partial');
+    const manifestPath = path.join(repo, 'fieldtheory', 'exports', result.runId, 'manifest.json');
+    assert.equal(fs.existsSync(manifestPath), true);
+    assert.deepEqual(JSON.parse(fs.readFileSync(manifestPath, 'utf-8')), result.manifest);
+    assert.equal(result.files.some((file) => file.relPath.endsWith('/manifest.json')), true);
+    assert.equal(result.manifest.files.some((file) => file.relPath.endsWith('/manifest.json')), false);
     assert.ok(result.files.every((file) => {
       const rel = path.relative(repo, file.path);
       return rel && !rel.startsWith('..') && !path.isAbsolute(rel);
     }));
     assert.equal(result.files.some((file) => file.relPath.includes('/packets/')), false);
+  });
+});
+
+test('soul export persists its manifest beside generated soul files', async () => {
+  await withAgenticRoots(async ({ root, library }) => {
+    writeCaptureFixture(path.join(library, 'Captures', 'export-soul.md'), {
+      id: 'cap_export_soul',
+      type: 'soul',
+      title: 'Export soul',
+      body: 'Use Field Theory packets before agent writeback.',
+      hash: 'hash',
+    });
+
+    const out = path.join(root, 'soul-export');
+    const { exportSoulBundle } = await import('../src/agent-export.js');
+    const result = await exportSoulBundle({
+      outDir: out,
+      from: ['clipboard'],
+      now: new Date('2026-05-31T15:00:00.000Z'),
+    });
+
+    const manifestPath = path.join(out, 'manifest.json');
+    assert.equal(fs.existsSync(path.join(out, 'SOUL.md')), true);
+    assert.equal(fs.existsSync(manifestPath), true);
+    assert.deepEqual(JSON.parse(fs.readFileSync(manifestPath, 'utf-8')), result.manifest);
+    assert.equal(result.manifest.version, 'fieldtheory.agent-export.v1');
+    assert.equal(result.manifest.target, 'soul');
+    assert.equal(result.files.some((file) => file.relPath === 'manifest.json'), true);
+    assert.equal(result.manifest.files.some((file) => file.relPath === 'manifest.json'), false);
+  });
+});
+
+test('hermes export writes dry-run bundle and persisted manifest', async () => {
+  await withAgenticRoots(async ({ root, data }) => {
+    fs.mkdirSync(data, { recursive: true });
+    fs.writeFileSync(path.join(data, 'bookmarks.jsonl'), JSON.stringify({
+      id: 'bm_hermes',
+      tweetId: '1',
+      url: 'https://x.com/test/status/1',
+      text: 'Hermes should receive dry-run Field Theory packets.',
+      authorHandle: 'test',
+      syncedAt: '2026-05-31T00:00:00Z',
+      postedAt: '2026-05-31T00:00:00Z',
+      links: [],
+      tags: [],
+      mediaObjects: [],
+      ingestedVia: 'graphql',
+    }) + '\n');
+
+    const { buildIndex } = await import('../src/bookmarks-db.js');
+    const { exportHermesBundle } = await import('../src/agent-export.js');
+    await buildIndex();
+
+    const out = path.join(root, 'hermes-export');
+    const result = await exportHermesBundle({
+      outDir: out,
+      query: 'Hermes packets',
+      bookmarkIds: ['bm_hermes'],
+      includeBriefs: true,
+      now: new Date('2026-05-31T15:00:00.000Z'),
+    });
+
+    const exportRoot = path.join(out, 'fieldtheory', 'exports', result.runId);
+    const manifestPath = path.join(exportRoot, 'manifest.json');
+    const taskPayloadPath = path.join(exportRoot, 'hermes', 'task-payload.dry-run.json');
+    assert.equal(fs.existsSync(manifestPath), true);
+    assert.equal(fs.existsSync(taskPayloadPath), true);
+    assert.deepEqual(JSON.parse(fs.readFileSync(manifestPath, 'utf-8')), result.manifest);
+    assert.equal(result.manifest.target, 'hermes');
+    assert.equal(result.manifest.forbiddenWrites.includes('kanban_write'), true);
+    assert.equal(JSON.parse(fs.readFileSync(taskPayloadPath, 'utf-8')).dryRun, true);
+    assert.equal(result.files.some((file) => file.relPath.endsWith('/manifest.json')), true);
+    assert.equal(result.manifest.files.some((file) => file.relPath.endsWith('/manifest.json')), false);
+  });
+});
+
+test('export soul CLI emits JSON and writes a manifest file', async () => {
+  await withAgenticRoots(async ({ root, library }) => {
+    writeCaptureFixture(path.join(library, 'Captures', 'cli-soul.md'), {
+      id: 'cap_cli_soul',
+      type: 'soul',
+      title: 'CLI soul',
+      body: 'CLI export should persist manifest evidence.',
+      hash: 'hash',
+    });
+
+    const out = path.join(root, 'cli-soul-export');
+    const output = await captureStdout(async () => {
+      const program = buildCli();
+      await program.parseAsync(['node', 'ft', 'export', 'soul', '--out', out, '--json']);
+    });
+    const result = JSON.parse(output);
+
+    assert.equal(result.manifest.target, 'soul');
+    assert.equal(fs.existsSync(path.join(out, 'manifest.json')), true);
+    assert.equal(result.files.some((file: { relPath: string }) => file.relPath === 'manifest.json'), true);
   });
 });
 
@@ -365,6 +468,10 @@ test('aeon export refuses existing git repo without explicit gate', async () => 
     const { exportAeonBundle } = await import('../src/agent-export.js');
     await assert.rejects(
       () => exportAeonBundle({ repoPath: repo, query: 'agent memory', bookmarkIds: [] }),
+      /existing git repo/i,
+    );
+    await assert.rejects(
+      () => exportAeonBundle({ repoPath: path.join(repo, 'fieldtheory-exports'), query: 'agent memory', bookmarkIds: [] }),
       /existing git repo/i,
     );
   });

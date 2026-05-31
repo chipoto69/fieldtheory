@@ -38,8 +38,9 @@ npm --prefix raycast/fieldtheory run lint
 npm --prefix raycast/fieldtheory run build
 ```
 
-If the local machine lacks Raycast tooling, record that as a release blocker
-instead of silently skipping the check.
+For releases that include `raycast/fieldtheory`, Raycast lint/build is a release
+gate. If the local machine lacks Raycast tooling, record that as a release
+blocker instead of silently skipping the check.
 
 If Raycast cannot find the CLI, set the `ft binary` preference to an absolute
 path such as `/opt/homebrew/bin/ft`.

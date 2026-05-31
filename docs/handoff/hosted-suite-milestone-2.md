@@ -22,8 +22,7 @@ Milestone 2 may start only after these Milestone 1 gates pass:
 - `npm run release:check`
 - isolated `FT_DATA_DIR` / `FT_LIBRARY_DIR` CLI smoke for capture, recall,
   packet, soul, Aeon export, Hermes export, and soul export
-- Raycast scaffold agreement plus Raycast lint/build on a machine with Raycast
-  tooling
+- Raycast scaffold agreement plus Raycast lint/build
 - no Milestone 1 commit added `.github/workflows`, `vercel.json`, Next.js app
   files, Privy config, wallet secrets, or x402 enforcement
 
@@ -32,6 +31,30 @@ Milestone 2 may start only after these Milestone 1 gates pass:
 - Capture: `fieldtheory.capture.v1`
 - Agent brief pack: `agent-brief-pack.v1`
 - Export bundle: `fieldtheory.agent-export.v1`
+
+## Reproducible Smoke Outputs
+
+Run the full script in `docs/setup/capture-first-environment.md` before handing
+this repo to hosted-suite agents. It writes these files under `$tmp`:
+
+```text
+capture.json
+recall.json
+packet-aeon.json
+packet-hermes.md
+packet-content-os.json
+soul-draft.json
+export-aeon.json
+export-hermes.json
+export-soul.json
+aeon-repo/fieldtheory/exports/<run-id>/manifest.json
+hermes-export/fieldtheory/exports/<run-id>/manifest.json
+soul-export/manifest.json
+```
+
+Hosted agents should use the JSON files from that smoke run as contract
+fixtures. This PR does not commit local smoke outputs because they are generated
+from operator-local stores.
 
 ## Sample AgentBriefPack
 
@@ -102,8 +125,7 @@ Compact output from the Aeon smoke export manifest:
     "soul/STYLE.md",
     "soul/MEMORY.md",
     "soul/examples/good-outputs.md",
-    "soul/data/source-index.json",
-    "fieldtheory/exports/aeon-20260531T201513Z/manifest.json"
+    "soul/data/source-index.json"
   ],
   "forbiddenWrites": [
     "create_repo",
@@ -122,6 +144,10 @@ Compact output from the Aeon smoke export manifest:
   }
 }
 ```
+
+The returned CLI result includes `manifest.json` in `files`; the persisted
+manifest's own `files` array lists payload files and deliberately excludes the
+manifest file itself so the manifest hash does not become self-referential.
 
 Hermes smoke uses the same export contract and writes only under
 `fieldtheory/exports/<run-id>/`, including `hermes/task-payload.dry-run.json`,

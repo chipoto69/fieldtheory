@@ -12,7 +12,7 @@
     "test": "tsx --test tests/**/*.test.ts",
     "dev": "tsx src/cli.ts",
     "start": "node dist/cli.js",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run release:check",
     "release:check": "npm run build && npm pack --dry-run && node bin/ft.mjs --help"
   },
   "files": [
@@ -52,6 +52,7 @@
     "raycast"
   ],
   "dependencies": {
+    "@scure/bip39": "^1.6.0",
     "commander": "^14.0.3",
     "dotenv": "^17.3.1",
     "sql.js": "^1.14.1",

@@ -1325,20 +1325,20 @@ export FT_LIBRARY_DIR="$tmp/library"
 export FT_COMMANDS_DIR="$FT_LIBRARY_DIR/Commands"
 mkdir -p "$FT_DATA_DIR" "$FT_COMMANDS_DIR"
 
-printf 'agent note\n' | npm run dev -- capture text --stdin --type note --json
+printf 'agent note\n' | npm run --silent dev -- capture text --stdin --type note --json
 
 cat > "$FT_DATA_DIR/bookmarks.jsonl" <<'EOF'
 {"id":"bm_test","tweetId":"1","url":"https://x.com/test/status/1","text":"Agent packet smoke fixture","authorHandle":"test","syncedAt":"2026-05-31T00:00:00Z","postedAt":"2026-05-31T00:00:00Z","links":[],"tags":[],"mediaObjects":[],"ingestedVia":"graphql"}
 EOF
-npm run dev -- index --force
-npm run dev -- recall agent --json
-npm run dev -- packet bookmark bm_test --target aeon --json
-npm run dev -- packet bookmark bm_test --target hermes --md
-npm run dev -- packet bookmark bm_test --target content-os --json
-npm run dev -- soul draft --from bookmarks,library,clipboard --out "$tmp/soul" --json
-npm run dev -- export aeon --repo "$tmp/aeon-repo" --query agent --bookmark bm_test --soul --briefs --json
-npm run dev -- export hermes --out "$tmp/hermes-export" --query agent --bookmark bm_test --briefs --json
-npm run dev -- export soul --out "$tmp/soul-export" --json
+npm run --silent dev -- index --force
+npm run --silent dev -- recall agent --json
+npm run --silent dev -- packet bookmark bm_test --target aeon --json
+npm run --silent dev -- packet bookmark bm_test --target hermes --md
+npm run --silent dev -- packet bookmark bm_test --target content-os --json
+npm run --silent dev -- soul draft --from bookmarks,library,clipboard --out "$tmp/soul" --json
+npm run --silent dev -- export aeon --repo "$tmp/aeon-repo" --query agent --bookmark bm_test --soul --briefs --json
+npm run --silent dev -- export hermes --out "$tmp/hermes-export" --query agent --bookmark bm_test --briefs --json
+npm run --silent dev -- export soul --out "$tmp/soul-export" --json
 ```
 
 Confirm no Milestone 1 commit adds `.github/workflows`, `vercel.json`, Next.js
@@ -1347,7 +1347,7 @@ app files, Privy config, wallet secrets, or x402 enforcement code.
 Do not use a bare stdin command like this, because it can hang in automation:
 
 ```bash
-npm run dev -- capture text --stdin --type note --json <<'EOF'
+npm run --silent dev -- capture text --stdin --type note --json <<'EOF'
 agent note
 EOF
 ```

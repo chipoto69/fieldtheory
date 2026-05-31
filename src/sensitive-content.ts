@@ -1,5 +1,8 @@
+import { validateMnemonic } from '@scure/bip39';
+import { wordlist } from '@scure/bip39/wordlists/english';
+
 export interface SensitiveFinding {
-  kind: 'github_token' | 'bearer_token' | 'api_key' | 'auth_token' | 'private_key' | 'wallet_seed_phrase';
+  kind: 'github_token' | 'bearer_token' | 'api_key' | 'auth_token' | 'cookie' | 'private_key' | 'wallet_seed_phrase';
   label: string;
 }
 
@@ -33,31 +36,23 @@ const SECRET_PATTERNS: SensitivePattern[] = [
     pattern: /\bauth[_-]?token\b\s*[:=]\s*["']?[A-Za-z0-9._~+/=-]{20,}["']?/gi,
   },
   {
+    kind: 'cookie',
+    label: 'Cookie header',
+    pattern: /\b(?:cookie|set-cookie)\s*:\s*[^\r\n]*(?:auth_token|ct0|session|csrf|token|cookie)[^\r\n]*/gi,
+  },
+  {
+    kind: 'cookie',
+    label: 'Cookie value',
+    pattern: /\b(?:ct0|auth_token|twid|guest_id|personalization_id|sessionid|csrf(?:_token)?)\s*=\s*["']?[^;\s"']{12,}/gi,
+  },
+  {
     kind: 'private_key',
     label: 'Private key',
     pattern: /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/g,
   },
 ];
 
-const BIP39_WORDS = new Set([
-  'abandon', 'ability', 'able', 'about', 'above', 'absent', 'absorb', 'abstract',
-  'absurd', 'abuse', 'access', 'accident', 'account', 'accuse', 'achieve', 'acid',
-  'acoustic', 'acquire', 'across', 'act', 'action', 'actor', 'actress', 'actual',
-  'adapt', 'add', 'addict', 'address', 'adjust', 'admit', 'adult', 'advance',
-  'advice', 'aerobic', 'affair', 'afford', 'afraid', 'again', 'age', 'agent',
-  'agree', 'ahead', 'aim', 'air', 'airport', 'aisle', 'alarm', 'album',
-  'alcohol', 'alert', 'alien', 'all', 'alley', 'allow', 'almost', 'alone',
-  'alpha', 'already', 'also', 'alter', 'always', 'amateur', 'amazing', 'among',
-  'amount', 'amused', 'analyst', 'anchor', 'ancient', 'anger', 'angle', 'angry',
-  'animal', 'ankle', 'announce', 'annual', 'another', 'answer', 'antenna', 'antique',
-  'anxiety', 'any', 'apart', 'apology', 'appear', 'apple', 'approve', 'april',
-  'arch', 'arctic', 'area', 'arena', 'argue', 'arm', 'armed', 'armor',
-  'army', 'around', 'arrange', 'arrest', 'arrive', 'arrow', 'art', 'artefact',
-  'artist', 'artwork', 'ask', 'aspect', 'assault', 'asset', 'assist', 'assume',
-  'asthma', 'athlete', 'atom', 'attack', 'attend', 'attitude', 'attract', 'auction',
-  'audit', 'august', 'aunt', 'author', 'auto', 'autumn', 'average', 'avocado',
-  'avoid', 'awake', 'aware', 'away', 'awesome', 'awful', 'awkward', 'axis',
-]);
+const BIP39_WORD_COUNTS = [12, 15, 18, 21, 24] as const;
 
 function uniqueFindings(findings: SensitiveFinding[]): SensitiveFinding[] {
   const seen = new Set<SensitiveKind>();
@@ -70,10 +65,12 @@ function uniqueFindings(findings: SensitiveFinding[]): SensitiveFinding[] {
 
 function detectWalletSeedPhrase(content: string): SensitiveFinding | null {
   const words = content.toLowerCase().match(/\b[a-z]{3,8}\b/g) ?? [];
-  for (let i = 0; i <= words.length - 12; i += 1) {
-    const phrase = words.slice(i, i + 12);
-    if (phrase.every((word) => BIP39_WORDS.has(word))) {
-      return { kind: 'wallet_seed_phrase', label: 'Wallet seed phrase' };
+  for (const wordCount of BIP39_WORD_COUNTS) {
+    for (let i = 0; i <= words.length - wordCount; i += 1) {
+      const phrase = words.slice(i, i + wordCount).join(' ');
+      if (validateMnemonic(phrase, wordlist)) {
+        return { kind: 'wallet_seed_phrase', label: 'Wallet seed phrase' };
+      }
     }
   }
   return null;

@@ -46,15 +46,17 @@ hosted Vercel, wallet, Gordo, Hermes, or x402 layer.
 | Draft identity | explicit output path | `ft soul draft --from bookmarks,library,clipboard --out soul/` | Creates editable soul files. |
 | Export handoff | explicit output path | `ft export aeon|hermes|soul ...` | Local files only; no GitHub secrets or workflow dispatch. |
 
-Smoke sequence:
+Smoke sequence after the CLI is installed. During branch validation, use the
+full isolated `npm run --silent dev -- ...` smoke in
+`docs/setup/capture-first-environment.md`.
 
 ```bash
 printf 'agent note\n' | ft capture text --stdin --type soul --json
 ft recall agent --json
-ft packet bookmark <id> --target aeon --json
+ft packet bookmark bm_test --target aeon --json
 ft soul draft --from bookmarks,library,clipboard --out ./soul --json
-ft export aeon --repo ./aeon-export --query agent --bookmark <id> --soul --briefs --json
-ft export hermes --out ./hermes-export --query agent --bookmark <id> --briefs --json
+ft export aeon --repo ./aeon-export --query agent --bookmark bm_test --soul --briefs --json
+ft export hermes --out ./hermes-export --query agent --bookmark bm_test --briefs --json
 ft export soul --out ./soul-export --json
 ```
 

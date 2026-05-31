@@ -540,7 +540,7 @@ export default function Command() {
 }
 `;
 
-const RAYCAST_SEARCH_BOOKMARKS = `import { Action, ActionPanel, List, showToast, Toast } from "@raycast/api";
+const RAYCAST_SEARCH_BOOKMARKS = `import { Action, ActionPanel, List, Toast, showToast } from "@raycast/api";
 import { useEffect, useState } from "react";
 import { runFt } from "./lib/ft";
 

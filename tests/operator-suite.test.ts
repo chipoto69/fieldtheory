@@ -8,6 +8,7 @@ import {
   OPERATOR_SUITE_WORKFLOWS_MD,
   formatOperatorSuiteStatus,
   getOperatorSuiteStatus,
+  getRaycastExtensionFiles,
   getRaycastManifest,
   scaffoldRaycastExtension,
 } from '../src/operator-suite.js';
@@ -78,6 +79,28 @@ test('raycast run-command shows command output detail by default', () => {
     assert.match(committedRunCommand, /<List\s+isShowingDetail>/);
     assert.match(committedRunCommand, /Recall Pack/);
     assert.equal(scaffoldedRunCommand, committedRunCommand);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('raycast scaffold text files match the checked-in extension', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft-raycast-agreement-'));
+  try {
+    scaffoldRaycastExtension(tmpDir, { force: true });
+
+    for (const file of getRaycastExtensionFiles()) {
+      if (Buffer.isBuffer(file.content)) {
+        const generated = fs.readFileSync(path.join(tmpDir, file.path));
+        assert.equal(generated.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+        assert.equal(fs.existsSync(path.join(process.cwd(), 'raycast', 'fieldtheory', file.path)), true);
+        continue;
+      }
+
+      const generated = fs.readFileSync(path.join(tmpDir, file.path), 'utf-8');
+      const committed = fs.readFileSync(path.join(process.cwd(), 'raycast', 'fieldtheory', file.path), 'utf-8');
+      assert.equal(generated, committed, `${file.path} should match scaffold template`);
+    }
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
