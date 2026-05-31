@@ -10,18 +10,26 @@ tags: [setup, vercel, privy, github-actions, x402]
 
 ## Current State
 
-This repo currently has Milestone 1 CLI contracts and static/Raycast operator
-surfaces. It does not yet have:
+This repo currently has Milestone 1 CLI contracts, static/Raycast operator
+surfaces, and the first Milestone 2 hosted scaffold:
 
-- `.github/workflows`
-- `vercel.json`
-- `next.config.*`
-- hosted `apps/portal`
-- Privy app config
+- `apps/portal` Next.js App Router app
+- portal `vercel.json`
+- preview and production GitHub Actions workflow skeletons
+- dry-run API route handlers for health, contracts, validation, agents,
+  Gordo/Aeon import plans, Hermes import plans, and x402 discovery
+- fail-closed server-side Privy auth scaffold
+
+It still does not have:
+
+- real Privy browser SDK login mounted
+- production Vercel project linkage or secrets
+- durable database provider
+- apply gates
 - x402 enforcement
 
-Do not add production deploy secrets before the portal build and endpoint
-contracts exist.
+Do not add production deploy secrets before the portal build and endpoint gates
+pass in CI and the Vercel project is explicitly linked.
 
 ## Required Local Environment
 
@@ -31,8 +39,9 @@ contracts exist.
 | `PRIVY_APP_SECRET` | M2 server | Server-side Privy verification where needed. |
 | `FIELD_THEORY_CONTRACT_FIXTURE_DIR` | M2 tests | Points tests at generated M1 smoke fixtures. |
 | `FIELD_THEORY_AUDIT_STORE` | M2 local | Local JSON/sqlite audit store path for development. |
-| `BASE_CHAIN_ID` | M2 scaffold | Base network selection; default should be non-production until configured. |
-| `SOLANA_CLUSTER` | M2 scaffold | Solana cluster selection; default should be devnet until configured. |
+| `FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE` | tests only | Allows in-memory mutations in production-like tests; keep `false` in deployed environments. |
+| `NEXT_PUBLIC_BASE_CHAIN_ID` | M2 scaffold | Base network selection; default is Base Sepolia (`84532`) until configured. |
+| `NEXT_PUBLIC_SOLANA_CLUSTER` | M2 scaffold | Solana cluster selection; default is `devnet` until configured. |
 | `X402_ENABLED` | M3 only | Must default false. |
 | `X402_FACILITATOR_URL` | M3 only | Optional facilitator endpoint after review. |
 | `X402_RECEIVING_ADDRESS` | M3 only | Payment recipient address after review. |
@@ -89,12 +98,17 @@ This repo must not implement settlement until those gates pass.
 | Release package | `npm run release:check` |
 | Raycast | `npm --prefix raycast/fieldtheory run lint && npm --prefix raycast/fieldtheory run build` |
 | Portal unit tests | `npm --prefix apps/portal test` |
-| Portal build | `npm --prefix apps/portal build` |
+| Portal build | `npm --prefix apps/portal run build` |
 | Portal route smoke | `npm --prefix apps/portal test:e2e` |
 | Vercel preview | `vercel build && vercel deploy --prebuilt` from GitHub Actions |
 | Vercel production | same as preview, but only from protected `main` |
 
-Portal gates are forward contracts until `apps/portal` exists; Milestone 2 must implement them before any production deploy.
+Portal gates now execute against `apps/portal`. Production deploy remains blocked
+until those gates pass in CI and real Vercel/Privy secrets are configured.
+
+The current in-memory import/run/audit adapter is local/test only. In production
+mode, protected mutation routes return `durable_store_not_configured` unless a
+later durable adapter gate replaces it.
 
 ## Production Deployment Gate
 

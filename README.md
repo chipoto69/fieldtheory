@@ -214,6 +214,9 @@ local-first control plane instead of separate tool surfaces.
   `docs/security/hosted-suite-threat-model.md`,
   `docs/deploy/vercel-github-actions.md`, and
   `docs/release/milestone-2-hosted-readiness.md` are the required M2 gates.
+- **Hosted portal scaffold**: `apps/portal` is the initial Next.js App Router
+  control plane with dry-run validation and agent-plan APIs. Run
+  `npm run verify:hosted`.
 - **Next feature plan**: `docs/features/agent-brief-packs.md` specifies the
   proposed recall/source-packet/dispatch bridge from bookmarks to agent work.
 

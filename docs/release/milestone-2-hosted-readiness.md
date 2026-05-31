@@ -27,19 +27,22 @@ tags: [release, readiness, vercel, privy, agents]
 | `docs/security/hosted-suite-threat-model.md` | required before auth/x402 |
 | `docs/setup/hosted-suite-environment.md` | required before env/secrets |
 | `docs/deploy/vercel-github-actions.md` | required before workflows |
+| `apps/portal` | initial scaffold present |
+| `.github/workflows/vercel-preview.yml` | initial scaffold present |
+| `.github/workflows/vercel-production.yml` | initial scaffold present; protected-main only |
 
 ## Implementation Order
 
-1. Add `apps/portal` as a Next.js App Router app with health/contracts routes.
-2. Add shared contract validators for brief/export inputs.
-3. Add local fixture smoke for M1 generated artifacts.
-4. Add read-only dashboard and import validation UI.
-5. Add Privy provider scaffold and fail-closed authenticated route checks.
-6. Add dry-run agent run creation and audit records.
-7. Add Gordo/Aeon import-plan adapter.
-8. Add Hermes import-plan adapter.
-9. Add preview GitHub Action.
-10. Add production GitHub Action after preview and portal gates pass.
+1. Add `apps/portal` as a Next.js App Router app with health/contracts routes. Done.
+2. Add shared contract validators for brief/export inputs. Done in portal scaffold.
+3. Add local fixture smoke for M1 generated artifacts. Done with portal route fixtures; generated CLI smoke fixtures still pending.
+4. Add read-only dashboard and import validation UI. Dashboard shell done; upload UI pending.
+5. Add Privy auth boundary and fail-closed authenticated route checks. Server fail-closed done; browser SDK login deferred to auth hardening.
+6. Add dry-run agent run creation and audit records. Done in in-memory adapter.
+7. Add Gordo/Aeon import-plan adapter. Done as dry-run plan.
+8. Add Hermes import-plan adapter. Done as dry-run plan.
+9. Add preview GitHub Action. Done; deploy step skips without secrets.
+10. Add production GitHub Action after preview and portal gates pass. Done as protected-main workflow; deploy step skips without secrets.
 11. Draft x402 endpoint handoff and fixtures.
 12. Enable x402 enforcement in a later gate only.
 
@@ -51,7 +54,7 @@ tags: [release, readiness, vercel, privy, agents]
 | CLI build | `npm run build` |
 | Package | `npm run release:check` |
 | Raycast | `npm --prefix raycast/fieldtheory run lint && npm --prefix raycast/fieldtheory run build` |
-| Portal | `npm --prefix apps/portal test && npm --prefix apps/portal build` |
+| Portal | `npm run verify:hosted` |
 | E2E | Playwright or route smoke for health/contracts/auth failure/import validation |
 | Deploy | Vercel preview and production workflows with post-deploy smoke |
 

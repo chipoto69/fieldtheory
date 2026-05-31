@@ -3,4 +3,8 @@ dist/
 *.js.map
 .env
 .env.local
+apps/portal/.next/
+apps/portal/out/
+apps/portal/coverage/
+apps/portal/tsconfig.tsbuildinfo
 raycast/fieldtheory/raycast-env.d.ts

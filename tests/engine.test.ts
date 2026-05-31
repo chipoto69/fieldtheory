@@ -341,30 +341,31 @@ test('invokeEngineAsync: child stdin is closed with EOF (does not inherit parent
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft-engine-stdin-'));
   try {
-    // Script reads stdin; prompt EOF must arrive well under the historical
-    // multi-second "no stdin data received" delay. We want "eof".
-    const script = `#!/bin/sh
-# Read up to 100 bytes with a 2s timeout. dd reads until EOF or 2s.
-read_result=""
-if data=$(dd bs=100 count=1 2>/dev/null); then
-  if [ -z "$data" ]; then
-    echo "eof"
-  else
-    echo "data:$data"
-  fi
-else
-  echo "read-failed"
-fi
+    // Measure inside the child so full-suite scheduler load before process
+    // startup does not masquerade as a stdin EOF delay.
+    const script = `#!/usr/bin/env node
+const started = Date.now();
+let data = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => { data += chunk; });
+process.stdin.on('end', () => {
+  const elapsed = Date.now() - started;
+  console.log(data.length === 0 ? \`eof:\${elapsed}\` : \`data:\${data}\`);
+});
+setTimeout(() => {
+  console.log('timeout');
+  process.exit(0);
+}, 2000).unref();
 `;
     const engine = makeFakeEngine(tmpDir, script);
     const { invokeEngineAsync } = await import('../src/engine.js');
 
-    const start = Date.now();
     const out = await invokeEngineAsync(engine, 'ignored', { timeout: 10_000 });
-    const elapsed = Date.now() - start;
+    const [label, elapsedText] = out.split(':');
+    const elapsed = Number(elapsedText);
 
-    assert.equal(out, 'eof', `expected 'eof', got ${JSON.stringify(out)}`);
-    assert.ok(elapsed < 1_500, `should return promptly on EOF, took ${elapsed}ms`);
+    assert.equal(label, 'eof', `expected 'eof', got ${JSON.stringify(out)}`);
+    assert.ok(Number.isFinite(elapsed) && elapsed < 500, `child stdin EOF took ${elapsedText}ms`);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -375,22 +376,29 @@ test('invokeEngine (sync): child stdin is closed with EOF (does not inherit pare
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft-engine-stdin-sync-'));
   try {
-    const script = `#!/bin/sh
-if data=$(dd bs=100 count=1 2>/dev/null); then
-  if [ -z "$data" ]; then echo "eof"; else echo "data:$data"; fi
-else
-  echo "read-failed"
-fi
+    const script = `#!/usr/bin/env node
+const started = Date.now();
+let data = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => { data += chunk; });
+process.stdin.on('end', () => {
+  const elapsed = Date.now() - started;
+  console.log(data.length === 0 ? \`eof:\${elapsed}\` : \`data:\${data}\`);
+});
+setTimeout(() => {
+  console.log('timeout');
+  process.exit(0);
+}, 2000).unref();
 `;
     const engine = makeFakeEngine(tmpDir, script);
     const { invokeEngine } = await import('../src/engine.js');
 
-    const start = Date.now();
     const out = invokeEngine(engine, 'ignored', { timeout: 10_000 });
-    const elapsed = Date.now() - start;
+    const [label, elapsedText] = out.split(':');
+    const elapsed = Number(elapsedText);
 
-    assert.equal(out, 'eof', `expected 'eof', got ${JSON.stringify(out)}`);
-    assert.ok(elapsed < 1_500, `should return promptly on EOF, took ${elapsed}ms`);
+    assert.equal(label, 'eof', `expected 'eof', got ${JSON.stringify(out)}`);
+    assert.ok(Number.isFinite(elapsed) && elapsed < 500, `child stdin EOF took ${elapsedText}ms`);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

@@ -1,7 +1,7 @@
 ---
 title: Hosted Suite Milestone 2 Handoff
 created: 2026-05-31
-status: milestone-1-smoke-ready
+status: milestone-2-scaffold-started
 scope: Vercel, Privy, Gordo/Aeon, Hermes, and x402 work after local contracts pass
 tags: [handoff, vercel, privy, x402, aeon, hermes]
 ---
@@ -55,6 +55,23 @@ soul-export/manifest.json
 Hosted agents should use the JSON files from that smoke run as contract
 fixtures. This PR does not commit local smoke outputs because they are generated
 from operator-local stores.
+
+## Hosted Scaffold Status
+
+The first Milestone 2 scaffold now exists under `apps/portal`:
+
+- Next.js App Router dashboard shell.
+- Public `/api/health`, `/api/contracts`, and `/api/x402/discovery` routes.
+- Fail-closed protected routes for brief/export validation, agent target list,
+  dry-run run creation/status, Gordo/Aeon import plans, and Hermes import plans.
+- In-memory adapter for imports, runs, and audit events.
+- Preview and production GitHub Actions workflow skeletons that deploy only when
+  Vercel secrets are configured.
+
+The scaffold intentionally does not mount the Privy browser SDK yet. The current
+server boundary fails closed when `PRIVY_APP_SECRET` is absent and only accepts
+unsigned `Bearer dev:<id>` tokens when `PRIVY_DEV_ALLOW_UNSIGNED=true`, for
+tests and local smoke only.
 
 ## Sample AgentBriefPack
 

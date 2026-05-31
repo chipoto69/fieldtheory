@@ -48,7 +48,7 @@ context into Aeon/Gordo and Hermes without losing provenance or write authority.
 | `docs/handoff/hosted-suite-milestone-2.md` | Defines M2 entry gate, contract versions, sample brief/export shapes, Privy assumptions, and x402 deferral. |
 | `docs/prd/capture-first-agentic-suite.md` | Locks M1 as local-first and explicitly defers Vercel, Privy, Gordo/Aeon writeback, Hermes writeback, and x402 enforcement. |
 | `docs/architecture/capture-first-agentic-suite.md` | Maps the hosted layer as a deferred surface over CLI contracts. |
-| Repo scan | No `.github/workflows`, `vercel.json`, `next.config.*`, or hosted Next.js app exists yet. |
+| Repo scan | `apps/portal`, portal `vercel.json`, and preview/production GitHub Actions now exist as the first Milestone 2 scaffold. |
 | Current PR #1 | Draft branch `codex/fieldtheory-suite`; M1 validation passed and branch is not `main`. |
 
 ## Non-Goals
@@ -133,7 +133,7 @@ using embedded wallet UI signing flows.
 | Area | Criteria |
 |---|---|
 | Contract fidelity | Hosted validators reject unknown contract versions, missing evidence, target payloads with duplicated forbidden actions, unsafe file paths, and manifests that imply remote writes. |
-| Auth scaffold | App builds without real secrets using documented dummy env values; authenticated pages fail closed when Privy config is absent. |
+| Auth scaffold | App builds without real secrets using documented dummy env values; authenticated routes fail closed when Privy server config is absent. Browser Privy SDK install is deferred until the auth hardening gate to avoid pulling wallet/x402 dependency advisories before real login is enabled. |
 | Wallet linking | UI distinguishes GitHub login, Base EVM wallet, Solana wallet, and linked identity state. |
 | Agent runs | Initial run creation is dry-run only and stores audit envelopes; no external write happens in M2. |
 | Gordo/Aeon | Import plan consumes `fieldtheory/exports/<run-id>/` bundles and keeps `aeon.yml.draft` as a draft. |

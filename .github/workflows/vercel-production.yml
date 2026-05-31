@@ -1,0 +1,44 @@
+name: vercel-production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  production:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            raycast/fieldtheory/package-lock.json
+            apps/portal/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: HOME="$(mktemp -d)" npm test
+      - run: npm --prefix apps/portal ci
+      - run: npm --prefix apps/portal test
+      - run: npm --prefix apps/portal run build
+      - run: npm install --global vercel@latest
+        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' }}
+      - name: Pull Vercel production environment
+        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' }}
+        working-directory: apps/portal
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+      - name: Build Vercel production artifact
+        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' }}
+        working-directory: apps/portal
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+      - name: Deploy Vercel production artifact
+        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' }}
+        working-directory: apps/portal
+        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"

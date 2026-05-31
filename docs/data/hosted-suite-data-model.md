@@ -55,6 +55,7 @@ imports a brief/export artifact.
 
 ## Open Provider Decision
 
-The data model intentionally does not pick a database provider. Implementation
-can start with an adapter boundary so tests run in memory or sqlite, while Vercel
-production can later bind to the selected managed store.
+The data model intentionally does not pick a database provider. The first portal
+scaffold uses an in-memory adapter for local tests only. In production mode,
+protected mutation routes fail closed until a durable adapter is added and
+reviewed.
