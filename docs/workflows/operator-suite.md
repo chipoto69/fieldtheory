@@ -50,6 +50,9 @@ Smoke sequence after the CLI is installed. During branch validation, use the
 full isolated `npm run --silent dev -- ...` smoke in
 `docs/setup/capture-first-environment.md`.
 
+The `bm_test` examples below require the seeded bookmark fixture from the setup
+runbook. Use the full setup smoke when validating a fresh environment.
+
 ```bash
 printf 'agent note\n' | ft capture text --stdin --type soul --json
 ft recall agent --json

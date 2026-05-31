@@ -201,3 +201,17 @@ Hosted work starts only after Milestone 1 release checks stay green on the final
 release branch: isolated `npm test`, `npm run build`, `npm run release:check`,
 full CLI smoke, Raycast scaffold agreement, and Raycast lint/build where the
 Raycast toolchain is available.
+
+## Hosted Planning Artifacts
+
+Before writing the Vercel app, use these M2 implementation contracts:
+
+- PRD: `docs/prd/hosted-agentic-suite.md`
+- Architecture: `docs/architecture/hosted-agentic-suite.md`
+- Environment runbook: `docs/setup/hosted-suite-environment.md`
+- Engineering review: `docs/reviews/2026-05-31-hosted-suite-eng-review.md`
+- Endpoint contract: `docs/api/hosted-suite-endpoints.md`
+- Data model: `docs/data/hosted-suite-data-model.md`
+- Threat model: `docs/security/hosted-suite-threat-model.md`
+- Deployment plan: `docs/deploy/vercel-github-actions.md`
+- Release readiness: `docs/release/milestone-2-hosted-readiness.md`

@@ -203,6 +203,17 @@ local-first control plane instead of separate tool surfaces.
 - **Hosted handoff**: `docs/handoff/hosted-suite-milestone-2.md` is the gate for
   later Vercel, Privy, Gordo/Aeon, Hermes, and x402 work after local contracts
   pass.
+- **Hosted suite PRD**: `docs/prd/hosted-agentic-suite.md` defines the Vercel
+  portal, Privy GitHub/Base/Solana auth scaffold, agent run APIs, deployment
+  gates, and x402 handoff boundaries.
+- **Hosted architecture/runbook**: `docs/architecture/hosted-agentic-suite.md`
+  and `docs/setup/hosted-suite-environment.md` map endpoints, data flows,
+  deployment secrets, and production gates before implementation starts.
+- **Hosted implementation contracts**: `docs/api/hosted-suite-endpoints.md`,
+  `docs/data/hosted-suite-data-model.md`,
+  `docs/security/hosted-suite-threat-model.md`,
+  `docs/deploy/vercel-github-actions.md`, and
+  `docs/release/milestone-2-hosted-readiness.md` are the required M2 gates.
 - **Next feature plan**: `docs/features/agent-brief-packs.md` specifies the
   proposed recall/source-packet/dispatch bridge from bookmarks to agent work.
 

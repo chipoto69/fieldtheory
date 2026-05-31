@@ -1,7 +1,7 @@
 ---
 title: Capture-First Agentic Suite Engineering Review
 created: 2026-05-31
-status: ready-for-milestone-1-implementation
+status: milestone-1-passed-hosted-handoff-ready
 scope: Field Theory local capture, recall, packet, soul, and export contracts
 tags: [engineering-review, fieldtheory, capture, agents, raycast]
 ---

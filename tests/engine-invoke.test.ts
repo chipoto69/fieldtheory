@@ -52,9 +52,9 @@ test('invokeEngineAsync: rejects with stderr folded into the error message on no
 test('invokeEngineAsync: closes stdin so cat-like children see EOF immediately', async () => {
   // Phase 1 validation bug: leaving child stdin as an open pipe made the
   // `claude` CLI wait 3s for stdin data, print a warning, and exit non-zero.
-  // The fix (stdio: ['ignore', 'pipe', 'pipe']) means a child that reads
+  // The fix closes the child's piped stdin immediately so a child that reads
   // stdin sees EOF on byte zero and exits cleanly. This test pins that by
-  // using `cat` — which normally blocks on stdin — and asserting it returns
+  // using `cat` - which normally blocks on stdin - and asserting it returns
   // empty output promptly.
   const { invokeEngineAsync } = await import('../src/engine.js');
   const start = Date.now();
