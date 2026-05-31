@@ -189,6 +189,8 @@ local-first control plane instead of separate tool surfaces.
   visual console.
 - **Raycast extension**: `raycast/fieldtheory` wraps the local `ft` binary for
   bookmark search, suite status, and curated read-only health commands.
+- **Next feature plan**: `docs/features/agent-brief-packs.md` specifies the
+  proposed recall/source-packet/dispatch bridge from bookmarks to agent work.
 
 Raycast development:
 
