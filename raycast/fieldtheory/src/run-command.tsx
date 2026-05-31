@@ -23,7 +23,7 @@ export default function Command() {
   useEffect(() => { run(COMMANDS[0].args); }, []);
 
   return (
-    <List>
+    <List isShowingDetail>
       {COMMANDS.map((command) => (
         <List.Item
           key={command.title}

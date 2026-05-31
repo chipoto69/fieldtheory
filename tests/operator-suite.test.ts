@@ -66,3 +66,17 @@ test('raycast scaffold writes extension files and respects existing files', () =
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
+
+test('raycast run-command shows command output detail by default', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft-raycast-detail-'));
+  try {
+    scaffoldRaycastExtension(tmpDir, { force: true });
+    const scaffoldedRunCommand = fs.readFileSync(path.join(tmpDir, 'src', 'run-command.tsx'), 'utf-8');
+    const committedRunCommand = fs.readFileSync(path.join(process.cwd(), 'raycast', 'fieldtheory', 'src', 'run-command.tsx'), 'utf-8');
+
+    assert.match(scaffoldedRunCommand, /<List\s+isShowingDetail>/);
+    assert.match(committedRunCommand, /<List\s+isShowingDetail>/);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
