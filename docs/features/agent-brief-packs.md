@@ -7,6 +7,17 @@ Audience: solo AI builders, operator agents, Hermes/ORBEL fleets, and future MCP
 
 Build **Agent Brief Packs** as the next Field Theory feature.
 
+Implementation must start with the capture-first foundation documented in:
+
+- `docs/prd/capture-first-agentic-suite.md`
+- `docs/setup/capture-first-environment.md`
+- `docs/architecture/capture-first-agentic-suite.md`
+- `docs/superpowers/plans/2026-05-31-fieldtheory-capture-first-agentic-suite.md`
+
+The hosted Vercel, Gordo/Aeon control plane, Hermes writeback, wallet gating,
+and x402 layers are explicitly downstream of the local capture, recall, packet,
+soul, and export contracts.
+
 An Agent Brief Pack has three related shapes:
 
 1. `recall_pack`: a JSON-first, read-only `ft recall <query>` command that
@@ -423,7 +434,7 @@ Acceptance:
 - Reads an existing Possible node/dot.
 - Emits Hermes Kanban, ORBEL, and Legolas target shapes without live writes.
 - Requires `--dry-run` for every v1 invocation.
-- Includes forbidden actions, human gates, and verification placeholders.
+- Includes forbidden actions, human gates, and verification instructions.
 
 ### Phase 4: Operator Suite Reflection
 

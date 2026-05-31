@@ -33,6 +33,26 @@ flowchart LR
 | Operate from launcher | read-only by default | `ft suite raycast scaffold --out ./raycast/fieldtheory` | Raycast extension that wraps CLI commands without new data authority. |
 | Promote durable doctrine | human canon gate | `ft library create <path> --stdin` | Human-readable markdown artifact; wiki canon stays separately gated. |
 
+## Capture-First Build Workflow
+
+The next implementation milestone must build the Field Theory learning substrate
+before any hosted Vercel, wallet, Gordo, Hermes, or x402 layer.
+
+| Stage | Build gate | Command target | Boundary |
+|---|---|---|---|
+| Capture signal | local Library write | `ft capture clipboard --type note|source|idea|soul` and `ft capture text --stdin --type ...` | Writes only to `Library/Captures/`. |
+| Recall context | read-only | `ft recall <query> --json|--md` | Reads bookmarks, Library, Captures, and Commands. |
+| Packet source | dry-run | `ft packet bookmark <id> --target aeon|hermes|content-os` | Emits packet only; no target-system write. |
+| Draft identity | explicit output path | `ft soul draft --from bookmarks,library,clipboard --out soul/` | Creates editable soul files. |
+| Export handoff | explicit output path | `ft export aeon|hermes|soul ...` | Local files only; no GitHub secrets or workflow dispatch. |
+
+Foundation docs:
+
+- PRD: `docs/prd/capture-first-agentic-suite.md`
+- Environment: `docs/setup/capture-first-environment.md`
+- Architecture: `docs/architecture/capture-first-agentic-suite.md`
+- Build plan: `docs/superpowers/plans/2026-05-31-fieldtheory-capture-first-agentic-suite.md`
+
 ## Browser Verification Workflow
 
 The static app is intentionally dependency-free:
@@ -68,4 +88,3 @@ Future MCP work should start with read-only tools:
 
 Write tools can come later, but only as wrappers around existing CLI write
 commands with explicit arguments and audit output.
-

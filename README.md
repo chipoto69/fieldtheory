@@ -189,6 +189,14 @@ local-first control plane instead of separate tool surfaces.
   visual console.
 - **Raycast extension**: `raycast/fieldtheory` wraps the local `ft` binary for
   bookmark search, suite status, and curated read-only health commands.
+- **Capture-first PRD**: `docs/prd/capture-first-agentic-suite.md` defines the
+  local-first build order for clipboard/manual capture, recall packs, source
+  packets, soul drafts, and Aeon/Hermes export bundles.
+- **Environment runbook**: `docs/setup/capture-first-environment.md` lists local
+  stores, safe environment variables, validation commands, and deferred hosted
+  secrets.
+- **Agentic architecture**: `docs/architecture/capture-first-agentic-suite.md`
+  maps the capture-to-learning loop and the boundary before Vercel/Gordo/x402.
 - **Next feature plan**: `docs/features/agent-brief-packs.md` specifies the
   proposed recall/source-packet/dispatch bridge from bookmarks to agent work.
 
