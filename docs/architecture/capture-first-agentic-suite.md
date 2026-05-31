@@ -214,3 +214,9 @@ flowchart LR
 
 Build verdict: the highest-leverage next module is `ft capture`, because it
 creates the local learning substrate every other agentic surface depends on.
+
+Milestone 2 starts from `docs/handoff/hosted-suite-milestone-2.md`, populated
+with real Milestone 1 smoke outputs. Until that file contains actual
+`agent-brief-pack.v1` and export manifest samples, Vercel, Privy wallet gating,
+Gordo/Aeon live control, Hermes writeback, GitHub Actions deployment, and x402
+enforcement remain out of scope.

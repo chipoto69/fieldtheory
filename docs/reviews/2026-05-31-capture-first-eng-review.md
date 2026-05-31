@@ -18,10 +18,11 @@ the source of truth:
 - `docs/setup/capture-first-environment.md`
 - `docs/architecture/capture-first-agentic-suite.md`
 
-The correct first coding move is Task 0 from the plan: create the shared test
-harness, register command groups, and enforce chrome-free JSON output for the
-agentic commands. Starting with capture implementation before that would make
-the workers collide in `src/cli.ts` and produce brittle command tests.
+The correct first coding move is Task 0a from the plan: create the isolated
+test harness, register command groups/options, and enforce chrome-free JSON
+output for the agentic commands. Starting with capture implementation before
+that would make the workers collide in `src/cli.ts` and produce brittle command
+tests.
 
 ## Evidence Read
 
@@ -66,7 +67,7 @@ Result: 6 tests passed.
 | Clipboard becomes the only capture path | Non-macOS and CI users lose capture ability. | Clipboard uses `pbpaste` on macOS; stdin remains the portable fallback. |
 | Recall pretends to be smarter than it is | Bad ranking gets mistaken for synthesis. | Deterministic search/ranking only in v1; every statement traces to evidence. |
 | Soul draft overclaims identity | Generated files look final or authoritative. | Every soul file says editable draft and includes source/boundary notes. |
-| Workers collide in `src/cli.ts` | Merge conflicts and partial command wiring. | Task 0 lands command scaffolding first; later workers own separate modules. |
+| Workers collide in `src/cli.ts` | Merge conflicts and partial command wiring. | Task 0a lands command scaffolding first; later workers own separate modules. |
 
 ## Subagent Orders
 
@@ -103,13 +104,15 @@ Integrated reviewer findings:
 
 ## Implementation Order
 
-1. Land Task 0 test harness and CLI group scaffolding.
-2. Build capture substrate.
-3. Build `AgentBriefPack` and recall.
-4. Build bookmark source packets.
-5. Build soul draft and local-only exporters.
-6. Update skill/Raycast/operator docs to prefer recall and packet commands.
-7. Run final isolated tests, build, diff hygiene, and CLI smoke.
+1. Land Task 0a isolated harness and CLI group/parser scaffolding.
+2. Land Task 0b `AgentBriefPack` validation helpers.
+3. Build capture substrate with secret preflight and collision-safe IDs.
+4. Build recall with filtered capture search and explicit missing-index handling.
+5. Build bookmark source packets with per-target boundaries.
+6. Land shared output/sensitive-content guards.
+7. Build soul draft and local-only exporters through the shared writer.
+8. Update skill/Raycast/operator docs to prefer recall and packet commands.
+9. Run final isolated tests, build, package, Raycast, diff hygiene, and CLI smoke.
 
 Do not start Vercel, Privy, Gordo repo provisioning, Hermes writeback, or x402
 implementation until Tasks 1-6 pass against isolated local roots.
@@ -124,17 +127,36 @@ implementation until Tasks 1-6 pass against isolated local roots.
 | Packet contract | Test proves each target maps to the expected `sourcePacket.agentRoute`. |
 | Soul draft | Test proves exactly five expected files are created under explicit output root, including `data/source-index.json`. |
 | Exports | Test proves no `.git`, no root `aeon.yml`, no `.github/workflows`, no secrets, no remote calls, and all files stay below output root. |
+| Existing repo gate | Test proves `ft export aeon --repo` refuses existing `.git` repos unless `--allow-existing-repo` is explicit. |
+| Sensitive content | Test proves token/key/cookie/private-key/wallet-seed fixtures do not appear in soul or export outputs. |
 | Raycast wrapper | Test proves committed and scaffolded `run-command.tsx` use `<List isShowingDetail>`. |
-| Final gates | `HOME="$(mktemp -d)" npm test`, `npm run build`, `git diff --check`, isolated CLI smoke. |
+| Final gates | `HOME="$(mktemp -d)" npm test`, `npm run build`, `npm run release:check`, Raycast lint/build when tooling exists, `git diff --check`, isolated CLI smoke. |
+
+## Second Review Addendum
+
+The second four-agent review found these blockers before implementation:
+
+- Plan/feature/PRD schema drift: flat capture frontmatter, `capturedAt`,
+  `BoundaryNote`, target payload keys, and `--dry-run` wording must agree.
+- `buildCli()` tests need isolated roots before construction because the command
+  builder performs migration/setup work.
+- Capture, soul, and export need high-confidence secret detection before output
+  leaves `Library/Captures/`.
+- Soul/export path safety needs realpath-aware tests, not `startsWith()`.
+- Aeon/Gordo export into an existing Git repo needs an explicit
+  `--allow-existing-repo` gate.
+- Package release needs `package-lock.json`, `npm run release:check`, packed-bin
+  smoke, and Raycast scaffold/lint/build checks.
+- Milestone 2 needs a handoff artifact before Vercel/Privy/x402 work begins.
 
 ## Release Risks
 
 | Risk | Decision |
 |---|---|
 | `.github` workflows are absent | Add production CI/Vercel workflows in Milestone 2, not before local contracts exist. |
-| Root `prepublishOnly` only runs build | Add `npm pack --dry-run` and packed-bin smoke to the release checklist before publishing a CLI version with new commands. |
-| Raycast has its own package scripts | Milestone 1 final verification should include the Raycast detail regression test; full Raycast lint/build belongs in the release surface task. |
-| Package remains `1.4.0` | New CLI command groups require a minor version bump plan after implementation, likely `1.5.0`. |
+| Root `prepublishOnly` only runs build | Add `npm run release:check` with build, `npm pack --dry-run`, and packed-bin help smoke before publishing. |
+| Raycast has its own package scripts | Milestone 1 final verification should include the Raycast detail regression, scaffold agreement, and Raycast lint/build when tooling exists. |
+| Package remains `1.4.0` | New CLI command groups require a minor version bump to `1.5.0` in both `package.json` and `package-lock.json`. |
 
 ## Deferred Hosted Suite
 

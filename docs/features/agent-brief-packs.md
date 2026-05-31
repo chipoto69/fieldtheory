@@ -67,17 +67,17 @@ They answer three operator questions:
 ```bash
 ft recall "agent memory infrastructure" --json
 ft recall "agent memory infrastructure" --md
-ft recall "agent memory infrastructure" --library 5 --bookmarks 8 --commands 3
+ft recall "agent memory infrastructure" --captures 5 --library 5 --bookmarks 8 --commands 3
 
-ft packet bookmark <bookmark-id> --target content-os --dry-run --json
-ft packet search "agent memory" --target content-os --limit 10 --dry-run --md
+ft packet bookmark <bookmark-id> --target content-os --json
 
 ft possible dispatch <node-id> --target hermes-kanban --board orbel --dry-run --json
 ft possible dispatch <node-id> --target legolas --tier scout --dry-run --md
 ```
 
-`ft recall` is the schema MVP. `ft packet bookmark/search` is the
-Content-OS bridge. `ft possible dispatch` comes after those are stable.
+`ft recall` is the schema MVP. `ft packet bookmark` is the Content-OS bridge
+and is dry-run by design in v1. `ft packet search` and `ft possible dispatch`
+come after those are stable and should use a separate dispatch target enum.
 
 ### Non-goals
 
@@ -186,7 +186,7 @@ flowchart LR
 | Target | v1 authority | Notes |
 |---|---|---|
 | Bookmarks | read-only | Use existing bookmark search/index APIs. |
-| Library | read-only for MVP | Later `--save` may create a Library page through existing conflict-safe Library commands. |
+| Library | read-only except `ft capture` writes to `Library/Captures/` | Later `--save` may create a Library page through existing conflict-safe Library commands. |
 | Commands | read-only for MVP | Suggest commands; do not create them automatically. |
 | Possible | read existing seeds/runs/dots | Reuse `implementationPrompt` and `exportablePrompt`. |
 | Hermes Kanban | dry-run only | Emit task-create payloads; no live mutations in v1. |
@@ -238,6 +238,21 @@ interface SourcePacket {
   payload: Record<string, unknown>;
 }
 
+`SourcePacket.forbiddenActions` is the authoritative safety list. Target
+payloads must not include a nested `forbiddenActions` key. Content-OS payloads
+use `topicKeys`, `tags_json`, `source_metadata_json`, `links_json`,
+`dedupeKey`, `sourceIdentity`, `nextAction`, and `adapterRequired`.
+
+interface BoundaryNote {
+  id: string;
+  authority: "local-only" | "dry-run" | "external-gated";
+  gate: string;
+  rule: string;
+  reason: string;
+  forbiddenActions: string[];
+  evidenceIds: string[];
+}
+
 interface EvidenceItem {
   id: string;
   sourceType: "capture" | "library" | "command" | "bookmark" | "operator";
@@ -250,6 +265,7 @@ interface EvidenceItem {
   score: number;
   scoreReason: string;
   retrievedAt: string;
+  capturedAt?: string;
   tags: string[];
 }
 
@@ -330,17 +346,17 @@ Content-OS:
 
 1. `ft packet bookmark <id> --target content-os --json` builds a dry-run packet
    with `whySavedStatus`, `confidence`, `agentRoute`, evidence locators,
-   `dedupeKey`, and target payload fields.
+   `dedupeKey`, `sourceIdentity`, and target payload fields.
 2. Operator reviews whether it belongs in Content-OS.
 3. A future Content-OS-owned adapter can accept the payload and populate
-   `tags_json`, `topic_keys_json`, `source_metadata_json`, and `links_json` in
+   `tags_json`, `topicKeys`, `source_metadata_json`, and `links_json` in
    its own SQLite schema.
 4. content-engine may later consume the approved topic through its existing
    session directory contract.
 
 ```mermaid
 flowchart LR
-  Bookmark["X bookmark"]:::input --> Packet["ft packet bookmark --dry-run"]:::brief
+  Bookmark["X bookmark"]:::input --> Packet["ft packet bookmark"]:::brief
   Packet --> Intent["why saved / claim / objection"]:::artifact
   Packet --> Identity["canonical URL / hash / dedupe key"]:::artifact
   Packet --> Route["agent route / topic keys"]:::artifact
@@ -424,7 +440,8 @@ Acceptance:
 
 - Reads an existing Possible node/dot.
 - Emits Hermes Kanban, ORBEL, and Legolas target shapes without live writes.
-- Requires `--dry-run` for every v1 invocation.
+- Requires `--dry-run` for every dispatch invocation when this deferred phase is
+  promoted into its own contract.
 - Includes forbidden actions, human gates, and verification instructions.
 
 ### Phase 4: Operator Suite Reflection

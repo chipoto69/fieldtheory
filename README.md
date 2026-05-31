@@ -197,6 +197,9 @@ local-first control plane instead of separate tool surfaces.
   secrets.
 - **Agentic architecture**: `docs/architecture/capture-first-agentic-suite.md`
   maps the capture-to-learning loop and the boundary before Vercel/Gordo/x402.
+- **Hosted handoff**: `docs/handoff/hosted-suite-milestone-2.md` is the gate for
+  later Vercel, Privy, Gordo/Aeon, Hermes, and x402 work after local contracts
+  pass.
 - **Next feature plan**: `docs/features/agent-brief-packs.md` specifies the
   proposed recall/source-packet/dispatch bridge from bookmarks to agent work.
 

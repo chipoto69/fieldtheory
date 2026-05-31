@@ -30,5 +30,16 @@ npm install
 npm run dev
 ```
 
+Milestone 1 release checks must prove the checked-in extension and CLI scaffold
+agree, then run:
+
+```bash
+npm --prefix raycast/fieldtheory run lint
+npm --prefix raycast/fieldtheory run build
+```
+
+If the local machine lacks Raycast tooling, record that as a release blocker
+instead of silently skipping the check.
+
 If Raycast cannot find the CLI, set the `ft binary` preference to an absolute
 path such as `/opt/homebrew/bin/ft`.

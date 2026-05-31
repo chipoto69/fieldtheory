@@ -78,21 +78,24 @@ Milestone 1 does not ship:
 Captures are markdown files under `~/.fieldtheory/library/Captures/`.
 
 ```yaml
-capture:
-  version: fieldtheory.capture.v1
-  id: cap_20260531_120000_slug
-  type: note | source | idea | soul
-  source: clipboard | text
-  captured_at: 2026-05-31T12:00:00.000Z
-  promotion_status: captured
-  tags: [agent, aeon]
-  source_locator: stdin | macos-pbpaste | <explicit-source>
-  content_sha256:
+version: fieldtheory.capture.v1
+id: cap_20260531_120000_slug
+type: note | source | idea | soul
+source: clipboard | text
+captured_at: 2026-05-31T12:00:00.000Z
+promotion_status: captured
+tags: [agent, aeon]
+source_locator: stdin | macos-pbpaste | <explicit-source>
+content_sha256:
 ```
 
 The markdown body preserves the raw operator text. Field Theory may add
 frontmatter and a title, but it must not rewrite the capture into a polished
 claim at capture time.
+
+Capture frontmatter is flat YAML. Nested `capture:` frontmatter is invalid for
+v1. Capture IDs and filenames share the same collision suffix so two same-second
+captures with identical text cannot collide.
 
 ## Agent Brief Pack Contract
 
@@ -131,16 +134,21 @@ action, or promotion candidate must trace back to at least one `evidence` item
 or mark itself as operator-authored. `summary` is a display rollup, not an
 uncited claim surface.
 
+For `source_packet` packs, `boundaries` is required. `SourcePacket.forbiddenActions`
+is authoritative; target payloads must not duplicate a nested
+`forbiddenActions` key.
+
 ## Acceptance Criteria
 
 | Area | Criteria |
 |---|---|
-| Capture | Reject empty capture text, unsafe paths, unsupported capture types, and writes outside Library/Captures. |
+| Capture | Reject empty capture text, unsafe paths, unsupported capture types, high-confidence secret-like content, invalid/nested frontmatter, and writes outside Library/Captures. |
 | Clipboard | Use `pbpaste` on macOS; produce a clear error when clipboard read fails; stdin path remains available. |
 | Recall | Works when bookmarks DB is missing, Library is empty, or Commands are absent; output remains valid partial JSON with `storeStatus`. |
-| Packets | `ft packet bookmark` fails clearly for unknown bookmark IDs and never writes to target systems in v1. |
-| Soul draft | Produces `SOUL.md`, `STYLE.md`, `MEMORY.md`, `examples/good-outputs.md`, and `data/source-index.json` in the requested output root. |
-| Exports | Aeon/Hermes/soul exports write files only under the operator-specified path and do not create `.git`, root `aeon.yml`, `.github/workflows`, secrets, or remote calls. |
+| Packets | `ft packet bookmark` fails clearly for unknown bookmark IDs and never writes to target systems in v1; every target has required boundaries and top-level forbidden actions. |
+| Soul draft | Produces `SOUL.md`, `STYLE.md`, `MEMORY.md`, `examples/good-outputs.md`, and `data/source-index.json` in the requested output root; soul material only comes from valid `type: soul` captures or selected Library sources. |
+| Exports | Aeon/Hermes/soul exports write files only under the operator-specified path and do not create `.git`, root `aeon.yml`, `.github/workflows`, secrets, or remote calls; existing Git repos require an explicit `--allow-existing-repo` gate. |
+| Output safety | Soul/export reject symlinked roots, symlink child escapes, `../` escapes, sibling-prefix escapes, and overwrites without `--force`. |
 | Docs | README, operator workflow docs, PRD, environment docs, and architecture docs agree on scope and commands. |
 
 ## Release Gates
@@ -151,7 +159,9 @@ uncited claim surface.
 | Unit tests | `HOME=$(mktemp -d) npm test` |
 | Diff hygiene | `git diff --check` |
 | CLI smoke | isolated `FT_DATA_DIR` and `FT_LIBRARY_DIR` command run for capture, recall, packet, soul draft, and exports |
-| Release smoke | `npm pack --dry-run` and `node bin/ft.mjs --help` after `npm run build` |
+| Release smoke | `npm run release:check` |
+| Version smoke | `package.json` and `package-lock.json` both carry the same `1.5.0` minor version before release. |
+| Raycast smoke | Checked-in Raycast extension and scaffold output agree; Raycast lint/build pass when Raycast tooling is available. |
 
 ## Deferred Milestone 2
 
@@ -163,3 +173,9 @@ contracts:
 - Gordo/Aeon repository control plane
 - Hermes export/import workflow
 - x402 architecture handoff and later payment enforcement
+
+Milestone 1 must leave behind `docs/handoff/hosted-suite-milestone-2.md` before
+hosted work begins. That handoff must include the contract versions, one sample
+`AgentBriefPack`, one sample export manifest, forbidden writes, Privy
+GitHub/Base/Solana assumptions, and the statement that x402 remains
+architecture-only until a later enforcement gate.

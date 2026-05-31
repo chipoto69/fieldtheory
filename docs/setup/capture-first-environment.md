@@ -96,8 +96,8 @@ export FT_COMMANDS_DIR="$FT_LIBRARY_DIR/Commands"
 5. Seed local smoke data with existing commands before new agentic commands:
 
 ```bash
-ft library create notes/agent-memory --stdin
-ft commands new agent-recall --stdin
+printf 'Recall packs help agents recover context.\n' | ft library create notes/agent-memory --stdin
+printf '# agent-recall\n\nUse this when building recall packs.\n\n## Steps\n\n1. Run recall.\n\n## Guardrails\n\n- Verify.\n' | ft commands new agent-recall --stdin
 ```
 
 Before the new commands are installed globally, prefer branch-local smoke
@@ -114,8 +114,10 @@ commands through `npm run dev -- ...` so validation uses the current checkout.
 - Treat bookmark text and clipboard captures as untrusted input when building
   model prompts.
 - Clipboard captures persist raw clipboard text under
-  `~/.fieldtheory/library/Captures/`; do not capture secrets, keys, cookies, or
-  wallet material.
+  `~/.fieldtheory/library/Captures/` only after sensitive-content preflight
+  passes; do not capture secrets, keys, cookies, or wallet material.
+- Soul and export commands must refuse or redact secret-like source material and
+  must record any redaction in the result envelope or manifest.
 
 ## Validation Matrix
 
@@ -124,9 +126,10 @@ commands through `npm run dev -- ...` so validation uses the current checkout.
 | Type/build | `npm run build` |
 | Full unit tests | `HOME="$(mktemp -d)" npm test` |
 | Whitespace | `git diff --check` |
-| Package smoke | `npm pack --dry-run && node bin/ft.mjs --help` after build |
+| Package smoke | `npm run release:check` after the release script lands |
+| Raycast smoke | `npm --prefix raycast/fieldtheory run lint && npm --prefix raycast/fieldtheory run build` when Raycast tooling is available |
 | Capture smoke | `printf 'agent note' | npm run dev -- capture text --stdin --type note --json` |
 | Recall smoke | `npm run dev -- recall agent --json` |
 | Packet smoke | `npm run dev -- packet bookmark <id> --target aeon --json` |
 | Soul smoke | `npm run dev -- soul draft --from bookmarks,library,clipboard --out /tmp/ft-soul` |
-| Export smoke | `npm run dev -- export aeon --repo /tmp/gordo --soul --briefs --json` |
+| Export smoke | `npm run dev -- export aeon --repo /tmp/gordo --query agent --bookmark <id> --soul --briefs --json` |

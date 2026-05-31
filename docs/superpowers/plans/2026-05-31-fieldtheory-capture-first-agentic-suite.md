@@ -17,12 +17,31 @@ This plan supersedes the earlier high-level checklist. The previous version had 
 Hard rules for every worker:
 
 - Do not push to `main`.
-- Do not write to `~/wiki`, GBrain, Honcho, Hermes, Gordo, Vercel, Privy, or x402 endpoints from Milestone 1 commands.
+- Do not write to `~/wiki`, GBrain, Honcho, Hermes, Gordo, Vercel, Privy, or x402 endpoints from Milestone 1 commands. The only allowed wiki write in this milestone is the controller's append-only closeout line in `/Users/rudlord/wiki/log.md`.
 - Do not create `.git`, GitHub secrets, workflow dispatches, or remotes from any export command.
+- Do not add `.github/workflows`, `vercel.json`, Next.js app files, Privy config, wallet-gating code, or x402 enforcement in Milestone 1. Those belong to the hosted handoff after local contracts pass.
 - Use TDD. Add failing tests first, run the focused test, implement, rerun focused tests, then build.
 - Keep command JSON clean. Any command supporting `--json` must avoid logo/chrome output through `shouldSkipCommandChrome()`.
 - Use isolated paths in tests: `FT_DATA_DIR`, `FT_LIBRARY_DIR`, `FT_COMMANDS_DIR`, and `HOME`.
 - Existing file helpers are authoritative: `resolveMarkdownPath()`, `relativeMarkdownPath()`, `sha256()`, `writeMd()`, `writeJson()`, `createMarkdownFile()`.
+
+## Second Engineering Review Hard Gates
+
+These gates came from the second `/plan-eng-review` pass with four read-only
+subagents. Treat every item below as a pre-implementation requirement, not a
+nice-to-have note.
+
+| Gate | Worker | Required plan change |
+|---|---|---|
+| Schema freeze | B | `docs/prd`, `docs/features`, and this plan must agree on flat capture frontmatter, `EvidenceItem.capturedAt`, required `BoundaryNote`, and target payload keys. |
+| Isolated CLI tests | A/B | Every `buildCli()` test runs inside `withAgenticRoots()` before `buildCli()` is called because `buildCli()` performs migration/setup work. |
+| Sensitive content | A/C | Captures reject high-confidence secrets by default. Soul/export tests seed token, key, cookie, private-key, and wallet-seed examples and prove raw values never enter generated soul/export files. |
+| Bookmark index checks | B/C | Recall and packet check `twitterBookmarksIndexPath()` before calling `searchBookmarks()` or `getBookmarkById()`, so missing indexes become valid partial JSON or clear packet errors. |
+| Output containment | C | Soul/export use a shared realpath-aware writer and tests reject `../` escapes, sibling-prefix escapes, symlink roots, symlink children, and overwrite without `--force`. |
+| Existing Git repos | C | `ft export aeon --repo <path>` refuses an existing `.git` repo unless `--allow-existing-repo` is explicit; even then it may write only `fieldtheory/exports/<run-id>/` and optional `soul/` files. |
+| Export inputs | C | Export APIs must accept explicit `query` and `bookmarkIds` or produce an empty-but-honest brief with `resultEnvelope.status: "partial"` and no fake packet files. |
+| Raycast/package release | D | Final gates include Raycast source/scaffold agreement, Raycast lint/build when tooling is installed, package + lockfile version bump, packed-bin smoke, and `npm run release:check`. |
+| Hosted handoff | D | After Milestone 1 passes, refresh `docs/handoff/hosted-suite-milestone-2.md` with real smoke output for the sample pack and export manifest, forbidden writes, Privy assumptions, and x402 architecture-only status. |
 
 ## Shared Contracts
 
@@ -156,34 +175,44 @@ Invariant: every `summaryClaims`, `typedSlot`, `suggestedCommand`, and
 `operatorAuthored: true`. `summary` is a human-readable rollup of
 `summaryClaims`, not an uncited claim surface.
 
+For `source_packet` packs, `boundaries` is required and must contain at least
+one `BoundaryNote` whose `authority` is `dry-run` or `local-only`. Target
+payloads must not duplicate `forbiddenActions`; the authoritative list is
+`SourcePacket.forbiddenActions` plus any matching `BoundaryNote.forbiddenActions`.
+V1 target values are only `aeon`, `hermes`, and `content-os`. Dispatch targets
+such as `hermes-kanban`, `orbel`, and `legolas` stay outside the v1
+`AgentBriefTarget` enum until a separate dispatch contract exists.
+
 ## Worker Order
 
-Do not run the write tasks below in parallel until Task 0 lands. After Task 0, workers may split by write scope:
+Do not run the write tasks below in parallel until Task 0a and Task 0b land.
+After those tasks, workers may split by write scope:
 
 | Worker | Owns | Must not touch |
 |---|---|---|
-| A | `src/capture.ts`, capture CLI tests | recall, packet, exports |
-| B | `src/agent-brief-pack.ts`, `src/recall.ts`, recall tests | Raycast, exports |
-| C | `src/packet.ts`, `src/soul-draft.ts`, `src/agent-export.ts`, packet/export tests | skill/Raycast copy |
-| D | `src/skill.ts`, `src/operator-suite.ts`, Raycast wrapper, docs, smoke script | core capture/recall implementation |
+| A | Task 0a harness isolation, `src/capture.ts`, `src/sensitive-content.ts`, capture CLI tests | recall, packet, exports |
+| B | `src/agent-brief-pack.ts`, `src/recall.ts`, recall tests, pack validation helpers | Raycast, exports |
+| C | `src/packet.ts`, `src/output-guard.ts`, `src/soul-draft.ts`, `src/agent-export.ts`, packet/export tests | skill/Raycast copy |
+| D | `src/skill.ts`, `src/operator-suite.ts`, Raycast wrapper, docs, smoke/release scripts | core capture/recall implementation |
 
 Controller sequence:
 
-1. Task 0
+1. Task 0a and Task 0b
 2. Task 1
 3. Task 2
 4. Task 3
-5. Task 4 and Task 5
-6. Task 6
-7. Final verification and release note
+5. Task 3.5
+6. Task 4 and Task 5
+7. Task 6
+8. Final verification and release note
 
-Before Task 0 starts, the controller must confirm docs agree on this contract:
+Before Task 0a starts, the controller must confirm docs agree on this contract:
 
 - `docs/prd/capture-first-agentic-suite.md`
 - `docs/features/agent-brief-packs.md`
 - `docs/superpowers/plans/2026-05-31-fieldtheory-capture-first-agentic-suite.md`
 
-## Task 0: Test Harness And Guards
+## Task 0a: Test Harness And CLI Guards
 
 **Files:**
 
@@ -253,11 +282,57 @@ async function captureStdout(fn: () => Promise<void>): Promise<string> {
 - [ ] **Step 2: add CLI registration test**
 
 ```ts
-test('agentic command groups are registered', () => {
-  const program = buildCli();
-  for (const name of ['capture', 'recall', 'packet', 'soul', 'export']) {
-    assert.ok(program.commands.find((command) => command.name() === name), `${name} command should be registered`);
-  }
+test('agentic command groups are registered', async () => {
+  await withAgenticRoots(async () => {
+    const program = buildCli();
+    for (const name of ['capture', 'recall', 'packet', 'soul', 'export']) {
+      assert.ok(program.commands.find((command) => command.name() === name), `${name} command should be registered`);
+    }
+  });
+});
+```
+
+Do not call `buildCli()` outside `withAgenticRoots()`. `buildCli()` performs
+runtime setup/migration work and must not see real operator paths in tests.
+
+- [ ] **Step 2b: add parser and clean JSON guard tests**
+
+Append:
+
+```ts
+test('agentic command options are registered', async () => {
+  await withAgenticRoots(async () => {
+    const program = buildCli();
+    const capture = program.commands.find((command) => command.name() === 'capture');
+    const captureText = capture?.commands.find((command) => command.name() === 'text');
+    assert.ok(captureText?.options.some((option) => option.long === '--stdin'));
+    assert.ok(captureText?.options.some((option) => option.long === '--type'));
+    assert.ok(captureText?.options.some((option) => option.long === '--json'));
+    assert.ok(captureText?.options.some((option) => option.long === '--md'));
+
+    const recall = program.commands.find((command) => command.name() === 'recall');
+    for (const flag of ['--json', '--md', '--captures', '--library', '--commands', '--bookmarks']) {
+      assert.ok(recall?.options.some((option) => option.long === flag), `missing ft recall ${flag}`);
+    }
+
+    const packet = program.commands.find((command) => command.name() === 'packet');
+    const bookmark = packet?.commands.find((command) => command.name() === 'bookmark');
+    for (const flag of ['--target', '--json', '--md']) {
+      assert.ok(bookmark?.options.some((option) => option.long === flag), `missing ft packet bookmark ${flag}`);
+    }
+
+    const soul = program.commands.find((command) => command.name() === 'soul');
+    const draft = soul?.commands.find((command) => command.name() === 'draft');
+    for (const flag of ['--from', '--out', '--json', '--force']) {
+      assert.ok(draft?.options.some((option) => option.long === flag), `missing ft soul draft ${flag}`);
+    }
+
+    const exportCommand = program.commands.find((command) => command.name() === 'export');
+    const aeon = exportCommand?.commands.find((command) => command.name() === 'aeon');
+    for (const flag of ['--repo', '--query', '--bookmark', '--soul', '--briefs', '--json', '--force', '--allow-existing-repo']) {
+      assert.ok(aeon?.options.some((option) => option.long === flag), `missing ft export aeon ${flag}`);
+    }
+  });
 });
 ```
 
@@ -308,11 +383,93 @@ HOME="$(mktemp -d)" npx tsx --test tests/agentic-suite.test.ts
 npm run build
 ```
 
+## Task 0b: AgentBriefPack Validation Helpers
+
+**Files:**
+
+- Create: `src/agent-brief-pack.ts`
+- Test: `tests/agentic-suite.test.ts`
+
+- [ ] **Step 1: write failing validation tests**
+
+Append:
+
+```ts
+test('validateAgentBriefPack rejects uncited claims and source packets without boundaries', async () => {
+  await withAgenticRoots(async () => {
+    const { validateAgentBriefPack } = await import('../src/agent-brief-pack.js');
+    const basePack = {
+      id: 'pack_test',
+      version: 'agent-brief-pack.v1',
+      kind: 'source_packet',
+      generatedAt: '2026-05-31T13:00:00.000Z',
+      input: { sourceBookmarkId: 'b1', target: 'aeon' },
+      limits: { captures: 5, library: 5, commands: 3, bookmarks: 8 },
+      storeStatus: [],
+      summary: 'Test summary',
+      summaryClaims: [{ text: 'Uncited claim', evidenceIds: [] }],
+      evidence: [],
+      typedSlots: [],
+      suggestedCommands: [],
+      sourcePacket: {
+        target: 'aeon',
+        agentRoute: 'build_handoff',
+        sourceId: 'b1',
+        whySavedStatus: 'unknown',
+        confidence: 0,
+        forbiddenActions: ['create_repo'],
+        payload: {},
+      },
+      boundaries: [],
+      promotionCandidates: [],
+      resultEnvelope: { status: 'partial', resultCount: 0, warnings: [], generatedBy: 'fieldtheory' },
+    };
+
+    const issues = validateAgentBriefPack(basePack as never);
+    assert.ok(issues.some((issue) => issue.includes('summaryClaims[0]')));
+    assert.ok(issues.some((issue) => issue.includes('source_packet requires at least one boundary')));
+  });
+});
+```
+
+- [ ] **Step 2: implement shared helpers**
+
+`src/agent-brief-pack.ts` exports the interfaces from the shared contract plus:
+
+```ts
+export function validateAgentBriefPack(pack: AgentBriefPack): string[];
+export function assertValidAgentBriefPack(pack: AgentBriefPack): void;
+export function formatAgentBriefPackMarkdown(pack: AgentBriefPack): string;
+```
+
+Validation requirements:
+
+- `version` must equal `agent-brief-pack.v1`.
+- `kind` must be one of `recall_pack`, `source_packet`, or `dispatch_brief`.
+- Every `summaryClaims`, `typedSlots`, `suggestedCommands`, and
+  `promotionCandidates` entry must have at least one `evidenceIds` entry unless
+  `operatorAuthored: true`.
+- Every evidence ID referenced by those arrays must exist in `evidence`.
+- `source_packet` packs must include `sourcePacket` and at least one
+  `BoundaryNote`.
+- `SourcePacket.forbiddenActions` is authoritative. Reject target payloads that
+  contain a nested `forbiddenActions` key.
+- Markdown output starts with `# Agent Brief Pack` and includes source locators,
+  boundaries, warnings, and promotion candidates.
+
+- [ ] **Step 3: run green**
+
+```bash
+HOME="$(mktemp -d)" npx tsx --test tests/agentic-suite.test.ts
+npm run build
+```
+
 ## Task 1: Capture Substrate
 
 **Files:**
 
 - Create: `src/capture.ts`
+- Create: `src/sensitive-content.ts`
 - Modify: `src/cli.ts`
 - Test: `tests/agentic-suite.test.ts`
 
@@ -341,6 +498,7 @@ test('capture text writes markdown under Library/Captures with metadata', async 
     assert.match(body, /version: fieldtheory.capture.v1/);
     assert.match(body, /type: note/);
     assert.match(body, /source: text/);
+    assert.match(body, /source_locator: stdin/);
     assert.match(body, /captured_at: 2026-05-31T12:00:00.000Z/);
     assert.match(body, /content_sha256: [a-f0-9]{64}/);
     assert.match(body, /Field Theory should learn from operator clips\./);
@@ -354,6 +512,29 @@ test('capture text rejects empty and unsupported types', async () => {
     await assert.rejects(() => captureText({ text: 'x', type: 'bad' as never }), /Unsupported capture type/);
   });
 });
+
+test('capture text suffixes same-second filename and id collisions', async () => {
+  await withAgenticRoots(async () => {
+    const { captureText } = await import('../src/capture.js');
+    const now = new Date('2026-05-31T12:00:00.000Z');
+    const first = await captureText({ text: 'Repeated capture slug.', type: 'note', now });
+    const second = await captureText({ text: 'Repeated capture slug.', type: 'note', now });
+    assert.equal(first.relPath, 'Captures/2026-05-31-120000-repeated-capture-slug.md');
+    assert.equal(second.relPath, 'Captures/2026-05-31-120000-repeated-capture-slug-2.md');
+    assert.equal(first.capture.id, 'cap_20260531_120000_repeated_capture_slug');
+    assert.equal(second.capture.id, 'cap_20260531_120000_repeated_capture_slug_2');
+  });
+});
+
+test('capture rejects high-confidence secret-like text', async () => {
+  await withAgenticRoots(async () => {
+    const { captureText } = await import('../src/capture.js');
+    await assert.rejects(
+      () => captureText({ text: 'ghp_1234567890abcdefghijklmnopqrstuvwx', type: 'note' }),
+      /refusing to capture secret-like content/i,
+    );
+  });
+});
 ```
 
 - [ ] **Step 2: run red**
@@ -365,6 +546,22 @@ HOME="$(mktemp -d)" npx tsx --test tests/agentic-suite.test.ts
 Expected: module or function missing.
 
 - [ ] **Step 3: implement `src/capture.ts`**
+
+Create `src/sensitive-content.ts` first:
+
+```ts
+export interface SensitiveFinding {
+  kind: "github_token" | "bearer_token" | "api_key" | "auth_token" | "private_key" | "wallet_seed_phrase";
+  label: string;
+}
+
+export function detectSensitiveContent(content: string): SensitiveFinding[];
+export function assertNoSensitiveContent(content: string, context: string): void;
+export function redactSensitiveContent(content: string): { content: string; findings: SensitiveFinding[] };
+```
+
+`assertNoSensitiveContent()` throws `Refusing to capture secret-like content:
+<kind>` when findings are present.
 
 Required API:
 
@@ -412,13 +609,20 @@ Implementation requirements:
 - Use `canonicalLibraryDir()` and write under `Captures/`.
 - Add `capturesDir(): string` to `src/paths.ts` and use `createLibraryDocument('Captures/<filename>', { content })` or the same `resolveMarkdownPath()` + `createMarkdownFile()` path guard path. Do not call `writeMd(path.join(...))` directly.
 - Use `sha256()` from `src/document-ops.ts`.
+- Use `detectSensitiveContent()` from `src/sensitive-content.ts`. Reject
+  high-confidence secret-like content before writing any capture. The v1 CLI
+  does not include `--allow-sensitive`; operators must remove secrets before
+  capture.
 - Slug from first 60 useful content characters, lowercased, non-alphanumeric collapsed.
-- ID format: `cap_YYYYMMDD_HHMMSS_<slug>`.
+- ID format: `cap_YYYYMMDD_HHMMSS_<slug>`, with the same collision suffix as
+  the filename converted to `_2`, `_3`, etc.
 - Filename format: `YYYY-MM-DD-HHMMSS-<slug>.md`.
 - Collision policy: if the exact filename exists, append `-2`, `-3`, etc. before `.md`; test two same-second captures with identical text.
 - Default `source_locator`: `stdin` for `captureText({ source: 'text' })`, `macos-pbpaste` for clipboard.
 - `captureClipboard()` default implementation uses `pbpaste` through `node:child_process` on macOS and throws `Clipboard capture failed. Use ft capture text --stdin as a fallback.` on failure.
-- Clipboard captures persist raw clipboard text under `Library/Captures/`; docs and command help must warn operators not to capture secrets.
+- Clipboard captures persist raw clipboard text under `Library/Captures/` only
+  after sensitive-content preflight passes; docs and command help must warn
+  operators not to capture secrets.
 
 - [ ] **Step 4: wire CLI**
 
@@ -443,7 +647,7 @@ npm run build
 
 **Files:**
 
-- Create: `src/agent-brief-pack.ts`
+- Modify: `src/agent-brief-pack.ts`
 - Create: `src/recall.ts`
 - Modify: `src/cli.ts`
 - Test: `tests/agentic-suite.test.ts`
@@ -463,6 +667,7 @@ test('recall combines captures library commands and bookmarks into AgentBriefPac
       'captured_at: 2026-05-31T12:00:00.000Z',
       'promotion_status: captured',
       'tags: [agent]',
+      'source_locator: stdin',
       'content_sha256: abc',
       '---',
       '# Agent memory',
@@ -471,7 +676,7 @@ test('recall combines captures library commands and bookmarks into AgentBriefPac
       '',
     ].join('\n'));
     fs.mkdirSync(path.join(library, 'Notes'), { recursive: true });
-    fs.writeFileSync(path.join(library, 'Notes', 'learning.md'), '# Learning\n\nRecall pack context lives here.\n');
+    fs.writeFileSync(path.join(library, 'Notes', 'learning.md'), '# Learning\n\nRecall packs context lives here.\n');
     fs.mkdirSync(commands, { recursive: true });
     fs.writeFileSync(path.join(commands, 'agent-recall.md'), '# agent-recall\n\nUse this when building recall packs.\n\n## Steps\n\n1. Run recall.\n\n## Guardrails\n\n- Verify.\n');
     fs.mkdirSync(data, { recursive: true });
@@ -491,9 +696,11 @@ test('recall combines captures library commands and bookmarks into AgentBriefPac
 
     const { buildIndex } = await import('../src/bookmarks-db.js');
     const { buildRecallPack } = await import('../src/recall.js');
+    const { assertValidAgentBriefPack } = await import('../src/agent-brief-pack.js');
     await buildIndex();
 
     const pack = await buildRecallPack('recall packs', { now: new Date('2026-05-31T13:00:00.000Z') });
+    assertValidAgentBriefPack(pack);
     assert.equal(pack.version, 'agent-brief-pack.v1');
     assert.equal(pack.kind, 'recall_pack');
     assert.equal(pack.query, 'recall packs');
@@ -501,6 +708,19 @@ test('recall combines captures library commands and bookmarks into AgentBriefPac
     assert.ok(pack.evidence.some((item) => item.sourceType === 'library'));
     assert.ok(pack.evidence.some((item) => item.sourceType === 'command'));
     assert.ok(pack.evidence.some((item) => item.sourceType === 'bookmark'));
+    assert.ok(pack.storeStatus.every((entry) => ['available', 'missing', 'empty', 'error'].includes(entry.status)));
+  });
+});
+
+test('recall returns partial pack when bookmark index is missing', async () => {
+  await withAgenticRoots(async ({ library }) => {
+    fs.mkdirSync(path.join(library, 'Notes'), { recursive: true });
+    fs.writeFileSync(path.join(library, 'Notes', 'agent.md'), '# Agent\n\nRecall packs can work locally.\n');
+    const { buildRecallPack } = await import('../src/recall.js');
+    const pack = await buildRecallPack('recall packs', { now: new Date('2026-05-31T13:00:00.000Z') });
+    assert.equal(pack.resultEnvelope.status, 'partial');
+    assert.ok(pack.storeStatus.some((entry) => entry.store === 'bookmarks' && entry.status === 'missing'));
+    assert.ok(pack.evidence.every((item) => item.sourceType !== 'bookmark'));
   });
 });
 ```
@@ -509,10 +729,17 @@ test('recall combines captures library commands and bookmarks into AgentBriefPac
 
 `buildRecallPack(query, options)` must:
 
-- Search captures with `listLibraryDocuments({ includeRelPathPrefixes: ['Captures/'] })`.
+- Search captures with a dedicated `searchCaptureDocuments(query, limits)` helper.
+  It may use `listLibraryDocuments({ includeRelPathPrefixes: ['Captures/'] })`
+  for discovery, but it must read/filter capture content by query before adding
+  evidence so unrelated captures do not leak into recall packs.
 - Search Library with `searchLibraryDocuments(query, { limit, excludeDirs: [capturesDir()] })` or equivalent so captures are not double-counted as both `capture` and `library`.
 - Search Commands by scanning `listCommandDocuments()` and matching name/content.
-- Search bookmarks with `searchBookmarks({ query, limit })`, returning `storeStatus: missing|empty|error` plus a warning if `bookmarks.db` is absent, empty, or unreadable.
+- Before any bookmark search, check `fs.existsSync(twitterBookmarksIndexPath())`.
+  If absent, return `storeStatus: missing` and a warning without calling
+  `searchBookmarks()`. Search bookmarks with `searchBookmarks({ query, limit })`
+  only after the index exists, returning `storeStatus: empty|error` plus a
+  warning when the DB is empty or unreadable.
 - Hydrate bookmark matches with `getBookmarkById()` before building evidence so article text, quoted tweet fields, categories, domains, and links are available.
 - Score exact title/name matches highest, usage/heading hits next, body matches next, bookmark FTS score last normalized into stable order.
 - Preserve per-source quotas, for example `captures=5`, `library=5`, `commands=3`, `bookmarks=8`, so bookmark volume cannot starve Library or Commands.
@@ -522,7 +749,7 @@ test('recall combines captures library commands and bookmarks into AgentBriefPac
 - [ ] **Step 3: wire CLI**
 
 ```bash
-ft recall "agent memory" --json
+ft recall "agent memory" --json --captures 5 --library 5 --commands 3 --bookmarks 8
 ft recall "agent memory" --md
 ```
 
@@ -577,7 +804,44 @@ test('bookmark packet maps bookmark into target-specific source packet', async (
     assert.equal(pack.sourcePacket?.target, 'aeon');
     assert.equal(pack.sourcePacket?.agentRoute, 'build_handoff');
     assert.equal(pack.sourcePacket?.whySavedStatus, 'unknown');
+    assert.ok(pack.sourcePacket?.forbiddenActions.includes('create_repo'));
+    assert.equal('forbiddenActions' in (pack.sourcePacket?.payload ?? {}), false);
+    assert.ok(pack.boundaries.some((boundary) => boundary.authority === 'dry-run'));
     assert.ok(pack.evidence[0].locator.includes('https://x.com/test/status/1'));
+  });
+});
+
+test('bookmark packet emits exact dry-run payloads for each target', async () => {
+  await withAgenticRoots(async ({ data }) => {
+    fs.mkdirSync(data, { recursive: true });
+    fs.writeFileSync(path.join(data, 'bookmarks.jsonl'), JSON.stringify({
+      id: 'b1',
+      tweetId: '1',
+      url: 'https://x.com/test/status/1',
+      text: 'Content OS needs source packets.',
+      authorHandle: 'test',
+      syncedAt: '2026-05-31T00:00:00Z',
+      postedAt: '2026-05-31T00:00:00Z',
+      links: ['https://example.com'],
+      tags: ['agents'],
+      mediaObjects: [],
+      ingestedVia: 'graphql',
+    }) + '\n');
+    const { buildIndex } = await import('../src/bookmarks-db.js');
+    const { buildBookmarkPacket } = await import('../src/packet.js');
+    await buildIndex();
+
+    const hermes = await buildBookmarkPacket('b1', { target: 'hermes', now: new Date('2026-05-31T13:00:00.000Z') });
+    assert.equal(hermes.sourcePacket?.agentRoute, 'recon_candidate');
+    assert.ok(hermes.sourcePacket?.forbiddenActions.includes('kanban_write'));
+    assert.equal('forbiddenActions' in (hermes.sourcePacket?.payload ?? {}), false);
+    assert.ok('kanbanTaskDryRun' in (hermes.sourcePacket?.payload ?? {}));
+
+    const contentOs = await buildBookmarkPacket('b1', { target: 'content-os', now: new Date('2026-05-31T13:00:00.000Z') });
+    assert.equal(contentOs.sourcePacket?.agentRoute, 'synthesis_evidence');
+    assert.ok('topicKeys' in (contentOs.sourcePacket?.payload ?? {}));
+    assert.ok('sourceIdentity' in (contentOs.sourcePacket?.payload ?? {}));
+    assert.ok('source_metadata_json' in (contentOs.sourcePacket?.payload ?? {}));
   });
 });
 ```
@@ -591,7 +855,7 @@ test('bookmark packet maps bookmark into target-specific source packet', async (
 | `content-os` | `content-os` | `synthesis_evidence` |
 
 Unknown IDs must throw `Bookmark not found: <id>`.
-Missing bookmark indexes must throw `Bookmark index missing; run ft sync or ft index first.` for text output and return structured failure JSON when `--json` error mode is implemented.
+Missing bookmark indexes must be detected with `fs.existsSync(twitterBookmarksIndexPath())` before calling `getBookmarkById()`. Text output throws `Bookmark index missing; run ft sync or ft index first.` and `--json` prints a structured failure envelope without a stack trace.
 Packet `<id>` means bookmark record `id` for v1; `tweetId` and URL aliases are deferred until a tested resolver exists.
 Do not infer why the operator saved a bookmark. Set `whySavedStatus: "unknown"` unless a capture or Library note explicitly supplies intent.
 
@@ -599,9 +863,12 @@ Target payload requirements:
 
 | Target | Required payload fields |
 |---|---|
-| `aeon` | `repoHints`, `skillHints`, `memorySeeds`, `aeonDraftConfigPath`, `verificationCommands`, `forbiddenActions: ["create_repo","write_github_secret","dispatch_workflow"]` |
-| `hermes` | `profileHint`, `kanbanTaskDryRun`, `boardHint`, `gate`, `resultEnvelope`, `forbiddenActions: ["kanban_write","profile_mutation"]` |
-| `content-os` | `topicKeys`, `tags_json`, `source_metadata_json`, `links_json`, `dedupeKey`, `nextAction`, `adapterRequired: true` |
+| `aeon` | `repoHints`, `skillHints`, `memorySeeds`, `aeonDraftConfigPath`, `verificationCommands` |
+| `hermes` | `profileHint`, `kanbanTaskDryRun`, `boardHint`, `gate`, `resultEnvelope` |
+| `content-os` | `topicKeys`, `tags_json`, `source_metadata_json`, `links_json`, `dedupeKey`, `sourceIdentity`, `nextAction`, `adapterRequired: true` |
+
+Forbidden actions are never nested inside `payload`. Use
+`sourcePacket.forbiddenActions` and matching `BoundaryNote.forbiddenActions`.
 
 - [ ] **Step 3: wire CLI**
 
@@ -609,6 +876,96 @@ Target payload requirements:
 ft packet bookmark <id> --target aeon --json
 ft packet bookmark <id> --target hermes --md
 ```
+
+`ft packet bookmark` is dry-run by design in v1. Do not add or document a
+separate `--dry-run` flag until a live apply command exists.
+
+## Task 3.5: Output And Sensitive Content Guards
+
+**Files:**
+
+- Create: `src/output-guard.ts`
+- Modify: `src/sensitive-content.ts`
+- Test: `tests/agentic-suite.test.ts`
+
+- [ ] **Step 1: write failing guard tests**
+
+Append:
+
+```ts
+test('output guard rejects escapes symlink roots and sibling prefixes', async () => {
+  await withAgenticRoots(async ({ root }) => {
+    const { resolveOutputRoot, assertInsideOutputRoot } = await import('../src/output-guard.js');
+    const out = path.join(root, 'out');
+    fs.mkdirSync(out, { recursive: true });
+    const resolved = resolveOutputRoot(out);
+    assert.doesNotThrow(() => assertInsideOutputRoot(resolved, path.join(out, 'fieldtheory', 'exports', 'manifest.json')));
+    assert.throws(() => assertInsideOutputRoot(resolved, path.join(root, 'out-evil', 'manifest.json')), /outside output root/i);
+
+    const symlinkRoot = path.join(root, 'linked-out');
+    fs.symlinkSync(out, symlinkRoot, 'dir');
+    assert.throws(() => resolveOutputRoot(symlinkRoot), /symlinked output root/i);
+  });
+});
+
+test('sensitive content detector catches tokens keys cookies and seed phrases', async () => {
+  const { detectSensitiveContent } = await import('../src/sensitive-content.js');
+  const findings = detectSensitiveContent([
+    'ghp_1234567890abcdefghijklmnopqrstuvwx',
+    'Authorization: Bearer abcdefghijklmnopqrstuvwxyz0123456789',
+    'api_key=sk-test-1234567890abcdef',
+    'auth_token=1234567890abcdef',
+    '-----BEGIN PRIVATE KEY-----',
+    'seed phrase abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
+  ].join('\n'));
+  assert.ok(findings.length >= 6);
+});
+```
+
+- [ ] **Step 2: implement shared guards**
+
+`src/output-guard.ts` exports:
+
+```ts
+export interface OutputRoot {
+  requested: string;
+  resolved: string;
+  realParent: string;
+}
+
+export function resolveOutputRoot(outDir: string): OutputRoot;
+export function assertInsideOutputRoot(root: OutputRoot, filePath: string): void;
+export function writeFixedBundleFile(root: OutputRoot, relPath: string, content: string, options?: { force?: boolean }): string;
+export function safeId(value: string): string;
+```
+
+Requirements:
+
+- Reject empty output paths.
+- Resolve the output root with `path.resolve()`.
+- Use `fs.lstatSync()` where possible to reject a symlinked output root.
+- Resolve existing parents with `realpathSync.native()` where possible.
+- Use `isPathInside()` path semantics, never string prefix checks.
+- Reject hidden paths, absolute relative paths, `..` segments, and existing files
+  unless `force` is true.
+- `safeId()` returns `sha256(value).slice(0, 12)`.
+
+`src/sensitive-content.ts` exports:
+
+```ts
+export interface SensitiveFinding {
+  kind: "github_token" | "bearer_token" | "api_key" | "auth_token" | "private_key" | "wallet_seed_phrase";
+  label: string;
+}
+
+export function detectSensitiveContent(content: string): SensitiveFinding[];
+export function assertNoSensitiveContent(content: string, context: string): void;
+export function redactSensitiveContent(content: string): { content: string; findings: SensitiveFinding[] };
+```
+
+Capture uses `assertNoSensitiveContent()`. Soul/export may either refuse or
+redact, but tests must prove raw secret values do not appear in output files and
+that any redaction is reported in the manifest or result envelope.
 
 ## Task 4: Soul Draft
 
@@ -624,7 +981,40 @@ ft packet bookmark <id> --target hermes --md
 test('soul draft writes editable soul files under explicit output root', async () => {
   await withAgenticRoots(async ({ root, library }) => {
     fs.mkdirSync(path.join(library, 'Captures'), { recursive: true });
-    fs.writeFileSync(path.join(library, 'Captures', 'soul.md'), '# Soul capture\n\nPrefer source-backed work.\n');
+    fs.writeFileSync(path.join(library, 'Captures', 'soul.md'), [
+      '---',
+      'version: fieldtheory.capture.v1',
+      'id: cap_soul',
+      'type: soul',
+      'source: text',
+      'captured_at: 2026-05-31T12:00:00.000Z',
+      'promotion_status: captured',
+      'tags: [soul]',
+      'source_locator: stdin',
+      'content_sha256: abc',
+      '---',
+      '# Soul capture',
+      '',
+      'Prefer source-backed work.',
+      '',
+    ].join('\n'));
+    fs.writeFileSync(path.join(library, 'Captures', 'not-soul.md'), [
+      '---',
+      'version: fieldtheory.capture.v1',
+      'id: cap_note',
+      'type: note',
+      'source: text',
+      'captured_at: 2026-05-31T12:00:00.000Z',
+      'promotion_status: captured',
+      'tags: [note]',
+      'source_locator: stdin',
+      'content_sha256: def',
+      '---',
+      '# Note capture',
+      '',
+      'This should not become identity material.',
+      '',
+    ].join('\n'));
     const out = path.join(root, 'soul-out');
     const { draftSoulFiles } = await import('../src/soul-draft.js');
     const result = await draftSoulFiles({ from: ['library', 'clipboard'], outDir: out, now: new Date('2026-05-31T14:00:00.000Z') });
@@ -636,8 +1026,42 @@ test('soul draft writes editable soul files under explicit output root', async (
       'data/source-index.json',
       'examples/good-outputs.md',
     ]);
-    assert.match(fs.readFileSync(path.join(out, 'SOUL.md'), 'utf-8'), /editable draft/i);
+    const soulBody = fs.readFileSync(path.join(out, 'SOUL.md'), 'utf-8');
+    assert.match(soulBody, /editable draft/i);
+    assert.match(soulBody, /Prefer source-backed work/);
+    assert.doesNotMatch(soulBody, /not become identity material/);
+    const sourceIndex = JSON.parse(fs.readFileSync(path.join(out, 'data', 'source-index.json'), 'utf-8'));
+    assert.equal(sourceIndex.sources[0].type, 'soul');
+    assert.equal(sourceIndex.sources[0].draftStatus, 'editable');
     assert.equal(fs.existsSync(path.join(out, '.git')), false);
+  });
+});
+
+test('soul draft refuses secret-like source material', async () => {
+  await withAgenticRoots(async ({ root, library }) => {
+    fs.mkdirSync(path.join(library, 'Captures'), { recursive: true });
+    fs.writeFileSync(path.join(library, 'Captures', 'secret-soul.md'), [
+      '---',
+      'version: fieldtheory.capture.v1',
+      'id: cap_secret_soul',
+      'type: soul',
+      'source: text',
+      'captured_at: 2026-05-31T12:00:00.000Z',
+      'promotion_status: captured',
+      'tags: [soul]',
+      'source_locator: stdin',
+      'content_sha256: secret',
+      '---',
+      '# Secret soul',
+      '',
+      'Authorization: Bearer abcdefghijklmnopqrstuvwxyz0123456789',
+      '',
+    ].join('\n'));
+    const { draftSoulFiles } = await import('../src/soul-draft.js');
+    await assert.rejects(
+      () => draftSoulFiles({ from: ['clipboard'], outDir: path.join(root, 'soul-out') }),
+      /secret-like content/i,
+    );
   });
 });
 ```
@@ -647,12 +1071,16 @@ test('soul draft writes editable soul files under explicit output root', async (
 `draftSoulFiles()` must:
 
 - Reject empty `outDir`.
-- Resolve output root with `path.resolve()`.
+- Use `resolveOutputRoot()` and `writeFixedBundleFile()` from
+  `src/output-guard.ts`.
 - Create only `SOUL.md`, `STYLE.md`, `MEMORY.md`, `examples/good-outputs.md`, and `data/source-index.json`.
 - Refuse to write if any output path escapes the root.
 - Resolve existing output roots and parents with `realpath` where possible, reject symlinked output roots, and never follow a symlink out of the root.
 - Refuse existing files unless `--force` is explicit.
 - Treat `clipboard` as prior `type: soul` captures in `Library/Captures/`, not live clipboard access.
+- Ignore captures without valid flat `fieldtheory.capture.v1` frontmatter, and
+  ignore non-`soul` captures for the `clipboard` source.
+- Run `assertNoSensitiveContent()` on every selected source before writing.
 - Mark every file as editable draft, not final identity.
 
 ## Task 5: Agent Export Bundles
@@ -670,12 +1098,47 @@ test('aeon export writes local-only bundle without git or secrets', async () => 
   await withAgenticRoots(async ({ root }) => {
     const repo = path.join(root, 'gordo-export');
     const { exportAeonBundle } = await import('../src/agent-export.js');
-    const result = await exportAeonBundle({ repoPath: repo, includeSoul: true, includeBriefs: true });
+    const result = await exportAeonBundle({
+      repoPath: repo,
+      query: 'agent memory',
+      bookmarkIds: [],
+      includeSoul: true,
+      includeBriefs: true,
+    });
 
     assert.equal(fs.existsSync(path.join(repo, '.git')), false);
     assert.equal(fs.existsSync(path.join(repo, 'fieldtheory', 'exports')), true);
     assert.equal(fs.existsSync(path.join(repo, 'soul', 'SOUL.md')), true);
-    assert.ok(result.files.every((file) => file.path.startsWith(repo)));
+    assert.equal(result.manifest.resultEnvelope.status, 'partial');
+    assert.ok(result.files.every((file) => {
+      const rel = path.relative(repo, file.path);
+      return rel && !rel.startsWith('..') && !path.isAbsolute(rel);
+    }));
+    assert.equal(result.files.some((file) => file.relPath.includes('/packets/')), false);
+  });
+});
+
+test('aeon export refuses existing git repo without explicit gate', async () => {
+  await withAgenticRoots(async ({ root }) => {
+    const repo = path.join(root, 'gordo-export');
+    fs.mkdirSync(path.join(repo, '.git'), { recursive: true });
+    const { exportAeonBundle } = await import('../src/agent-export.js');
+    await assert.rejects(
+      () => exportAeonBundle({ repoPath: repo, query: 'agent memory', bookmarkIds: [] }),
+      /existing git repo/i,
+    );
+  });
+});
+
+test('exports refuse secret-like source material', async () => {
+  await withAgenticRoots(async ({ root, library }) => {
+    fs.mkdirSync(path.join(library, 'Captures'), { recursive: true });
+    fs.writeFileSync(path.join(library, 'Captures', 'secret.md'), 'api_key=sk-test-1234567890abcdef\n');
+    const { exportHermesBundle } = await import('../src/agent-export.js');
+    await assert.rejects(
+      () => exportHermesBundle({ outDir: path.join(root, 'hermes'), query: 'api key', bookmarkIds: [], includeBriefs: true }),
+      /secret-like content/i,
+    );
   });
 });
 ```
@@ -685,8 +1148,8 @@ test('aeon export writes local-only bundle without git or secrets', async () => 
 Required CLIs:
 
 ```bash
-ft export aeon --repo <path> --soul --briefs --json
-ft export hermes --out <path> --briefs --json
+ft export aeon --repo <path> --query <query> --bookmark <id> --soul --briefs --json
+ft export hermes --out <path> --query <query> --bookmark <id> --briefs --json
 ft export soul --out <path> --json
 ```
 
@@ -698,8 +1161,8 @@ Bundle layout:
     manifest.json
     brief.json
     brief.md
-    packets/aeon-bookmark-<safe-id>.json
-    packets/aeon-bookmark-<safe-id>.md
+    packets/aeon-bookmark-<safe-id>.json  # only when --bookmark is provided
+    packets/aeon-bookmark-<safe-id>.md    # only when --bookmark is provided
     sources/source-index.json
     reports/export-report.json
     aeon/aeon.yml.draft
@@ -719,8 +1182,8 @@ Hermes layout:
     manifest.json
     brief.json
     brief.md
-    packets/hermes-bookmark-<safe-id>.json
-    packets/hermes-bookmark-<safe-id>.md
+    packets/hermes-bookmark-<safe-id>.json  # only when --bookmark is provided
+    packets/hermes-bookmark-<safe-id>.md    # only when --bookmark is provided
     hermes/task-payload.dry-run.json
     hermes/profile-handoff.md
     hermes/result-envelope.json
@@ -729,8 +1192,17 @@ Hermes layout:
 
 Export functions must not call `git`, `gh`, `vercel`, network APIs, or model engines.
 Do not write root `aeon.yml`, `.github/workflows`, `.git`, secrets, or dispatch files in v1. Keep `aeon.yml.draft` inside the export bundle until a later explicit apply gate exists.
+If `--repo` points at an existing `.git` repo, refuse unless
+`--allow-existing-repo` is passed. With `--allow-existing-repo`, writes are still
+limited to `fieldtheory/exports/<run-id>/` and optional `soul/` files.
 Use fixed relative paths only. Never interpolate raw bookmark text, author handles, target names, or operator input into filenames. Use `safe-id = sha256(id).slice(0, 12)` or strict `[A-Za-z0-9_-]`.
 Resolve output roots/parents with `realpath` where possible, reject symlinked output roots, and refuse existing files unless `--force` is explicit.
+Export APIs accept `query` and `bookmarkIds`. If `bookmarkIds` is empty, emit an
+empty-but-honest brief with `resultEnvelope.status: "partial"` and no packet
+files. Do not create placeholder packets.
+Run `assertNoSensitiveContent()` or a redaction pass over every generated file
+before writing. Tests must prove the raw secret strings from fixtures do not
+appear in any soul/export file.
 
 ## Task 6: Operator Surfaces And Docs
 
@@ -743,6 +1215,8 @@ Resolve output roots/parents with `realpath` where possible, reject symlinked ou
 - Modify: `docs/workflows/operator-suite.md`
 - Modify: `docs/features/agent-brief-packs.md`
 - Modify: `package.json`
+- Modify: `package-lock.json`
+- Modify: `docs/handoff/hosted-suite-milestone-2.md`
 - Test: `tests/skill.test.ts`, `tests/operator-suite.test.ts`, `tests/cli.test.ts`
 
 - [ ] **Step 1: update skill guidance**
@@ -755,7 +1229,7 @@ ft capture text --stdin --type source --json
 ft recall <query> --json
 ft packet bookmark <id> --target aeon --json
 ft soul draft --from bookmarks,library,clipboard --out soul/
-ft export aeon --repo <path> --soul --briefs --json
+ft export aeon --repo <path> --query <query> --bookmark <id> --soul --briefs --json
 ```
 
 Guidance must say: agents prefer `ft recall --json` and `ft packet ... --json` before raw search/list when they need bounded context.
@@ -781,17 +1255,42 @@ Library without explicit operator selection.
 
 `tests/operator-suite.test.ts` must assert Raycast `run-command` uses `<List isShowingDetail>` so command output is visible by default.
 
+Also add a scaffold agreement test: run `scaffoldRaycastExtension()` into a temp
+directory and assert the generated `src/run-command.tsx` and curated command
+list match the checked-in Raycast extension.
+
 - [ ] **Step 4: version and release surface**
 
 After the new CLI commands work and final gates pass, bump the package minor
-version from `1.4.0` to `1.5.0`. Before any publish or release tag, add a
-release checklist item for:
+version from `1.4.0` to `1.5.0` in both `package.json` and `package-lock.json`.
+Add a concrete root release script:
+
+```json
+"release:check": "npm run build && npm pack --dry-run && node bin/ft.mjs --help"
+```
+
+Before any publish or release tag, run:
 
 ```bash
-npm pack --dry-run
-npm run build
-node bin/ft.mjs --help
+npm run release:check
 ```
+
+- [ ] **Step 5: refresh hosted-suite handoff artifact**
+
+Update `docs/handoff/hosted-suite-milestone-2.md` with real smoke output in
+these sections:
+
+- `Contract Version`: `agent-brief-pack.v1` and `fieldtheory.capture.v1`.
+- `Sample AgentBriefPack`: one compact JSON example from the smoke fixtures.
+- `Sample Export Manifest`: one compact JSON manifest from Aeon/Hermes export.
+- `Forbidden Writes`: no Vercel deploy, no Privy config, no wallet secrets, no
+  GitHub workflow dispatch, no Hermes/GBrain/wiki writes from M1 commands.
+- `Privy Assumptions`: GitHub login plus Base EVM and Solana wallets are planned
+  but not implemented.
+- `x402 Status`: architecture handoff only; no payment enforcement until a
+  later explicit apply gate.
+- `M2 Entry Gate`: M1 tests, smoke, package, and Raycast release checks must be
+  green before hosted work starts.
 
 ## Final Verification
 
@@ -802,8 +1301,20 @@ HOME="$(mktemp -d)" npx tsx --test tests/agentic-suite.test.ts
 HOME="$(mktemp -d)" npx tsx --test tests/operator-suite.test.ts tests/skill.test.ts tests/cli.test.ts
 HOME="$(mktemp -d)" npm test
 npm run build
+npm run release:check
 git diff --check
 ```
+
+Raycast release checks:
+
+```bash
+npm --prefix raycast/fieldtheory install
+npm --prefix raycast/fieldtheory run lint
+npm --prefix raycast/fieldtheory run build
+```
+
+If the Raycast CLI is unavailable locally, record that as a release blocker or
+run those checks on a machine with Raycast tooling before publishing.
 
 Run CLI smoke with isolated roots:
 
@@ -825,10 +1336,13 @@ npm run dev -- packet bookmark bm_test --target aeon --json
 npm run dev -- packet bookmark bm_test --target hermes --md
 npm run dev -- packet bookmark bm_test --target content-os --json
 npm run dev -- soul draft --from bookmarks,library,clipboard --out "$tmp/soul" --json
-npm run dev -- export aeon --repo "$tmp/aeon-repo" --soul --briefs --json
-npm run dev -- export hermes --out "$tmp/hermes-export" --briefs --json
+npm run dev -- export aeon --repo "$tmp/aeon-repo" --query agent --bookmark bm_test --soul --briefs --json
+npm run dev -- export hermes --out "$tmp/hermes-export" --query agent --bookmark bm_test --briefs --json
 npm run dev -- export soul --out "$tmp/soul-export" --json
 ```
+
+Confirm no Milestone 1 commit adds `.github/workflows`, `vercel.json`, Next.js
+app files, Privy config, wallet secrets, or x402 enforcement code.
 
 Do not use a bare stdin command like this, because it can hang in automation:
 
