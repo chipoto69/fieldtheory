@@ -1,0 +1,52 @@
+{
+  "name": "fieldtheory",
+  "title": "Field Theory",
+  "description": "Operate Field Theory from Raycast through the local ft CLI.",
+  "icon": "extension-icon.png",
+  "author": "chipoto69",
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "search-bookmarks",
+      "title": "Search Bookmarks",
+      "description": "Search local X/Twitter bookmarks through ft search --json.",
+      "mode": "view"
+    },
+    {
+      "name": "operator-suite",
+      "title": "Operator Suite",
+      "description": "Show Field Theory operator suite status from ft suite status --json.",
+      "mode": "view"
+    },
+    {
+      "name": "run-command",
+      "title": "Run Field Theory Command",
+      "description": "Run a curated read-only Field Theory command.",
+      "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "ftBinary",
+      "title": "ft binary",
+      "description": "Path or binary name for the Field Theory CLI.",
+      "type": "textfield",
+      "required": false,
+      "default": "ft"
+    }
+  ],
+  "scripts": {
+    "build": "ray build -e dist",
+    "dev": "ray develop",
+    "lint": "ray lint"
+  },
+  "dependencies": {
+    "@raycast/api": "^1.100.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.0.4",
+    "@types/node": "^20.11.30",
+    "typescript": "^5.4.5"
+  }
+}
+

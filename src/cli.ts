@@ -37,6 +37,14 @@ import { dataDir, ensureDataDir, isFirstRun, migrateLegacyIdeasData, twitterBook
 import { PromptCancelledError, promptText } from './prompt.js';
 import { skillWithFrontmatter, installSkill, uninstallSkill } from './skill.js';
 import { registerCompanionCommands } from './companion-cli.js';
+import {
+  OPERATOR_SUITE_ARCHITECTURE_MD,
+  OPERATOR_SUITE_WORKFLOWS_MD,
+  formatOperatorSuiteStatus,
+  getOperatorSuiteStatus,
+  getRaycastManifest,
+  scaffoldRaycastExtension,
+} from './operator-suite.js';
 import { getPathReport } from './field-status.js';
 import { formatAgentContext, getAgentContext } from './agent-context.js';
 import { formatCurrentDocumentSummary, readCurrentDocumentContext, readCurrentDocumentSummary } from './current.js';
@@ -388,6 +396,10 @@ function showCachedUpdateNotice(): void {
 // ── What's new ────────────────────────────────────────────────────────────
 
 const WHATS_NEW: Record<string, string[]> = {
+  '1.4.0': [
+    'ft suite exposes the AI operator suite manifest, architecture docs, workflows, and Raycast scaffold',
+    'Operator suite docs map MCP, skills, plugins, CLI, Raycast, and local write authority',
+  ],
   '1.3.18': [
     'ft sync now downloads media by default; pass --no-media to skip',
     'ft sync --gaps now also fills media gaps in the same pass',
@@ -485,6 +497,7 @@ function isInternalWorkerCommand(command: Command): boolean {
 function shouldSkipCommandChrome(command: Command): boolean {
   if (isInternalWorkerCommand(command)) return true;
   if (command.opts().json) return true;
+  if (command.parent?.name() === 'suite' || command.parent?.parent?.name() === 'suite') return true;
   if ([
     'path', 'paths', 'current', 'recent', 'state', 'ls', 'tree', 'find', 'grep', 'cat',
     'head', 'meta', 'pwd', 'context', 'open', 'tab', 'reveal', 'link', 'links',
@@ -1917,6 +1930,84 @@ export function buildCli() {
     }));
 
   registerCompanionCommands(program, safe);
+
+  const suite = program
+    .command('suite')
+    .description('Operate the Field Theory AI operator suite');
+
+  suite
+    .command('status')
+    .description('Show operator suite surfaces, components, and workflows')
+    .option('--json', 'JSON output')
+    .action((options) => {
+      const status = getOperatorSuiteStatus();
+      if (options.json) {
+        printJson(status);
+        return;
+      }
+      process.stdout.write(formatOperatorSuiteStatus(status));
+    });
+
+  suite
+    .command('architecture')
+    .description('Print visual MCP, skills, plugins, and CLI architecture docs')
+    .option('--json', 'JSON output')
+    .action((options) => {
+      if (options.json) {
+        printJson({ path: 'docs/architecture/operator-suite.md', markdown: OPERATOR_SUITE_ARCHITECTURE_MD });
+        return;
+      }
+      process.stdout.write(OPERATOR_SUITE_ARCHITECTURE_MD);
+    });
+
+  suite
+    .command('workflows')
+    .description('Print operator and agent workflow documentation')
+    .option('--json', 'JSON output')
+    .action((options) => {
+      if (options.json) {
+        printJson({ path: 'docs/workflows/operator-suite.md', markdown: OPERATOR_SUITE_WORKFLOWS_MD });
+        return;
+      }
+      process.stdout.write(OPERATOR_SUITE_WORKFLOWS_MD);
+    });
+
+  const raycast = suite
+    .command('raycast')
+    .description('Inspect or scaffold the Raycast CLI wrapper extension');
+
+  raycast
+    .command('manifest')
+    .description('Print the Raycast extension manifest')
+    .option('--json', 'JSON output')
+    .action((options) => {
+      const manifest = getRaycastManifest();
+      if (options.json) {
+        printJson(manifest);
+        return;
+      }
+      process.stdout.write(JSON.stringify(manifest, null, 2) + '\n');
+    });
+
+  raycast
+    .command('scaffold')
+    .description('Write the Raycast extension files from the CLI templates')
+    .option('--out <path>', 'Output directory', 'raycast/fieldtheory')
+    .option('--force', 'Overwrite existing files', false)
+    .option('--json', 'JSON output')
+    .action(safe(async (options) => {
+      const result = scaffoldRaycastExtension(String(options.out), { force: Boolean(options.force) });
+      if (options.json) {
+        printJson(result);
+        return;
+      }
+      console.log(`Raycast extension: ${result.root}`);
+      for (const file of result.written) console.log(`  wrote ${file}`);
+      for (const file of result.skipped) console.log(`  skipped ${file}`);
+      if (result.skipped.length > 0) {
+        console.log('Run with --force to overwrite skipped files.');
+      }
+    }));
 
   // ── sample ──────────────────────────────────────────────────────────────
 

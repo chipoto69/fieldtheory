@@ -132,6 +132,16 @@ Packaged variants can override the bundle id with `FT_APP_BUNDLE_ID`. Advanced d
 | `ft skill show` | Print skill content to stdout |
 | `ft skill uninstall` | Remove installed skill files |
 
+### Operator suite
+
+| Command | Description |
+|---------|-------------|
+| `ft suite status --json` | Show the AI operator suite manifest: CLI, docs, Raycast, skill, and MCP/plugin boundaries |
+| `ft suite architecture` | Print visual architecture documentation for MCP, skills, plugins, Raycast, and CLI planes |
+| `ft suite workflows` | Print agent/operator workflow gates and recommended command sequences |
+| `ft suite raycast manifest --json` | Show the Raycast extension manifest that wraps the CLI |
+| `ft suite raycast scaffold --out ./raycast/fieldtheory --force` | Regenerate the Raycast extension source from the CLI templates |
+
 ### Utilities
 
 | Command | Description |
@@ -161,6 +171,37 @@ Then ask your agent:
 > "Every day please sync any new X bookmarks using the Field Theory CLI."
 
 Works with Claude Code, Codex, or any agent with shell access.
+
+## AI operator suite
+
+Field Theory now ships a small operator suite for agents and humans who want one
+local-first control plane instead of separate tool surfaces.
+
+- **CLI backend**: `ft suite status --json` is the stable manifest for operator
+  surfaces and future MCP wrappers.
+- **Visual docs**: `docs/architecture/operator-suite.md` maps MCP, skills,
+  plugins, model routing, product surfaces, stores, and write authority with
+  Mermaid diagrams.
+- **Workflows**: `docs/workflows/operator-suite.md` documents read-only recall,
+  reusable command packaging, skill install, Raycast operation, and canon
+  promotion gates.
+- **Browser console**: open `apps/operator-suite/index.html` for a dependency-free
+  visual console.
+- **Raycast extension**: `raycast/fieldtheory` wraps the local `ft` binary for
+  bookmark search, suite status, and curated read-only health commands.
+
+Raycast development:
+
+```bash
+ft suite raycast scaffold --out ./raycast/fieldtheory --force
+cd raycast/fieldtheory
+npm install
+npm run dev
+```
+
+Future MCP work should wrap existing CLI JSON commands first. Do not give MCP,
+Raycast, or plugins independent write access to `bookmarks.db`, Library
+markdown, or portable command files.
 
 ## Scheduling
 

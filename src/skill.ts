@@ -31,6 +31,7 @@ Field Theory has three main local surfaces:
 - Starting non-trivial work where local history or reading history may add context
 - User asks for a roadmap, grid, seed, node, dot, debate, or "what should I do next" across projects
 - User says something like: "your goal is to look at XYZ type of bookmarks and debate / come up with a roadmap plotted in the grid of what I should do next across these projects"
+- User asks for Field Theory operator surfaces, MCP/skills/plugins architecture, Raycast integration, or agent workflows
 
 ## Search Workflow
 
@@ -41,8 +42,9 @@ Field Theory has three main local surfaces:
 5. Search durable notes first when prior project knowledge matters: \`ft library search <query> --json\`
 6. Search bookmarks when reading history or saved X/Twitter posts matter: \`ft search <query> --json\`
 7. Inspect exact files or bookmarks with \`ft library show <path> --json\`, \`ft show <id> --json\`, or \`ft commands show <name> --json\`
-8. Create or update durable Library notes and portable commands only when the user asks for a saved artifact
-9. Open useful Library pages in the Mac app with \`ft library open <path>\`
+8. Use \`ft suite status --json\` when the user needs the operator suite manifest, Raycast surface, or MCP/skills/plugins boundary
+9. Create or update durable Library notes and portable commands only when the user asks for a saved artifact
+10. Open useful Library pages in the Mac app with \`ft library open <path>\`
 
 ## Possible Roadmap Workflow
 
@@ -124,6 +126,12 @@ ft commands list               # List portable command markdown files
 ft commands show <name>        # Read one command
 ft commands new <name>         # Create a new command
 ft commands validate [name]    # Check command shape
+
+ft suite status --json         # AI operator suite manifest
+ft suite architecture          # Visual MCP/skills/plugins architecture docs
+ft suite workflows             # Agent and operator workflow gates
+ft suite raycast manifest      # Raycast extension manifest
+ft suite raycast scaffold      # Write Raycast extension source files
 \`\`\`
 
 Combine filters: \`ft list --category tool --domain ai --limit 10\`

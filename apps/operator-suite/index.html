@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Field Theory Operator Suite</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <aside class="rail" aria-label="Operator navigation">
+      <div class="brand-mark">FT</div>
+      <nav>
+        <a href="#command">CLI</a>
+        <a href="#planes">Planes</a>
+        <a href="#raycast">Raycast</a>
+        <a href="#workflow">Gates</a>
+      </nav>
+    </aside>
+
+    <main>
+      <section class="topbar" id="command">
+        <div>
+          <h1>Field Theory Operator Suite</h1>
+          <p>Local-first command, agent, MCP, plugin, and Raycast surface for AI operators.</p>
+        </div>
+        <div class="command-card" aria-label="Primary command">
+          <span>primary contract</span>
+          <code>ft suite status --json</code>
+        </div>
+      </section>
+
+      <section class="status-grid" aria-label="Operator status">
+        <article>
+          <span class="label">CLI</span>
+          <strong>verified-command</strong>
+          <p>Terminal-first control plane with JSON contracts.</p>
+        </article>
+        <article>
+          <span class="label">Skills</span>
+          <strong>agent procedure memory</strong>
+          <p>`/fieldtheory` teaches agents when to query local context.</p>
+        </article>
+        <article>
+          <span class="label">Plugins</span>
+          <strong>extension boundary</strong>
+          <p>Browser, GitHub, Vercel, and future MCP tools call the CLI.</p>
+        </article>
+        <article>
+          <span class="label">Raycast</span>
+          <strong>launcher wrapper</strong>
+          <p>Keyboard-first access without direct data-store authority.</p>
+        </article>
+      </section>
+
+      <section class="planes" id="planes">
+        <div class="section-head">
+          <h2>MCP, Skills, Plugins</h2>
+          <p>Every integration is typed by plane and authority before it touches local state.</p>
+        </div>
+        <div class="plane-map">
+          <div class="node data">Local Stores<br /><span>bookmarks, library, commands</span></div>
+          <div class="edge"></div>
+          <div class="node truth">CLI Contracts<br /><span>json, validation, gates</span></div>
+          <div class="edge"></div>
+          <div class="node agent">Agent Plane<br /><span>skills, MCP facade</span></div>
+          <div class="edge"></div>
+          <div class="node surface">Operator Surfaces<br /><span>console, Raycast, app</span></div>
+        </div>
+      </section>
+
+      <section class="split" id="raycast">
+        <div class="section-head">
+          <h2>Raycast Wrapper</h2>
+          <p>The extension ships as source and can be regenerated from `ft suite raycast scaffold`.</p>
+        </div>
+        <div class="raycast-cards">
+          <article><strong>Search Bookmarks</strong><code>ft search --json</code></article>
+          <article><strong>Operator Suite</strong><code>ft suite status --json</code></article>
+          <article><strong>Run Command</strong><code>ft commands validate --json</code></article>
+        </div>
+      </section>
+
+      <section class="workflow" id="workflow">
+        <div class="section-head">
+          <h2>Workflow Gates</h2>
+          <p>Read broadly. Write narrowly. Promote only through explicit operator gates.</p>
+        </div>
+        <ol>
+          <li><span>01</span>Discover local paths and status</li>
+          <li><span>02</span>Recall Library notes and bookmark evidence</li>
+          <li><span>03</span>Package reusable Commands and validate</li>
+          <li><span>04</span>Install skill or Raycast wrapper</li>
+          <li><span>05</span>Promote durable doctrine with human approval</li>
+        </ol>
+      </section>
+    </main>
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
+

@@ -35,6 +35,10 @@ describe('skill content', () => {
       assert.ok(content.includes('ft library show'));
       assert.ok(content.includes('ft commands list'));
       assert.ok(content.includes('ft commands validate'));
+      assert.ok(content.includes('ft suite status --json'));
+      assert.ok(content.includes('ft suite architecture'));
+      assert.ok(content.includes('ft suite workflows'));
+      assert.ok(content.includes('ft suite raycast manifest'));
     }
   });
 

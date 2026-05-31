@@ -382,6 +382,18 @@ test('ft install app command is registered', () => {
   assert.ok(opts.includes('--json'));
 });
 
+test('ft suite command group is registered', () => {
+  const program = buildCli();
+  const suiteCmd = program.commands.find((c: any) => c.name() === 'suite');
+  assert.ok(suiteCmd, 'suite command should be registered');
+  for (const name of ['status', 'architecture', 'workflows', 'raycast']) {
+    assert.ok(suiteCmd.commands.find((c: any) => c.name() === name), `suite ${name} should be registered`);
+  }
+  const raycastCmd = suiteCmd.commands.find((c: any) => c.name() === 'raycast');
+  assert.ok(raycastCmd.commands.find((c: any) => c.name() === 'manifest'), 'suite raycast manifest should be registered');
+  assert.ok(raycastCmd.commands.find((c: any) => c.name() === 'scaffold'), 'suite raycast scaffold should be registered');
+});
+
 test('ft sync: media is on by default and exposes --no-media', () => {
   const program = buildCli();
   const syncCmd = program.commands.find((c: any) => c.name() === 'sync');

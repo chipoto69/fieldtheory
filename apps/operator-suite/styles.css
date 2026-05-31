@@ -1,0 +1,281 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f7f8f5;
+  color: #151812;
+  --ink: #151812;
+  --muted: #667065;
+  --line: #d8ddd3;
+  --surface: #ffffff;
+  --teal: #087b73;
+  --amber: #b17215;
+  --rose: #a33f54;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #f7f8f5;
+}
+
+.rail {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 96px;
+  padding: 24px 16px;
+  border-right: 1px solid var(--line);
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.brand-mark {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--ink);
+  font-weight: 750;
+  letter-spacing: 0;
+}
+
+.rail nav {
+  display: grid;
+  gap: 14px;
+}
+
+.rail a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+main {
+  margin-left: 96px;
+  padding: 32px;
+  display: grid;
+  gap: 24px;
+}
+
+.topbar {
+  min-height: 220px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+  align-items: end;
+  gap: 24px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 24px;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  max-width: 840px;
+  font-size: clamp(42px, 7vw, 92px);
+  line-height: 0.94;
+  letter-spacing: 0;
+}
+
+h2 {
+  font-size: 24px;
+  letter-spacing: 0;
+}
+
+p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.topbar p {
+  margin-top: 18px;
+  max-width: 620px;
+  font-size: 18px;
+}
+
+.command-card,
+.status-grid article,
+.raycast-cards article {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.command-card {
+  padding: 18px;
+}
+
+.command-card span,
+.label {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+code {
+  display: block;
+  color: #0b3f3a;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.status-grid article {
+  padding: 18px;
+  min-height: 150px;
+}
+
+.status-grid strong,
+.raycast-cards strong {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.planes,
+.split,
+.workflow {
+  display: grid;
+  gap: 18px;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.section-head {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 24px;
+  align-items: baseline;
+}
+
+.plane-map {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 32px minmax(160px, 1fr) 32px minmax(160px, 1fr) 32px minmax(160px, 1fr);
+  align-items: center;
+}
+
+.node {
+  min-height: 120px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  font-weight: 750;
+}
+
+.node span {
+  display: block;
+  margin-top: 10px;
+  color: var(--muted);
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.node.data {
+  border-color: #8fbda4;
+}
+
+.node.truth {
+  border-color: #d8989f;
+}
+
+.node.agent {
+  border-color: #b7a4db;
+}
+
+.node.surface {
+  border-color: #85bcb6;
+}
+
+.edge {
+  height: 1px;
+  background: var(--ink);
+}
+
+.raycast-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.raycast-cards article {
+  padding: 18px;
+}
+
+.workflow ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  border-top: 1px solid var(--line);
+}
+
+.workflow li {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  font-weight: 650;
+}
+
+.workflow span {
+  color: var(--amber);
+  font-family: "SFMono-Regular", Consolas, monospace;
+}
+
+@media (max-width: 860px) {
+  .rail {
+    position: static;
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .rail nav {
+    grid-auto-flow: column;
+    overflow-x: auto;
+  }
+
+  main {
+    margin-left: 0;
+    padding: 20px;
+  }
+
+  .topbar,
+  .section-head,
+  .status-grid,
+  .raycast-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .plane-map {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .edge {
+    width: 1px;
+    height: 20px;
+    justify-self: center;
+  }
+}
+

@@ -1,0 +1,25 @@
+{
+  "name": "Field Theory Operator Suite",
+  "surfaces": [
+    "ft suite CLI group",
+    "static browser console",
+    "Raycast extension wrapper",
+    "/fieldtheory agent skill",
+    "future MCP facade over CLI JSON contracts"
+  ],
+  "planes": [
+    "data",
+    "truth/control",
+    "agent",
+    "model",
+    "product",
+    "extension"
+  ],
+  "gates": [
+    "read-only recall",
+    "validated command write",
+    "agent skill install",
+    "human canon promotion"
+  ]
+}
+
