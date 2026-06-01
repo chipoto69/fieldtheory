@@ -22,15 +22,20 @@ surfaces, and the first Milestone 2 hosted scaffold:
   bypass
 - browser-side Privy provider/login controls and an authenticated paste-to-validate
   operator workbench
-- linked GitHub/Base/Solana identity policy marked as deferred; development
-  auth does not fabricate wallet or GitHub identities
+- local-only browser operator mode for no-secret UI smoke; it is disabled in
+  production and depends on the server-side unsigned dev-token gate
+- env-gated linked GitHub/Base/Solana identity policy scaffold; development
+  auth does not fabricate wallet or GitHub identities and cannot satisfy the
+  required policy, and protected write routes reject unsatisfied identities
+  before hosted store writes
 - `DATABASE_URL`-backed Postgres adapter for imports, runs, and audit events
 - explicit `npm --prefix apps/portal run db:migrate` schema bootstrap
 
 It still does not have:
 
 - production Vercel project linkage or secrets
-- server-side linked GitHub/Base/Solana identity extraction
+- production Privy app identity policy configuration and operator-owned policy
+  decisions
 - apply gates
 - x402 enforcement
 
@@ -50,8 +55,14 @@ pass in CI and the Vercel project is explicitly linked.
 | `FIELD_THEORY_AUDIT_STORE` | M2 local | Local JSON/sqlite audit store path for development. |
 | `FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE` | tests only | Allows in-memory mutations outside production; production ignores it when `DATABASE_URL` is absent. |
 | `FIELD_THEORY_PORTAL_AUTO_CREATE_SCHEMA` | local or break-glass only | Optional local bootstrap convenience. Keep `false` in normal production and run `db:migrate`. |
+| `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES` | M2 wallet scaffold | Set `true` to require linked GitHub, Base EVM, and Solana identities before protected write routes. Defaults to `false`. |
+| `FIELD_THEORY_LOAD_PRIVY_USER` | M2 wallet scaffold | Optional `true` to resolve Privy linked accounts for status display even when the policy is not required. |
+| `FIELD_THEORY_BASE_CHAIN_ID` | M2 wallet scaffold | Server-side Base chain id required by the linked identity policy. Defaults to `NEXT_PUBLIC_BASE_CHAIN_ID` or `84532`. |
+| `FIELD_THEORY_SOLANA_CLUSTER` | M2 wallet scaffold | Server-side Solana cluster label required by the linked identity policy. Defaults to `NEXT_PUBLIC_SOLANA_CLUSTER` or `devnet`. |
 | `NEXT_PUBLIC_BASE_CHAIN_ID` | M2 scaffold | Base network selection; default is Base Sepolia (`84532`) until configured. |
 | `NEXT_PUBLIC_SOLANA_CLUSTER` | M2 scaffold | Solana cluster selection; default is `devnet` until configured. |
+| `NEXT_PUBLIC_FIELD_THEORY_LOCAL_OPERATOR` | local smoke only | Set `true` outside production to let the browser workbench send `Bearer dev:<operator>` for no-secret route smoke. Requires server-side dev auth and is ignored in production. |
+| `NEXT_PUBLIC_FIELD_THEORY_LOCAL_OPERATOR_ID` | local smoke only | Optional local operator id for the dev bearer token. Must be 1-80 characters from letters, numbers, `.`, `_`, `:`, or `-`. Defaults to `operator`. |
 | `X402_ENABLED` | M3 only | Must default false. |
 | `X402_FACILITATOR_URL` | M3 only | Optional facilitator endpoint after review. |
 | `X402_RECEIVING_ADDRESS` | M3 only | Payment recipient address after review. |
@@ -103,7 +114,11 @@ Before coding auth:
 3. Enable wallet auth for Ethereum SIWE and Solana SIWS.
 4. Decide whether embedded wallets are in scope. If they are, configure Solana
    RPC clients and connectors as required by Privy's Solana guide.
-5. Document allowed redirect URLs for local preview, Vercel preview, and
+5. Set `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true` only after GitHub OAuth,
+   Base EVM chain id, and Solana wallet policy are agreed. The Solana cluster
+   value is a policy label for this scaffold; it is not proof of chain-specific
+   Solana settlement.
+6. Document allowed redirect URLs for local preview, Vercel preview, and
    production.
 
 ## x402 Setup Gate
@@ -148,6 +163,24 @@ route-handler tests only, the test suite sets `PRIVY_DEV_ALLOW_UNSIGNED=true`
 and injects a verifier. That dev path authenticates a test actor only; it does
 not claim linked GitHub, Base EVM, or Solana identities. Do not enable that
 bypass in production.
+
+For no-secret browser smoke, run the dev server with both server-side dev auth
+and the client-side local operator flag:
+
+```bash
+export PRIVY_APP_ID=local-dev
+export PRIVY_APP_SECRET=local-secret
+export PRIVY_DEV_ALLOW_UNSIGNED=true
+export NEXT_PUBLIC_FIELD_THEORY_LOCAL_OPERATOR=true
+export NEXT_PUBLIC_FIELD_THEORY_LOCAL_OPERATOR_ID=operator
+npm --prefix apps/portal run dev -- --hostname 127.0.0.1 --port 3000
+```
+
+Open the workbench, paste a valid `AgentBriefPack` or
+`fieldtheory.agent-export.v1` manifest, validate it, and create a dry-run agent
+run. This proves the browser route wiring only. It does not prove production
+Privy login, linked wallet policy, durable Postgres readiness, payment
+authority, or x402 enforcement.
 
 ## Postgres Durable Store Smoke
 

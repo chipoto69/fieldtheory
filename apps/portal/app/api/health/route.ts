@@ -1,6 +1,9 @@
+import { identityPolicyConfigFromEnv } from "@/lib/identity-policy";
+
 export const runtime = "nodejs";
 
 export async function GET(): Promise<Response> {
+  const identityPolicy = identityPolicyConfigFromEnv();
   const authConfigured = hasValue(process.env.PRIVY_APP_ID || process.env.NEXT_PUBLIC_PRIVY_APP_ID)
     && hasValue(process.env.PRIVY_APP_SECRET);
   const durableStoreConfigured = hasValue(process.env.DATABASE_URL);
@@ -20,7 +23,12 @@ export async function GET(): Promise<Response> {
       mutableStoreReady,
       mutableRoutesReady,
       schema: durableStoreConfigured ? "requires_external_migration_proof" : "not_configured",
-      walletLinking: "deferred",
+      walletLinking: identityPolicy.required ? "required" : "deferred",
+      identityPolicy: {
+        required: identityPolicy.required,
+        baseChainId: identityPolicy.baseChainId,
+        solanaCluster: identityPolicy.solanaCluster,
+      },
       x402Enforcement: "disabled",
     },
     x402Enabled: false,

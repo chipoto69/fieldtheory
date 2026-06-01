@@ -66,7 +66,7 @@ context into Aeon/Gordo and Hermes without losing provenance or write authority.
 | Capability | Required shape | Authority |
 |---|---|---|
 | Next.js portal | `apps/portal` with App Router, dashboard, endpoint docs, and agent run views | Reads staged fixtures and server-side store adapters only. |
-| Auth scaffold | Privy server access-token verification plus deferred GitHub, Base EVM, and Solana wallet linking | Authenticates the bearer token only today; linked identity policy is a later gate and does not authorize payments by itself. |
+| Auth scaffold | Privy server access-token verification plus env-gated GitHub, Base EVM, and Solana linked-account policy | Authenticates the bearer token and can require linked identities before protected write routes; wallet identity still does not authorize payments by itself. |
 | Contract API | Route handlers for health, contracts, briefs, exports, agents, and x402 discovery | Returns typed JSON only until apply gates exist. |
 | Durable store | `DATABASE_URL` Postgres adapter plus explicit schema migration | Stores only hosted metadata, sanitized summaries, runs, and audit records. |
 | Gordo/Aeon adapter | Dry-run import of `fieldtheory.agent-export.v1` plus optional apply-plan preview | No repo mutation until explicit apply command. |
@@ -138,9 +138,9 @@ using embedded wallet UI signing flows.
 | Area | Criteria |
 |---|---|
 | Contract fidelity | Hosted validators reject unknown contract versions, missing evidence, target payloads with duplicated forbidden actions, unsafe file paths, secret-like content in result envelopes, and manifests that imply remote writes. |
-| Auth scaffold | App builds without real secrets using documented dummy env values; authenticated routes fail closed when Privy server config is absent; server routes verify Privy access tokens through `@privy-io/node`; unsigned dev tokens are disabled in production; browser login controls use `@privy-io/react-auth` when `NEXT_PUBLIC_PRIVY_APP_ID` is configured. |
+| Auth scaffold | App builds without real secrets using documented dummy env values; authenticated routes fail closed when Privy server config is absent; server routes verify Privy access tokens through `@privy-io/node`; unsigned dev tokens are disabled in production; browser login controls use `@privy-io/react-auth` when `NEXT_PUBLIC_PRIVY_APP_ID` is configured; local browser operator mode can smoke protected routes outside production with server-side dev auth only. |
 | Durable store | Production mutations require `DATABASE_URL`, ignore memory-store override, and require the schema marker created by `npm --prefix apps/portal run db:migrate`. |
-| Wallet linking | Current routes report linked-identity policy as deferred and do not synthesize GitHub/Base/Solana identities. Server-side linked-account extraction, Base/Solana policy checks, and payment/apply authority remain behind the wallet-linking gate. |
+| Wallet linking | Routes report linked-identity policy as deferred by default. When `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true`, server auth loads Privy linked accounts and requires GitHub, configured Base EVM chain id, and Solana identities before protected write routes: brief validation, export validation, Gordo/Aeon import plans, Hermes import plans, and agent run creation. Development auth cannot satisfy the policy. The Solana cluster value is a policy label in M2, not settlement proof. Payment/apply authority remains behind later gates. |
 | Agent runs | Initial run creation is dry-run only and stores audit envelopes; no external write happens in M2. |
 | Gordo/Aeon | Import plan consumes `target: "aeon"` manifests, requires `aeon/aeon.yml.draft`, and keeps it as a draft. |
 | Hermes | Import plan consumes `target: "hermes"` manifests, requires `hermes/task-payload.dry-run.json`, and emits staged profile handoff only. |

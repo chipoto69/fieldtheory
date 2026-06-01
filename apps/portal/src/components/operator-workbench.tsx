@@ -1,7 +1,9 @@
 "use client";
 
 import { useLogin, usePrivy } from "@privy-io/react-auth";
+import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
+import { buildLocalOperatorAuthorization, isLocalOperatorModeEnabled, localOperatorIdFromEnv } from "@/lib/local-operator";
 
 type ValidationResponse = {
   report?: {
@@ -38,23 +40,75 @@ type RunResponse = {
 const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
 
 export function OperatorWorkbench() {
-  if (!privyAppId) {
+  const localOperatorMode = isLocalOperatorModeEnabled();
+  if (!privyAppId && !localOperatorMode) {
     return (
       <section className="panel workbench" aria-label="Operator workbench">
         <div>
           <h3>Operator workbench</h3>
-          <p>Set `NEXT_PUBLIC_PRIVY_APP_ID`, `PRIVY_APP_ID`, and `PRIVY_APP_SECRET` to enable browser login and protected import validation.</p>
+          <p>Set `NEXT_PUBLIC_PRIVY_APP_ID`, `PRIVY_APP_ID`, and `PRIVY_APP_SECRET` to enable browser login and protected import validation. For local no-secret smoke, set `NEXT_PUBLIC_FIELD_THEORY_LOCAL_OPERATOR=true` with server-side dev auth.</p>
         </div>
       </section>
     );
   }
 
+  if (localOperatorMode) return <LocalOperatorWorkbench />;
   return <PrivyWorkbench />;
 }
 
 function PrivyWorkbench() {
   const { ready, authenticated, getAccessToken } = usePrivy();
   const { login } = useLogin();
+  return (
+    <WorkbenchCore
+      ready={ready}
+      authenticated={authenticated}
+      statusLabel={authenticated ? "authenticated" : "login required"}
+      getAuthorization={async () => {
+        const token = await getAccessToken();
+        return token ? `Bearer ${token}` : null;
+      }}
+      loginPanel={!authenticated && (
+        <div className="inline-state">
+          <span>Protected routes require a Privy access token.</span>
+          <button className="btn" type="button" disabled={!ready} onClick={login}>Connect Privy</button>
+        </div>
+      )}
+    />
+  );
+}
+
+function LocalOperatorWorkbench() {
+  const operatorId = localOperatorIdFromEnv();
+  const authorization = buildLocalOperatorAuthorization();
+  return (
+    <WorkbenchCore
+      ready={Boolean(authorization)}
+      authenticated={Boolean(authorization)}
+      statusLabel={authorization ? `local dev:${operatorId}` : "local operator invalid"}
+      getAuthorization={async () => authorization ?? null}
+      loginPanel={(
+        <div className="inline-state">
+          <span>Local operator mode requires `PRIVY_DEV_ALLOW_UNSIGNED=true`, `PRIVY_APP_ID`, and `PRIVY_APP_SECRET` on the server.</span>
+        </div>
+      )}
+    />
+  );
+}
+
+function WorkbenchCore({
+  ready,
+  authenticated,
+  statusLabel,
+  getAuthorization,
+  loginPanel,
+}: {
+  ready: boolean;
+  authenticated: boolean;
+  statusLabel: string;
+  getAuthorization: () => Promise<string | null>;
+  loginPanel: ReactNode;
+}) {
   const [input, setInput] = useState("");
   const [validation, setValidation] = useState<ValidationResponse | undefined>();
   const [run, setRun] = useState<RunResponse | undefined>();
@@ -73,7 +127,7 @@ function PrivyWorkbench() {
     try {
       const parsed = parseInput(input);
       const route = routeForPayload(parsed);
-      const body = await authenticatedJson<ValidationResponse>(route, parsed, getAccessToken);
+      const body = await authenticatedJson<ValidationResponse>(route, parsed, getAuthorization);
       setValidation(body);
       if (body.error) setError(`${body.error.code}: ${body.error.message}`);
     } catch (cause) {
@@ -93,7 +147,7 @@ function PrivyWorkbench() {
         target: runTarget,
         importId: validation.import.id,
         mode: "dry-run",
-      }, getAccessToken);
+      }, getAuthorization);
       setRun(body);
       if (body.error) setError(`${body.error.code}: ${body.error.message}`);
     } catch (cause) {
@@ -111,15 +165,10 @@ function PrivyWorkbench() {
           <h3>Operator workbench</h3>
           <p>Paste an AgentBriefPack or Field Theory export manifest, validate it through the hosted API, then create an audited dry-run run.</p>
         </div>
-        <span className={`status ${authenticated ? "ok" : "warn"}`}>{authenticated ? "authenticated" : "login required"}</span>
+        <span className={`status ${authenticated ? "ok" : "warn"}`}>{statusLabel}</span>
       </div>
 
-      {!authenticated && (
-        <div className="inline-state">
-          <span>Protected routes require a Privy access token.</span>
-          <button className="btn" type="button" disabled={!ready} onClick={login}>Connect Privy</button>
-        </div>
-      )}
+      {loginPanel}
 
       <label className="field">
         <span>Brief or export JSON</span>
@@ -196,14 +245,14 @@ function PrivyWorkbench() {
 async function authenticatedJson<T>(
   path: string,
   payload: unknown,
-  getAccessToken: () => Promise<string | null>,
+  getAuthorization: () => Promise<string | null>,
 ): Promise<T> {
-  const token = await getAccessToken();
-  if (!token) throw new Error("Privy did not return an access token.");
+  const authorization = await getAuthorization();
+  if (!authorization) throw new Error("No authorization token is available.");
   const response = await fetch(path, {
     method: "POST",
     headers: {
-      authorization: `Bearer ${token}`,
+      authorization,
       "content-type": "application/json",
     },
     body: JSON.stringify(payload),

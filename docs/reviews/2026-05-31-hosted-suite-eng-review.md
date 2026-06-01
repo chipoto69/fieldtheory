@@ -60,8 +60,8 @@ The next milestone is not "deploy what exists." It is:
 |---|---|---|
 | Vercel-hosted app | Scaffolded, not deployed | `apps/portal`, portal `vercel.json`, passing local portal build, deployed preview URL still needed. |
 | Agents live with the app | Dry-run scaffolded | Route handlers for agent run creation/status and Postgres-backed audit/import records exist; apply authority still disabled. |
-| Privy GitHub/wallet login | Server verification scaffolded | `@privy-io/node` verifies server access tokens; browser SDK login and linked identity policy are still pending. |
-| Base EVM and Solana wallet scaffold | Env/UI scaffolded | UI distinguishes GitHub, Base chain id, and Solana cluster; real wallet linking pending Privy SDK gate. |
+| Privy GitHub/wallet login | Server and browser scaffolded | `@privy-io/node` verifies server access tokens; browser SDK login controls exist; env-gated linked identity policy is scaffolded but production Privy policy values remain pending. |
+| Base EVM and Solana wallet scaffold | Env/UI/policy scaffolded | UI distinguishes GitHub, Base chain id, and Solana cluster; route policy can require linked identities, but real wallet linking still depends on production Privy dashboard config. |
 | Gordo/Aeon control plane | Dry-run scaffolded | Import-plan endpoint and tests exist; target mismatch and `aeon/aeon.yml.draft` checks exist; no repo mutation authority. |
 | Hermes integration | Dry-run scaffolded | Import-plan endpoint and tests exist; target mismatch and `hermes/task-payload.dry-run.json` checks exist; no Kanban/profile write authority. |
 | x402 architecture handoff | Partial | Endpoint inventory, replay/audit/threat model, payment metadata review. |
@@ -71,8 +71,8 @@ The next milestone is not "deploy what exists." It is:
 ## Blockers Before Coding
 
 1. No authoritative hosted endpoint inventory exists.
-2. Browser Privy login and linked GitHub/Base/Solana identity policy are still pending.
-3. Audit storage exists for hosted actions, but audit readback envelopes and retention policy are still pending.
+2. Production Privy GitHub/Base/Solana dashboard policy and secrets are still pending.
+3. Audit storage and run readback envelopes exist for hosted actions, but retention policy is still pending.
 4. No Vercel/GitHub secret boundary exists.
 5. x402 replay/payment metadata threat model exists as planning docs, but fixtures/handoff are not yet implemented in code beyond discovery.
 

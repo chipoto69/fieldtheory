@@ -68,10 +68,19 @@ tags: [security, privy, wallet, x402, agents]
   persistence.
 - Aeon and Hermes import-plan routes reject target mismatches and require their
   target-specific dry-run artifact paths.
+- When `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true`, the server loads Privy
+  linked accounts and requires GitHub OAuth, the configured Base EVM chain id,
+  and Solana identity before protected write routes. Failed policy checks
+  return before any hosted store write.
+- Local browser operator mode is available only outside production. It sends a
+  `Bearer dev:<operator>` token from the browser so operators can smoke the
+  workbench without Privy secrets, but it still depends on server-side
+  `PRIVY_DEV_ALLOW_UNSIGNED=true` and cannot satisfy required linked-identity
+  policy.
 - x402 discovery remains non-enforcing; health can report that x402 was
   requested by env, but `x402Enabled` remains false until enforcement exists.
 - `/api/health` exposes non-secret configuration readiness flags for Privy server config,
-  durable-store config, mutable-route readiness, deferred wallet linking, and
+  durable-store config, mutable-route readiness, wallet-linking policy mode, and
   disabled x402 enforcement. Its positive status is `configuration_ready`, not
   production traffic readiness. It does not prove the production schema;
   operators must run `db:migrate` and check `fieldtheory_schema_version`.
@@ -79,10 +88,16 @@ tags: [security, privy, wallet, x402, agents]
 ## Current Limits
 
 - Browser-side Privy login controls are mounted when `NEXT_PUBLIC_PRIVY_APP_ID`
-  exists, but linked GitHub/Base/Solana wallet policy is still deferred; the
-  current server gate only verifies bearer tokens on protected route handlers.
+  exists, but production still needs operator-owned GitHub/Base/Solana policy
+  values and real Privy dashboard configuration before the policy can be a
+  release claim.
 - Development auth does not fabricate linked GitHub, EVM, or Solana identities;
-  protected route responses mark linked-identity policy as deferred.
+  protected route responses mark linked-identity policy as deferred by default
+  and unsatisfied when the policy is required.
+- The M2 Solana cluster value is a policy label for route gating. It does not
+  prove chain-specific settlement, RPC health, or payment authority.
+- Local browser operator mode proves UI-to-route wiring only. It does not prove
+  production Privy login, wallet linking, durable store readiness, or x402.
 - Failed authorization attempts return closed errors but are not yet persisted
   to the audit log.
 - The public health endpoint reports whether `DATABASE_URL` is configured, not

@@ -36,8 +36,8 @@ tags: [release, readiness, vercel, privy, agents]
 1. Add `apps/portal` as a Next.js App Router app with health/contracts routes. Done.
 2. Add shared contract validators for brief/export inputs. Done in portal scaffold.
 3. Add local fixture smoke for M1 generated artifacts. Done with portal route fixtures; generated CLI smoke fixtures still pending.
-4. Add read-only dashboard and import validation UI. Done with an authenticated paste-to-validate workbench and dry-run create action.
-5. Add Privy auth boundary and fail-closed authenticated route checks. Server access-token verification and browser Privy provider/login controls done; linked GitHub/Base/Solana identity policy remains deferred.
+4. Add read-only dashboard and import validation UI. Done with an authenticated paste-to-validate workbench, dry-run create action, and dev-only local operator mode for no-secret browser smoke.
+5. Add Privy auth boundary and fail-closed authenticated route checks. Server access-token verification, browser Privy provider/login controls, dev-only local browser operator mode, and env-gated linked GitHub/Base/Solana policy checks are scaffolded; production policy ownership remains incomplete.
 6. Add dry-run agent run creation, owner-scoped audit readback, and audit records. Done with local memory adapter and `DATABASE_URL` Postgres adapter using sanitized export metadata.
 7. Add Gordo/Aeon import-plan adapter. Done as dry-run plan with target/file checks.
 8. Add Hermes import-plan adapter. Done as dry-run plan with target/file checks.
@@ -77,6 +77,7 @@ evidence for each item below:
 | Portal DB schema | `DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal_ci" npm --prefix apps/portal run db:migrate` |
 | Portal DB route smoke | `DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal_ci" npm run portal:test:db` |
 | Portal tests/build | `npm run verify:hosted` |
+| Local browser workbench smoke | Run the portal with `NEXT_PUBLIC_FIELD_THEORY_LOCAL_OPERATOR=true` plus server-side `PRIVY_DEV_ALLOW_UNSIGNED=true`, then validate a manifest and create a dry-run run from the browser |
 | Diff hygiene | `git diff --check` |
 | GitHub production environment bootstrap | `npm run hosted:setup-github-env -- --repo chipoto69/fieldtheory --apply --allow-missing-secrets --protect-main` |
 | Production secret preflight | `gh secret list --env production --repo chipoto69/fieldtheory` must include Vercel, Privy, and `DATABASE_URL`; `X402_ENABLED` must be unset or `false` |
@@ -100,8 +101,9 @@ Fill this ledger before undrafting or promoting a production deployment:
 | Main branch protection | verified 2026-06-01: protected, required `preview`, strict checks, no force pushes/deletions, linear history, conversation resolution, admin enforcement |
 | Required GitHub production secrets present | missing 2026-06-01: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `DATABASE_URL`, `PRIVY_APP_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`, `PRIVY_APP_SECRET`; optional `PRIVY_JWT_VERIFICATION_KEY` missing |
 | Privy app id and redirect URLs |  |
-| Base EVM policy owner |  |
-| Solana policy owner |  |
+| Linked identity policy mode | scaffolded 2026-06-01: `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true` requires GitHub OAuth, configured Base EVM chain id, and Solana identity before protected write routes; production env var not set yet |
+| Base EVM policy owner | missing 2026-06-01: owner must choose `FIELD_THEORY_BASE_CHAIN_ID` / `NEXT_PUBLIC_BASE_CHAIN_ID` before production |
+| Solana policy owner | missing 2026-06-01: owner must choose `FIELD_THEORY_SOLANA_CLUSTER` / `NEXT_PUBLIC_SOLANA_CLUSTER` before production |
 | Target database provider and owner | blocked 2026-06-01: provider not selected and `DATABASE_URL` secret absent |
 | `fieldtheory_schema_version` output | blocked 2026-06-01: target production database not configured |
 | Post-deploy `/api/health` output | blocked 2026-06-01: no production deployment URL |

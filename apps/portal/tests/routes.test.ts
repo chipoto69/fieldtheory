@@ -10,7 +10,7 @@ import { GET as runGet } from "../app/api/agents/runs/[id]/route";
 import { POST as gordoPlanPost } from "../app/api/gordo/import-plan/route";
 import { POST as hermesPlanPost } from "../app/api/hermes/import-plan/route";
 import { GET as x402Get } from "../app/api/x402/discovery/route";
-import { setPrivyVerifierForTests } from "../src/lib/auth";
+import { setPrivyUserResolverForTests, setPrivyVerifierForTests } from "../src/lib/auth";
 import { closePostgresHostedStoreForTests } from "../src/lib/postgres-store";
 import { requireMutableStore } from "../src/lib/store-guard";
 import { getHostedStore, hostedStore, MemoryHostedStore } from "../src/lib/store";
@@ -26,6 +26,9 @@ const previousEnv = {
   DATABASE_URL: process.env.DATABASE_URL,
   NODE_ENV: process.env.NODE_ENV,
   X402_ENABLED: process.env.X402_ENABLED,
+  FIELD_THEORY_REQUIRE_LINKED_IDENTITIES: process.env.FIELD_THEORY_REQUIRE_LINKED_IDENTITIES,
+  FIELD_THEORY_BASE_CHAIN_ID: process.env.FIELD_THEORY_BASE_CHAIN_ID,
+  FIELD_THEORY_SOLANA_CLUSTER: process.env.FIELD_THEORY_SOLANA_CLUSTER,
 };
 
 test.beforeEach(() => {
@@ -34,6 +37,7 @@ test.beforeEach(() => {
 
 test.afterEach(async () => {
   hostedStore.resetForTests();
+  setPrivyUserResolverForTests(undefined);
   setPrivyVerifierForTests(undefined);
   await closePostgresHostedStoreForTests();
   restoreEnv();
@@ -114,6 +118,100 @@ test("development auth does not fabricate linked GitHub or wallet identities", a
   assert.equal(body.actor.id, "operator");
   assert.deepEqual(body.actor.identities, []);
   assert.equal(body.actor.identityPolicyStatus, "deferred");
+});
+
+test("linked identity policy reports satisfied for GitHub, Base EVM, and Solana accounts", async () => {
+  enableMockPrivyAuth("privy-user-a");
+  enableLinkedIdentityPolicy();
+  setPrivyUserResolverForTests(async () => ({
+    linked_accounts: [
+      { type: "github_oauth", subject: "12345", username: "operator", verified_at: 1 },
+      { type: "wallet", chain_type: "ethereum", chain_id: "8453", address: "0xABCDEF", verified_at: 2 },
+      { type: "wallet", chain_type: "solana", address: "So11111111111111111111111111111111111111112", verified_at: 3 },
+    ],
+  }));
+
+  const response = await agentsGet(authRequest("http://localhost/api/agents", {}, "privy.valid"));
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.deepEqual(body.actor.identities, ["github", "evm", "solana"]);
+  assert.equal(body.actor.identityPolicyStatus, "satisfied");
+  assert.deepEqual(body.actor.identityPolicy.missing, []);
+  assert.deepEqual(body.actor.identityPolicy.required, ["github", "base_evm:8453", "solana:mainnet-beta"]);
+});
+
+test("agent run creation rejects unsatisfied linked identity policy before store writes", async () => {
+  enableMockPrivyAuth("privy-user-a");
+  enableLinkedIdentityPolicy();
+  setPrivyUserResolverForTests(async () => ({
+    linked_accounts: [
+      { type: "github_oauth", subject: "12345", username: "operator", verified_at: 1 },
+      { type: "wallet", chain_type: "ethereum", chain_id: "1", address: "0xABCDEF", verified_at: 2 },
+    ],
+  }));
+
+  const response = await runsPost(authJsonRequest("/api/agents/runs", {
+    target: "aeon",
+    importId: "import_missing",
+    mode: "dry-run",
+  }, "privy.valid"));
+  const body = await response.json();
+  assert.equal(response.status, 403);
+  assert.equal(body.error.code, "identity_policy_unsatisfied");
+  assert.deepEqual(body.identityPolicy.missing, ["base_evm:8453", "solana:mainnet-beta"]);
+  assert.equal(hostedStore.listAuditEvents().length, 0);
+});
+
+test("required linked identity policy rejects protected write routes before audit writes", async () => {
+  enableMockPrivyAuth("privy-user-a");
+  enableLinkedIdentityPolicy();
+  setPrivyUserResolverForTests(async () => ({
+    linked_accounts: [
+      { type: "github_oauth", subject: "12345", username: "operator", verified_at: 1 },
+      { type: "wallet", chain_type: "ethereum", chain_id: "1", address: "0xABCDEF", verified_at: 2 },
+    ],
+  }));
+
+  const cases: Array<{ name: string; request: () => Promise<Response> }> = [
+    { name: "brief validate", request: () => briefValidatePost(authJsonRequest("/api/briefs/validate", validBriefPack(), "privy.valid")) },
+    { name: "export validate", request: () => exportValidatePost(authJsonRequest("/api/exports/validate", validAeonManifest(), "privy.valid")) },
+    { name: "gordo import plan", request: () => gordoPlanPost(authJsonRequest("/api/gordo/import-plan", validAeonManifest(), "privy.valid")) },
+    { name: "hermes import plan", request: () => hermesPlanPost(authJsonRequest("/api/hermes/import-plan", validHermesManifest(), "privy.valid")) },
+  ];
+
+  for (const item of cases) {
+    hostedStore.resetForTests();
+    const response = await item.request();
+    const body = await response.json();
+    assert.equal(response.status, 403, item.name);
+    assert.equal(body.error.code, "identity_policy_unsatisfied", item.name);
+    assert.equal(hostedStore.listAuditEvents().length, 0, item.name);
+  }
+});
+
+test("required linked identity policy returns a closed error when Privy identity resolution fails", async () => {
+  enableMockPrivyAuth("privy-user-a");
+  enableLinkedIdentityPolicy();
+  setPrivyUserResolverForTests(async () => {
+    throw new Error("Privy unavailable");
+  });
+
+  const response = await exportValidatePost(authJsonRequest("/api/exports/validate", validAeonManifest(), "privy.valid"));
+  const body = await response.json();
+  assert.equal(response.status, 503);
+  assert.equal(body.error.code, "identity_resolution_failed");
+  assert.equal(hostedStore.listAuditEvents().length, 0);
+});
+
+test("development auth cannot satisfy required linked identity policy", async () => {
+  enableDevAuth();
+  enableLinkedIdentityPolicy();
+
+  const response = await agentsGet(authRequest("http://localhost/api/agents"));
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.actor.identityPolicyStatus, "unsatisfied");
+  assert.deepEqual(body.actor.identityPolicy.missing, ["github", "base_evm:8453", "solana:mainnet-beta"]);
 });
 
 test("production rejects unsigned development tokens", async () => {
@@ -433,6 +531,12 @@ function enableMockPrivyAuth(userId: string): void {
   }));
 }
 
+function enableLinkedIdentityPolicy(): void {
+  process.env.FIELD_THEORY_REQUIRE_LINKED_IDENTITIES = "true";
+  process.env.FIELD_THEORY_BASE_CHAIN_ID = "8453";
+  process.env.FIELD_THEORY_SOLANA_CLUSTER = "mainnet-beta";
+}
+
 function restoreEnv(): void {
   if (previousEnv.PRIVY_APP_ID === undefined) delete process.env.PRIVY_APP_ID;
   else process.env.PRIVY_APP_ID = previousEnv.PRIVY_APP_ID;
@@ -450,6 +554,12 @@ function restoreEnv(): void {
   else process.env.DATABASE_URL = previousEnv.DATABASE_URL;
   if (previousEnv.X402_ENABLED === undefined) delete process.env.X402_ENABLED;
   else process.env.X402_ENABLED = previousEnv.X402_ENABLED;
+  if (previousEnv.FIELD_THEORY_REQUIRE_LINKED_IDENTITIES === undefined) delete process.env.FIELD_THEORY_REQUIRE_LINKED_IDENTITIES;
+  else process.env.FIELD_THEORY_REQUIRE_LINKED_IDENTITIES = previousEnv.FIELD_THEORY_REQUIRE_LINKED_IDENTITIES;
+  if (previousEnv.FIELD_THEORY_BASE_CHAIN_ID === undefined) delete process.env.FIELD_THEORY_BASE_CHAIN_ID;
+  else process.env.FIELD_THEORY_BASE_CHAIN_ID = previousEnv.FIELD_THEORY_BASE_CHAIN_ID;
+  if (previousEnv.FIELD_THEORY_SOLANA_CLUSTER === undefined) delete process.env.FIELD_THEORY_SOLANA_CLUSTER;
+  else process.env.FIELD_THEORY_SOLANA_CLUSTER = previousEnv.FIELD_THEORY_SOLANA_CLUSTER;
   setEnv("NODE_ENV", previousEnv.NODE_ENV);
 }
 

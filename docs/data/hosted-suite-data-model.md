@@ -42,8 +42,9 @@ imports a brief/export artifact.
 - Aeon and Hermes runs require target-compatible export imports; a Hermes export
   cannot create a Gordo/Aeon plan and an Aeon export cannot create a Hermes
   plan.
-- Linked wallets prove identity state; they do not automatically grant payment
-  or apply authority.
+- Linked identities are resolved from Privy at request time for the M2 scaffold;
+  they are not persisted in the current Postgres schema. Linked wallets prove
+  identity state; they do not automatically grant payment or apply authority.
 - Audit events must be immutable from the application layer.
 
 ## Sanitized Export Summary

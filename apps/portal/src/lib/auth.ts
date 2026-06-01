@@ -1,4 +1,5 @@
 import { jsonError } from "@/lib/http";
+import { identityPolicyConfigFromEnv, normalizePrivyIdentities, shouldLoadPrivyLinkedAccounts, type PortalIdentity } from "@/lib/identity-policy";
 import { PrivyClient, type VerifyAccessTokenResponse } from "@privy-io/node";
 
 export interface AuthenticatedUser {
@@ -6,7 +7,7 @@ export interface AuthenticatedUser {
   privyUserId: string;
   sessionId?: string;
   authSource: "privy" | "development";
-  identities: Array<{ type: "github" | "evm" | "solana"; subject: string }>;
+  identities: PortalIdentity[];
 }
 
 export type AuthResult =
@@ -14,8 +15,10 @@ export type AuthResult =
   | { ok: false; response: Response };
 
 export type PrivyAccessTokenVerifier = (token: string) => Promise<VerifyAccessTokenResponse>;
+export type PrivyUserResolver = (userId: string, client: PrivyClient) => Promise<{ linked_accounts?: unknown[] }>;
 
 let testVerifier: PrivyAccessTokenVerifier | undefined;
+let testUserResolver: PrivyUserResolver | undefined;
 let cachedClient:
   | {
       key: string;
@@ -71,6 +74,26 @@ export async function requirePrivyUser(request: Request): Promise<AuthResult> {
         response: jsonError("privy_app_mismatch", "Privy access token was issued for a different app.", 401),
       };
     }
+    const client = getPrivyClient(appId, appSecret);
+    const policyConfig = identityPolicyConfigFromEnv();
+    let identities: PortalIdentity[] = [];
+    if (shouldLoadPrivyLinkedAccounts(policyConfig)) {
+      try {
+        const privyUser = await getPrivyUserResolver()(claims.user_id, client);
+        identities = normalizePrivyIdentities(privyUser);
+      } catch {
+        if (policyConfig.required) {
+          return {
+            ok: false,
+            response: jsonError(
+              "identity_resolution_failed",
+              "Privy user linked identities could not be loaded; linked identity policy cannot be evaluated.",
+              503,
+            ),
+          };
+        }
+      }
+    }
     return {
       ok: true,
       user: {
@@ -78,7 +101,7 @@ export async function requirePrivyUser(request: Request): Promise<AuthResult> {
         privyUserId: claims.user_id,
         sessionId: claims.session_id,
         authSource: "privy",
-        identities: [],
+        identities,
       },
     };
   } catch {
@@ -93,9 +116,18 @@ export function setPrivyVerifierForTests(verifier: PrivyAccessTokenVerifier | un
   testVerifier = verifier;
 }
 
+export function setPrivyUserResolverForTests(resolver: PrivyUserResolver | undefined): void {
+  testUserResolver = resolver;
+}
+
 function getVerifier(appId: string, appSecret: string): PrivyAccessTokenVerifier {
   if (testVerifier) return testVerifier;
   return async (token: string) => getPrivyClient(appId, appSecret).utils().auth().verifyAccessToken(token);
+}
+
+function getPrivyUserResolver(): PrivyUserResolver {
+  if (testUserResolver) return testUserResolver;
+  return async (userId, client) => client.users()._get(userId);
 }
 
 function getPrivyClient(appId: string, appSecret: string): PrivyClient {

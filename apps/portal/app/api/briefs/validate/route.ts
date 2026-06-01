@@ -1,6 +1,7 @@
 import { requirePrivyUser } from "@/lib/auth";
 import { validateAgentBriefPack } from "@/lib/contracts";
 import { jsonErrorFrom, jsonOk, readJson } from "@/lib/http";
+import { linkedIdentityPolicyErrorResponse } from "@/lib/identity-policy";
 import { getHostedStore } from "@/lib/store";
 import { requireMutableStore } from "@/lib/store-guard";
 
@@ -9,6 +10,8 @@ export const runtime = "nodejs";
 export async function POST(request: Request): Promise<Response> {
   const auth = await requirePrivyUser(request);
   if (!auth.ok) return auth.response;
+  const identityPolicyError = linkedIdentityPolicyErrorResponse(auth.user);
+  if (identityPolicyError) return identityPolicyError;
   const storeGuard = requireMutableStore();
   if (storeGuard) return storeGuard;
 

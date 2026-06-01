@@ -206,9 +206,10 @@ The hosted suite may plan for:
 - Solana wallet login
 - account linking between GitHub and wallet identities
 
-Browser-side Privy SDK code now exists in the Milestone 2 scaffold, but no
-Privy app IDs, secrets, webhook URLs, server-side linked identity policy, or
-production auth policy values are committed.
+Browser-side Privy SDK code and an env-gated server-side linked identity policy
+now exist in the Milestone 2 scaffold. Production Privy app IDs, secrets,
+webhook URLs, dashboard policy, and operator-owned GitHub/Base/Solana values
+are still not committed.
 
 ## x402 Status
 

@@ -88,6 +88,14 @@ the run target so operators can review who requested the handoff, which action
 was accepted, and which hosted run id was affected before any later apply gate
 exists.
 
+When `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true`, protected write routes
+return `403 identity_policy_unsatisfied` before store writes unless the verified
+Privy user has linked GitHub OAuth, an EVM wallet on
+`FIELD_THEORY_BASE_CHAIN_ID`, and a Solana wallet. The protected write routes
+are `/api/briefs/validate`, `/api/exports/validate`,
+`/api/gordo/import-plan`, `/api/hermes/import-plan`, and
+`/api/agents/runs`. Development auth never satisfies this policy.
+
 ## x402 Boundary
 
 `/api/x402/discovery` may list planned endpoints, prices, and enforcement

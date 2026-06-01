@@ -81,9 +81,9 @@ sequenceDiagram
   CLI-->>O: agent-export manifest + files
   O->>Web: import manifest/brief bundle
   Web->>Auth: current: verify Privy bearer token
-  Note over Web,Auth: planned: GitHub/Base/Solana linked identity policy
+  Note over Web,Auth: env-gated GitHub/Base/Solana linked identity policy
   Web->>API: POST /api/exports/validate
-  API->>API: validate contract and forbidden writes
+  API->>API: validate linked identity policy, contract, and forbidden writes
   API->>Store: insert import + audit event
   Web->>API: POST /api/agents/runs
   API->>Agent: build dry-run import plan
