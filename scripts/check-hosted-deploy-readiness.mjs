@@ -1,0 +1,409 @@
+#!/usr/bin/env node
+import { spawnSync } from "node:child_process";
+import { access, readFile } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+export const REQUIRED_GITHUB_SECRETS = [
+  "VERCEL_TOKEN",
+  "VERCEL_ORG_ID",
+  "VERCEL_PROJECT_ID",
+  "DATABASE_URL",
+  "PRIVY_APP_ID",
+  "NEXT_PUBLIC_PRIVY_APP_ID",
+  "PRIVY_APP_SECRET",
+];
+
+export const OPTIONAL_GITHUB_SECRETS = ["PRIVY_JWT_VERIFICATION_KEY"];
+
+export const REQUIRED_PACKAGE_SCRIPTS = [
+  "release:check",
+  "verify:hosted",
+  "hosted:setup-github-env",
+  "hosted:check-readiness",
+];
+
+export const REQUIRED_LOCAL_FILES = [
+  ".github/workflows/vercel-preview.yml",
+  ".github/workflows/vercel-production.yml",
+  "apps/portal/vercel.json",
+  "apps/portal/app/api/health/route.ts",
+  "apps/portal/app/api/x402/discovery/route.ts",
+  "apps/portal/src/lib/x402-discovery.v1.json",
+  "apps/portal/tests/fixtures/x402-discovery.v1.json",
+  "apps/portal/tests/fixtures/x402-audit-events.v1.json",
+  "docs/handoff/x402-milestone-3.md",
+  "docs/release/milestone-2-hosted-readiness.md",
+  "docs/deploy/vercel-github-actions.md",
+  "docs/setup/hosted-suite-environment.md",
+];
+
+const VERCEL_PROJECT_FILE = "apps/portal/.vercel/project.json";
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(`error: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  });
+}
+
+async function main() {
+  const options = parseArgs(process.argv.slice(2));
+  const repoRoot = options.repoRoot ?? process.cwd();
+  const github = options.remote
+    ? collectGithubState({
+        repo: options.repo,
+        environment: options.environment,
+        branch: options.branch,
+      })
+    : { checked: false, secrets: [], variables: [], requiredStatusChecks: [] };
+  const report = await evaluateHostedDeployReadiness({
+    repoRoot,
+    env: process.env,
+    github,
+  });
+
+  if (options.json) {
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    console.log(formatReadinessMarkdown(report));
+  }
+
+  if (options.strict && report.status !== "ready") {
+    process.exitCode = 2;
+  }
+}
+
+export async function evaluateHostedDeployReadiness(options = {}) {
+  const repoRoot = options.repoRoot ?? process.cwd();
+  const env = options.env ?? process.env;
+  const requiredLocalFiles = options.requiredLocalFiles ?? REQUIRED_LOCAL_FILES;
+  const checks = [];
+
+  const localMissing = await missingFiles(repoRoot, requiredLocalFiles);
+  addCheck(checks, {
+    id: "local_artifacts",
+    title: "Required hosted release artifacts exist",
+    status: localMissing.length === 0 ? "pass" : "block",
+    detail: localMissing.length === 0 ? "All required files are present." : `Missing: ${localMissing.join(", ")}`,
+  });
+
+  const scripts = await readPackageScripts(repoRoot);
+  const missingScripts = REQUIRED_PACKAGE_SCRIPTS.filter((name) => !scripts[name]);
+  addCheck(checks, {
+    id: "package_scripts",
+    title: "Required hosted package scripts exist",
+    status: missingScripts.length === 0 ? "pass" : "block",
+    detail: missingScripts.length === 0 ? "Release, hosted verify, environment setup, and readiness scripts are present." : `Missing scripts: ${missingScripts.join(", ")}`,
+  });
+
+  const vercelProject = await readVercelProject(repoRoot);
+  addCheck(checks, {
+    id: "vercel_project_link",
+    title: "Local Vercel project metadata exists",
+    status: vercelProject.linked ? "pass" : "block",
+    detail: vercelProject.linked
+      ? `${VERCEL_PROJECT_FILE} is present with project metadata.`
+      : `${VERCEL_PROJECT_FILE} is missing or incomplete; run Vercel project linking before production.`,
+  });
+
+  const github = normalizeGithubState(options.github);
+  if (!github.checked) {
+    addCheck(checks, {
+      id: "github_remote_state",
+      title: "GitHub production environment was checked",
+      status: "block",
+      detail: "Remote GitHub environment was not checked. Run with --remote before production promotion.",
+    });
+  } else if (github.error) {
+    addCheck(checks, {
+      id: "github_remote_state",
+      title: "GitHub production environment was checked",
+      status: "block",
+      detail: `Remote GitHub check failed: ${github.error}`,
+    });
+  } else {
+    addCheck(checks, {
+      id: "github_environment",
+      title: "GitHub production environment exists",
+      status: github.environmentExists ? "pass" : "block",
+      detail: github.environmentExists ? "Production environment exists." : "Production environment is missing.",
+    });
+    addCheck(checks, {
+      id: "github_deployment_branch",
+      title: "GitHub production deploy branch is main",
+      status: github.deploymentBranchPolicy === "main" ? "pass" : "block",
+      detail:
+        github.deploymentBranchPolicy === "main"
+          ? "Production deployment branch policy is main."
+          : `Production deployment branch policy is ${github.deploymentBranchPolicy || "missing"}.`,
+    });
+    addCheck(checks, {
+      id: "github_branch_protection",
+      title: "Main branch protection is enabled",
+      status: github.branchProtected ? "pass" : "block",
+      detail: github.branchProtected ? "Main branch is protected." : "Main branch protection is missing.",
+    });
+    const missingStatuses = ["preview"].filter((name) => !github.requiredStatusChecks.includes(name));
+    addCheck(checks, {
+      id: "github_required_checks",
+      title: "Main branch requires preview check",
+      status: missingStatuses.length === 0 ? "pass" : "block",
+      detail:
+        missingStatuses.length === 0
+          ? "Required status checks include preview."
+          : `Missing required status checks: ${missingStatuses.join(", ")}`,
+    });
+    const missingSecrets = REQUIRED_GITHUB_SECRETS.filter((name) => !github.secrets.includes(name));
+    addCheck(checks, {
+      id: "github_required_secrets",
+      title: "GitHub production secrets are configured",
+      status: missingSecrets.length === 0 ? "pass" : "block",
+      detail:
+        missingSecrets.length === 0
+          ? "All required production secret names are present."
+          : `Missing secret names: ${missingSecrets.join(", ")}`,
+    });
+    const missingOptionalSecrets = OPTIONAL_GITHUB_SECRETS.filter((name) => !github.secrets.includes(name));
+    addCheck(checks, {
+      id: "github_optional_secrets",
+      title: "Optional GitHub production secrets",
+      status: missingOptionalSecrets.length === 0 ? "pass" : "warn",
+      detail:
+        missingOptionalSecrets.length === 0
+          ? "Optional production secret names are present."
+          : `Optional secret names missing: ${missingOptionalSecrets.join(", ")}`,
+    });
+  }
+
+  const x402 = resolveX402Value(github.variables, env);
+  addCheck(checks, {
+    id: "x402_disabled",
+    title: "x402 enforcement is disabled",
+    status: x402 === "false" ? "pass" : "block",
+    detail:
+      x402 === "true"
+        ? "X402_ENABLED is true; production must keep x402 disabled until the enforcement gate passes."
+        : x402 === "false"
+          ? "X402_ENABLED is false."
+          : "X402_ENABLED is unset; production readiness requires an explicit false policy.",
+  });
+
+  const blockers = checks
+    .filter((check) => check.status === "block")
+    .map((check) => ({ id: check.id, title: check.title, detail: check.detail }));
+  const warnings = checks
+    .filter((check) => check.status === "warn")
+    .map((check) => ({ id: check.id, title: check.title, detail: check.detail }));
+
+  return {
+    version: "fieldtheory.hosted-deploy-readiness.v1",
+    status: blockers.length === 0 ? "ready" : "blocked",
+    generatedAt: new Date().toISOString(),
+    summary: {
+      blockerCount: blockers.length,
+      warningCount: warnings.length,
+      checkedRemote: Boolean(github.checked),
+    },
+    checks,
+    blockers,
+    warnings,
+  };
+}
+
+export function formatReadinessMarkdown(report) {
+  const lines = [
+    "# Hosted Deploy Readiness",
+    "",
+    `Status: ${report.status}`,
+    `Generated: ${report.generatedAt}`,
+    "",
+  ];
+  if (report.blockers.length > 0) {
+    lines.push("## Blockers", "");
+    for (const blocker of report.blockers) {
+      lines.push(`- ${blocker.title}: ${blocker.detail}`);
+    }
+    lines.push("");
+  }
+  if (report.warnings.length > 0) {
+    lines.push("## Warnings", "");
+    for (const warning of report.warnings) {
+      lines.push(`- ${warning.title}: ${warning.detail}`);
+    }
+    lines.push("");
+  }
+  lines.push("## Checks", "");
+  for (const check of report.checks) {
+    lines.push(`- [${check.status}] ${check.title}: ${check.detail}`);
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+function parseArgs(args) {
+  return {
+    repo: readOption(args, "--repo") ?? process.env.GITHUB_REPOSITORY ?? "chipoto69/fieldtheory",
+    environment: readOption(args, "--environment") ?? "production",
+    branch: readOption(args, "--branch") ?? "main",
+    repoRoot: readOption(args, "--repo-root"),
+    remote: args.includes("--remote"),
+    strict: args.includes("--strict"),
+    json: args.includes("--json"),
+  };
+}
+
+function readOption(args, name) {
+  const index = args.indexOf(name);
+  if (index === -1) return undefined;
+  const value = args[index + 1];
+  if (!value || value.startsWith("--")) {
+    throw new Error(`${name} requires a value.`);
+  }
+  return value;
+}
+
+async function missingFiles(repoRoot, paths) {
+  const missing = [];
+  for (const relPath of paths) {
+    try {
+      await access(join(repoRoot, relPath), fsConstants.F_OK);
+    } catch {
+      missing.push(relPath);
+    }
+  }
+  return missing;
+}
+
+async function readPackageScripts(repoRoot) {
+  try {
+    const text = await readFile(join(repoRoot, "package.json"), "utf8");
+    const pkg = JSON.parse(text);
+    return pkg && typeof pkg === "object" && pkg.scripts && typeof pkg.scripts === "object" ? pkg.scripts : {};
+  } catch {
+    return {};
+  }
+}
+
+async function readVercelProject(repoRoot) {
+  try {
+    const text = await readFile(join(repoRoot, VERCEL_PROJECT_FILE), "utf8");
+    const project = JSON.parse(text);
+    return { linked: Boolean(project?.projectId && project?.orgId) };
+  } catch {
+    return { linked: false };
+  }
+}
+
+function normalizeGithubState(github = {}) {
+  return {
+    checked: Boolean(github.checked),
+    error: sanitizeDetail(github.error),
+    environmentExists: Boolean(github.environmentExists),
+    deploymentBranchPolicy: typeof github.deploymentBranchPolicy === "string" ? github.deploymentBranchPolicy : undefined,
+    branchProtected: Boolean(github.branchProtected),
+    requiredStatusChecks: arrayOfStrings(github.requiredStatusChecks),
+    secrets: arrayOfStrings(github.secrets),
+    variables: Array.isArray(github.variables) ? github.variables.map(normalizeVariable).filter(Boolean) : [],
+  };
+}
+
+function normalizeVariable(variable) {
+  if (!variable || typeof variable !== "object") return undefined;
+  if (typeof variable.name !== "string") return undefined;
+  const value = typeof variable.value === "string" ? variable.value : "";
+  return { name: variable.name, value };
+}
+
+function arrayOfStrings(value) {
+  return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+
+function resolveX402Value(variables, env) {
+  const remote = variables.find((variable) => variable.name === "X402_ENABLED")?.value;
+  const value = remote ?? env?.X402_ENABLED;
+  if (value === "true") return "true";
+  if (value === "false") return "false";
+  return "unset";
+}
+
+function addCheck(checks, check) {
+  checks.push({
+    id: check.id,
+    title: check.title,
+    status: check.status,
+    detail: sanitizeDetail(check.detail),
+  });
+}
+
+function sanitizeDetail(value) {
+  return String(value ?? "")
+    .replace(/postgres:\/\/[^@\s]+@/gi, "postgres://<redacted>@")
+    .replace(/(token|secret|password|key)=([^\s,]+)/gi, "$1=<redacted>");
+}
+
+function collectGithubState({ repo, environment, branch }) {
+  const ghAvailable = spawnSync("gh", ["--version"], { encoding: "utf8" });
+  if (ghAvailable.status !== 0) {
+    return {
+      checked: true,
+      error: "GitHub CLI is not available on PATH.",
+      secrets: [],
+      variables: [],
+      requiredStatusChecks: [],
+    };
+  }
+
+  const env = ghJson(["api", `repos/${repo}/environments/${environment}`], { allowFailure: true });
+  const branchState = ghJson(["api", `repos/${repo}/branches/${branch}`], { allowFailure: true });
+  const protection = ghJson(["api", `repos/${repo}/branches/${branch}/protection`], { allowFailure: true });
+  const secrets = ghJson(["secret", "list", "--repo", repo, "--env", environment, "--json", "name"], {
+    allowFailure: true,
+  });
+  const variables = ghJson(["variable", "list", "--repo", repo, "--env", environment, "--json", "name,value"], {
+    allowFailure: true,
+  });
+  const branchPolicy = readDeploymentBranchPolicy(repo, environment, branch, env);
+
+  return {
+    checked: true,
+    environmentExists: Boolean(env?.name),
+    deploymentBranchPolicy: branchPolicy,
+    branchProtected: Boolean(branchState?.protected),
+    requiredStatusChecks: readRequiredStatusChecks(protection),
+    secrets: Array.isArray(secrets) ? secrets.map((secret) => secret.name).filter(Boolean) : [],
+    variables: Array.isArray(variables) ? variables : [],
+  };
+}
+
+function readDeploymentBranchPolicy(repo, environment, branch, env) {
+  if (!env?.deployment_branch_policy) return undefined;
+  if (env.deployment_branch_policy.protected_branches) return "protected_branches";
+  if (!env.deployment_branch_policy.custom_branch_policies) return undefined;
+  const policies = ghJson(["api", `repos/${repo}/environments/${environment}/deployment-branch-policies`], {
+    allowFailure: true,
+  });
+  const branches = Array.isArray(policies?.branch_policies) ? policies.branch_policies : [];
+  return branches.some((policy) => policy?.name === branch) ? branch : "missing";
+}
+
+function readRequiredStatusChecks(protection) {
+  const statusChecks = protection?.required_status_checks;
+  if (!statusChecks) return [];
+  if (Array.isArray(statusChecks.contexts)) return statusChecks.contexts.filter(Boolean);
+  if (Array.isArray(statusChecks.checks)) {
+    return statusChecks.checks.map((check) => check?.context).filter(Boolean);
+  }
+  return [];
+}
+
+function ghJson(args, options = {}) {
+  const result = spawnSync("gh", args, { encoding: "utf8" });
+  if (result.status !== 0) {
+    if (options.allowFailure) return undefined;
+    throw new Error(result.stderr.trim() || result.stdout.trim() || `gh ${args.join(" ")} failed`);
+  }
+  const text = result.stdout.trim();
+  if (!text) return undefined;
+  return JSON.parse(text);
+}

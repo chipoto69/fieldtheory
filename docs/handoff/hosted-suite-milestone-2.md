@@ -68,8 +68,8 @@ The first Milestone 2 scaffold now exists under `apps/portal`:
   runs, and audit events.
 - `npm --prefix apps/portal run db:migrate` creates schema version `1`; production
   checks that marker and fails closed instead of auto-creating tables.
-- Preview and production GitHub Actions workflow skeletons that deploy only when
-  Vercel secrets are configured.
+- Preview and production GitHub Actions workflows with CI, Postgres migration
+  smoke, Vercel deploy steps, and production public endpoint smoke.
 - Server-side Privy access-token verification through `@privy-io/node`; unsigned
   development tokens are local/test only and disabled in production.
 - Browser-side Privy provider/login controls through `@privy-io/react-auth`, plus
@@ -80,9 +80,11 @@ The first Milestone 2 scaffold now exists under `apps/portal`:
 - Owner-scoped artifact import IDs prevent two users importing the same contract
   payload from overwriting each other's ownership.
 
-The scaffold intentionally keeps linked GitHub/Base/Solana identity policy
-deferred. The current server boundary fails closed when `PRIVY_APP_SECRET` is
-absent and only accepts unsigned `Bearer dev:<id>` tokens when
+The scaffold includes an env-gated linked GitHub/Base/Solana identity policy.
+Production policy ownership is still deferred: the operator must choose the
+Privy app, redirect URLs, Base chain, Solana policy, and required env settings.
+The current server boundary fails closed when `PRIVY_APP_SECRET` is absent and
+only accepts unsigned `Bearer dev:<id>` tokens when
 `PRIVY_DEV_ALLOW_UNSIGNED=true`, for tests and local smoke only.
 
 ## Sample AgentBriefPack

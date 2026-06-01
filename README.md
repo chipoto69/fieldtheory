@@ -219,6 +219,10 @@ local-first control plane instead of separate tool surfaces.
   `DATABASE_URL`-backed Postgres persistence for hosted import/run/audit
   metadata. Run `npm run verify:hosted`; run
   `npm --prefix apps/portal run db:migrate` before production traffic.
+- **Hosted deploy readiness auditor**: `npm run hosted:check-readiness -- --remote --strict`
+  checks local release artifacts, package scripts, Vercel project metadata,
+  GitHub production environment policy, required secret names, and
+  `X402_ENABLED=false` without printing secret values.
 - **Next feature plan**: `docs/features/agent-brief-packs.md` specifies the
   proposed recall/source-packet/dispatch bridge from bookmarks to agent work.
 
@@ -240,6 +244,7 @@ Hosted environment bootstrap:
 
 ```bash
 npm run hosted:setup-github-env -- --repo chipoto69/fieldtheory --apply --allow-missing-secrets --protect-main
+npm run hosted:check-readiness -- --remote --strict
 ```
 
 This creates or verifies the GitHub `production` environment, the `main`

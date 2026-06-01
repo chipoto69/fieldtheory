@@ -84,6 +84,7 @@ evidence for each item below:
 | x402 handoff fixtures | `npm --prefix apps/portal test -- --test-name-pattern "x402"` |
 | Local browser workbench smoke | Run the portal with `NEXT_PUBLIC_FIELD_THEORY_LOCAL_OPERATOR=true` plus server-side `PRIVY_DEV_ALLOW_UNSIGNED=true`, then validate a manifest and create a dry-run run from the browser |
 | Diff hygiene | `git diff --check` |
+| Hosted deploy readiness auditor | `npm run hosted:check-readiness -- --remote --strict --json` |
 | GitHub production environment bootstrap | `npm run hosted:setup-github-env -- --repo chipoto69/fieldtheory --apply --allow-missing-secrets --protect-main` |
 | Production secret preflight | `gh secret list --env production --repo chipoto69/fieldtheory` must include Vercel, Privy, and `DATABASE_URL`; `X402_ENABLED` must be unset or `false` |
 | Main branch protection | `gh api repos/chipoto69/fieldtheory/branches/main --jq '{name, protected}'` and branch protection detail must show required `preview`, no force pushes/deletions, linear history, conversation resolution, and admin enforcement |
@@ -96,7 +97,7 @@ Fill this ledger before undrafting or promoting a production deployment:
 
 | Field | Evidence |
 |---|---|
-| PR check run URL | verified 2026-06-01: `preview` passed at `https://github.com/chipoto69/fieldtheory/actions/runs/26734054348/job/78783699506`; Vercel preview deploy step skipped because `VERCEL_*` secrets are absent |
+| PR check run URL | verified 2026-06-01: `preview` passed at `https://github.com/chipoto69/fieldtheory/actions/runs/26736315929/job/78790187366`; Vercel preview deploy step skipped because `VERCEL_*` secrets are absent |
 | Preview URL | blocked 2026-06-01: no Vercel preview URL because `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` are absent |
 | Production URL | blocked 2026-06-01: production deploy remains disabled until Vercel, Privy, and `DATABASE_URL` secrets plus target DB proof exist |
 | Vercel project id | missing 2026-06-01: no linked `.vercel` project metadata or GitHub `VERCEL_PROJECT_ID` secret |
@@ -110,6 +111,7 @@ Fill this ledger before undrafting or promoting a production deployment:
 | Base EVM policy owner | missing 2026-06-01: owner must choose `FIELD_THEORY_BASE_CHAIN_ID` / `NEXT_PUBLIC_BASE_CHAIN_ID` before production |
 | Solana policy owner | missing 2026-06-01: owner must choose `FIELD_THEORY_SOLANA_CLUSTER` / `NEXT_PUBLIC_SOLANA_CLUSTER` before production |
 | x402 handoff fixtures | recorded 2026-06-01: non-enforcing discovery and audit fixtures added; `/api/x402/discovery` mirrors the fixture and `X402_ENABLED=false` remains required |
+| Hosted deploy readiness auditor | recorded 2026-06-01: local artifacts and package scripts pass; remote GitHub production environment, main branch policy/protection, required `preview`, and `X402_ENABLED=false` pass; blocked on missing `apps/portal/.vercel/project.json` plus required GitHub production secret names |
 | Target database provider and owner | blocked 2026-06-01: provider not selected and `DATABASE_URL` secret absent |
 | `fieldtheory_schema_version` output | blocked 2026-06-01: target production database not configured |
 | Post-deploy `/api/health` output | blocked 2026-06-01: no production deployment URL |
@@ -124,6 +126,12 @@ Fill this ledger before undrafting or promoting a production deployment:
 Rollback remains a release gate: the operator must identify the Vercel
 deployment to promote or roll back before production deploy is considered
 ready.
+
+The readiness auditor output contract is
+`fieldtheory.hosted-deploy-readiness.v1`. It reports `status`, `checks`,
+`blockers`, and `warnings` and must list secret names only, never secret values.
+It treats missing or true `X402_ENABLED` as blocked; production readiness
+requires the explicit `false` policy.
 
 ## Stop Conditions
 

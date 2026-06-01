@@ -15,7 +15,8 @@ surfaces, and the first Milestone 2 hosted scaffold:
 
 - `apps/portal` Next.js App Router app
 - portal `vercel.json`
-- preview and production GitHub Actions workflow skeletons
+- preview and production GitHub Actions workflows with CI, Postgres migration
+  smoke, Vercel deploy steps, and production public endpoint smoke
 - dry-run API route handlers for health, contracts, validation, agents,
   Gordo/Aeon import plans, Hermes import plans, and x402 discovery
 - server-side Privy access-token verification with a local/test-only dev token
@@ -244,9 +245,10 @@ set for a controlled break-glass recovery. Normal production deploys must run
 | Raycast | `npm --prefix raycast/fieldtheory run lint && npm --prefix raycast/fieldtheory run build` |
 | Portal unit tests | `npm --prefix apps/portal test` |
 | Portal build | `npm --prefix apps/portal run build` |
-| Portal route smoke | `npm --prefix apps/portal test:e2e` |
+| Portal route smoke | `npm --prefix apps/portal run test:e2e` |
 | Portal DB schema | `DATABASE_URL=postgres://... npm --prefix apps/portal run db:migrate` |
 | Portal DB route smoke | `DATABASE_URL=postgres://... npm run portal:test:db` |
+| Hosted deploy readiness | `npm run hosted:check-readiness -- --remote --strict` |
 | Vercel preview | `vercel build && vercel deploy --prebuilt` from GitHub Actions |
 | Vercel production | same as preview, but only from protected `main` |
 
@@ -255,6 +257,11 @@ until those gates pass in CI and real Vercel/Privy secrets are configured.
 The CI Postgres migration and DB route smoke are throwaway proofs only.
 Production readiness also requires the protected production workflow to migrate
 the target `DATABASE_URL` and pass post-deploy route smoke.
+
+`npm run hosted:check-readiness -- --remote --strict --json` is the local
+auditor for that final preflight. It reports machine-readable `status`,
+`blockers`, and `warnings`; it checks secret names only and never prints secret
+values. It requires `X402_ENABLED=false` explicitly for production readiness.
 
 The in-memory import/run/audit adapter is local/test only. In production mode,
 protected mutation routes return `durable_store_not_configured` unless
@@ -280,6 +287,8 @@ Production deploy is allowed only when:
 - `main` is protected with the required `preview` check, no force pushes or
   deletions, linear history, conversation resolution, and admin enforcement.
 - Vercel project id and org id are set as GitHub secrets.
+- `apps/portal/.vercel/project.json` exists locally after `vercel pull` or
+  project linking.
 - `DATABASE_URL` is set in both Vercel and the GitHub production environment,
   and the production workflow has migrated the target schema.
 - `PRIVY_APP_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`, and `PRIVY_APP_SECRET` are set in

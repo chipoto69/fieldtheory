@@ -22,6 +22,7 @@ Create the non-secret environment scaffold first:
 
 ```bash
 npm run hosted:setup-github-env -- --repo chipoto69/fieldtheory --apply --allow-missing-secrets --protect-main
+npm run hosted:check-readiness -- --remote --strict
 ```
 
 The command creates the GitHub `production` environment, restricts deployments
@@ -146,6 +147,7 @@ Production is the preview workflow plus:
   workflow can fail fast and migrate the target database.
 - `X402_ENABLED=false` in production until x402 review passes.
 - Rollback instructions exist in the release checklist.
+- `npm run hosted:check-readiness -- --remote --strict` reports `ready`.
 
 Current scaffold status:
 
@@ -167,3 +169,11 @@ The throwaway CI migration only proves the migration script. Production release
 also runs `npm --prefix apps/portal run db:migrate` against the target
 `DATABASE_URL`; operators still need to verify `fieldtheory_schema_version` and
 authenticated route behavior before traffic is considered ready.
+
+## Rollback
+
+The production workflow captures the deployment URL but the operator must record
+the deployment id in `docs/release/milestone-2-hosted-readiness.md` before
+promotion. If smoke fails after deploy, use Vercel's dashboard or CLI to
+promote the last known-good deployment, then rerun the public smoke commands and
+update the release ledger with the rollback deployment id.
