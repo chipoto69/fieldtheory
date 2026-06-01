@@ -1,4 +1,5 @@
 import { AuthPanel } from "@/components/auth-panel";
+import { OperatorWorkbench } from "@/components/operator-workbench";
 import { endpointInventory, targetRegistry, x402EndpointPlans } from "@/lib/fixtures";
 
 export default function Home() {
@@ -12,6 +13,7 @@ export default function Home() {
         </div>
         <nav className="nav" aria-label="Portal sections">
           <a href="#contracts">Contracts</a>
+          <a href="#workbench">Workbench</a>
           <a href="#agents">Agents</a>
           <a href="#x402">x402</a>
         </nav>
@@ -49,6 +51,10 @@ export default function Home() {
             <span>x402 enforcement</span>
             <strong>off</strong>
           </div>
+        </section>
+
+        <section id="workbench">
+          <OperatorWorkbench />
         </section>
 
         <section className="content-grid">

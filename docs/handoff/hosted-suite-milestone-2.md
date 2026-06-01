@@ -72,16 +72,18 @@ The first Milestone 2 scaffold now exists under `apps/portal`:
   Vercel secrets are configured.
 - Server-side Privy access-token verification through `@privy-io/node`; unsigned
   development tokens are local/test only and disabled in production.
+- Browser-side Privy provider/login controls through `@privy-io/react-auth`, plus
+  an authenticated workbench for paste-to-validate imports and dry-run creation.
 - Sanitized export import summaries that preserve target, run id, run-scoped
   relative paths, hashes, forbidden writes, and result-envelope status/counts
   without storing absolute source paths, warning text, or raw details.
 - Owner-scoped artifact import IDs prevent two users importing the same contract
   payload from overwriting each other's ownership.
 
-The scaffold intentionally does not mount the Privy browser SDK yet. The current
-server boundary fails closed when `PRIVY_APP_SECRET` is absent and only accepts
-unsigned `Bearer dev:<id>` tokens when `PRIVY_DEV_ALLOW_UNSIGNED=true`, for
-tests and local smoke only.
+The scaffold intentionally keeps linked GitHub/Base/Solana identity policy
+deferred. The current server boundary fails closed when `PRIVY_APP_SECRET` is
+absent and only accepts unsigned `Bearer dev:<id>` tokens when
+`PRIVY_DEV_ALLOW_UNSIGNED=true`, for tests and local smoke only.
 
 ## Sample AgentBriefPack
 
@@ -204,8 +206,9 @@ The hosted suite may plan for:
 - Solana wallet login
 - account linking between GitHub and wallet identities
 
-No Privy SDK code, app IDs, secrets, webhook URLs, or production auth policies
-exist in Milestone 1.
+Browser-side Privy SDK code now exists in the Milestone 2 scaffold, but no
+Privy app IDs, secrets, webhook URLs, server-side linked identity policy, or
+production auth policy values are committed.
 
 ## x402 Status
 
@@ -219,8 +222,8 @@ replay/audit strategy are approved.
 1. Read the real `agent-brief-pack.v1` JSON from the M1 smoke output.
 2. Read the real Aeon/Hermes export manifests.
 3. Extend the current portal as a thin consumer of those contracts.
-4. Add browser Privy login and linked GitHub/Base/Solana identity policies after
-   the server verification boundary stays green.
+4. Add server-side linked GitHub/Base/Solana identity policies after the browser
+   Privy login and server verification boundaries stay green.
 5. Add backup/restore and migration-version gates before declaring the durable
    store production-complete.
 6. Draft x402 endpoint architecture before writing payment enforcement code.

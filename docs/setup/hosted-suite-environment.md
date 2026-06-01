@@ -20,6 +20,8 @@ surfaces, and the first Milestone 2 hosted scaffold:
   Gordo/Aeon import plans, Hermes import plans, and x402 discovery
 - server-side Privy access-token verification with a local/test-only dev token
   bypass
+- browser-side Privy provider/login controls and an authenticated paste-to-validate
+  operator workbench
 - linked GitHub/Base/Solana identity policy marked as deferred; development
   auth does not fabricate wallet or GitHub identities
 - `DATABASE_URL`-backed Postgres adapter for imports, runs, and audit events
@@ -27,8 +29,8 @@ surfaces, and the first Milestone 2 hosted scaffold:
 
 It still does not have:
 
-- real Privy browser SDK login mounted
 - production Vercel project linkage or secrets
+- server-side linked GitHub/Base/Solana identity extraction
 - apply gates
 - x402 enforcement
 
@@ -67,6 +69,19 @@ pass in CI and the Vercel project is explicitly linked.
 | `PRIVY_JWT_VERIFICATION_KEY` | optional | Server-only verification key from the Privy dashboard. |
 | `DATABASE_URL` | before production mutations | Vercel Postgres/Neon/Supabase connection string; run schema migration before deploy. |
 | `X402_ENABLED` | production variable | GitHub production environment variable, not a secret. Keep unset or `false` until the x402 handoff passes. |
+
+Bootstrap the non-secret GitHub environment state before adding secrets:
+
+```bash
+npm run hosted:setup-github-env -- --repo chipoto69/fieldtheory --apply --allow-missing-secrets --protect-main
+```
+
+That command creates or updates the `production` environment, adds a deployment
+branch policy for `main`, sets the environment variable `X402_ENABLED=false`,
+optionally protects `main` with the required `preview` check, and prints the
+missing required secrets. It never reads or writes secret values. Run the same
+command without `--allow-missing-secrets` when the production environment should
+fail the check until all required secrets are present.
 
 Vercel's GitHub Actions documentation recommends installing Vercel CLI, running
 `vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}`,
@@ -222,6 +237,10 @@ Production deploy is allowed only when:
 - PR is not draft.
 - Branch has merged through protected `main`.
 - CLI gates and portal gates pass in GitHub Actions.
+- GitHub `production` environment exists with deployment branch policy `main`
+  and `X402_ENABLED=false`.
+- `main` is protected with the required `preview` check, no force pushes or
+  deletions, linear history, conversation resolution, and admin enforcement.
 - Vercel project id and org id are set as GitHub secrets.
 - `DATABASE_URL` is set in both Vercel and the GitHub production environment,
   and the production workflow has migrated the target schema.

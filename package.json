@@ -1,6 +1,6 @@
 {
   "name": "fieldtheory",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Field Theory CLI. Self-custody for your X/Twitter bookmarks. Local sync, full-text search, classification, and terminal dashboards.",
   "type": "module",
   "bin": {
@@ -18,7 +18,8 @@
     "portal:test:db": "npm --prefix apps/portal run test:db",
     "portal:build": "npm --prefix apps/portal run build",
     "portal:typecheck": "npm --prefix apps/portal run typecheck",
-    "verify:hosted": "npm run portal:test && npm run portal:typecheck && npm run portal:build"
+    "verify:hosted": "npm run portal:test && npm run portal:typecheck && npm run portal:build",
+    "hosted:setup-github-env": "node scripts/setup-github-production-env.mjs"
   },
   "files": [
     "apps/operator-suite/",
@@ -36,6 +37,7 @@
     "dist/",
     "docs/",
     "LICENSE",
+    "scripts/",
     "raycast/fieldtheory/assets/",
     "raycast/fieldtheory/eslint.config.js",
     "raycast/fieldtheory/package-lock.json",

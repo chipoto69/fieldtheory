@@ -137,9 +137,9 @@ using embedded wallet UI signing flows.
 | Area | Criteria |
 |---|---|
 | Contract fidelity | Hosted validators reject unknown contract versions, missing evidence, target payloads with duplicated forbidden actions, unsafe file paths, secret-like content in result envelopes, and manifests that imply remote writes. |
-| Auth scaffold | App builds without real secrets using documented dummy env values; authenticated routes fail closed when Privy server config is absent; server routes verify Privy access tokens through `@privy-io/node`; unsigned dev tokens are disabled in production. Browser Privy SDK install remains deferred until the wallet-linking gate. |
+| Auth scaffold | App builds without real secrets using documented dummy env values; authenticated routes fail closed when Privy server config is absent; server routes verify Privy access tokens through `@privy-io/node`; unsigned dev tokens are disabled in production; browser login controls use `@privy-io/react-auth` when `NEXT_PUBLIC_PRIVY_APP_ID` is configured. |
 | Durable store | Production mutations require `DATABASE_URL`, ignore memory-store override, and require the schema marker created by `npm --prefix apps/portal run db:migrate`. |
-| Wallet linking | Current routes report linked-identity policy as deferred and do not synthesize GitHub/Base/Solana identities. Real Privy browser login and wallet linking remain behind the wallet-linking gate. |
+| Wallet linking | Current routes report linked-identity policy as deferred and do not synthesize GitHub/Base/Solana identities. Server-side linked-account extraction, Base/Solana policy checks, and payment/apply authority remain behind the wallet-linking gate. |
 | Agent runs | Initial run creation is dry-run only and stores audit envelopes; no external write happens in M2. |
 | Gordo/Aeon | Import plan consumes `target: "aeon"` manifests, requires `aeon/aeon.yml.draft`, and keeps it as a draft. |
 | Hermes | Import plan consumes `target: "hermes"` manifests, requires `hermes/task-payload.dry-run.json`, and emits staged profile handoff only. |

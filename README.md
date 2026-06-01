@@ -227,13 +227,25 @@ What is shipped now:
 - The M1 CLI/Raycast layer is the shippable local product surface: capture,
   recall, packets, soul drafts, and dry-run Aeon/Hermes export bundles.
 - The M2 hosted portal is a validated control-plane scaffold with server-side
-  auth checks, dry-run agent APIs, health/contracts/x402 discovery routes,
+  auth checks, browser Privy login controls, a paste-to-validate operator
+  workbench, dry-run agent APIs, health/contracts/x402 discovery routes,
   Postgres metadata persistence, and protected Vercel production workflow gates.
 - The hosted portal is not production-live until the Vercel project, production
-  environment secrets, Privy browser login/wallet linking, target database
-  migration proof, and post-deploy smoke evidence are recorded.
+  environment secrets, server-side linked GitHub/Base/Solana identity policy,
+  target database migration proof, and post-deploy smoke evidence are recorded.
 - Apply gates, GitHub writeback, Hermes writeback, and x402 enforcement remain
   out of scope until their handoff documents pass review.
+
+Hosted environment bootstrap:
+
+```bash
+npm run hosted:setup-github-env -- --repo chipoto69/fieldtheory --apply --allow-missing-secrets --protect-main
+```
+
+This creates or verifies the GitHub `production` environment, the `main`
+deployment branch policy, `main` branch protection requiring the `preview`
+check, and `X402_ENABLED=false`; it reports missing secrets without storing
+secret values.
 
 Raycast development:
 

@@ -12,7 +12,7 @@ export async function GET(): Promise<Response> {
     ok: true,
     service: "fieldtheory-portal",
     status: mutableRoutesReady ? "configuration_ready" : "configuration_required",
-    version: "0.2.0",
+    version: "0.3.0",
     readiness: {
       production,
       authConfigured,

@@ -99,6 +99,26 @@ jobs:
           echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
       - name: Smoke production public endpoints
         run: |
-          curl -fsS "${{ steps.deploy.outputs.url }}/api/health"
+          health="$(curl -fsS "${{ steps.deploy.outputs.url }}/api/health")"
+          HEALTH="$health" node -e '
+            const body = JSON.parse(process.env.HEALTH || "{}");
+            const readiness = body.readiness || {};
+            const ok = body.status === "configuration_ready"
+              && readiness.authConfigured === true
+              && readiness.durableStoreConfigured === true
+              && readiness.mutableRoutesReady === true
+              && body.x402Enabled === false;
+            if (!ok) {
+              console.error("Production health is not configuration_ready with auth/store/x402 gates satisfied.");
+              console.error(JSON.stringify(body, null, 2));
+              process.exit(1);
+            }
+          '
           curl -fsS "${{ steps.deploy.outputs.url }}/api/contracts"
           curl -fsS "${{ steps.deploy.outputs.url }}/api/x402/discovery"
+          auth_status="$(curl -sS -o /tmp/fieldtheory-auth-smoke.json -w "%{http_code}" "${{ steps.deploy.outputs.url }}/api/agents")"
+          if [ "$auth_status" != "401" ]; then
+            echo "::error::Expected unauthenticated protected route to return 401, got $auth_status."
+            cat /tmp/fieldtheory-auth-smoke.json
+            exit 1
+          fi

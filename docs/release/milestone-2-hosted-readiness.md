@@ -36,8 +36,8 @@ tags: [release, readiness, vercel, privy, agents]
 1. Add `apps/portal` as a Next.js App Router app with health/contracts routes. Done.
 2. Add shared contract validators for brief/export inputs. Done in portal scaffold.
 3. Add local fixture smoke for M1 generated artifacts. Done with portal route fixtures; generated CLI smoke fixtures still pending.
-4. Add read-only dashboard and import validation UI. Dashboard shell done; upload UI pending.
-5. Add Privy auth boundary and fail-closed authenticated route checks. Server access-token verification done; browser SDK login deferred to wallet-linking gate.
+4. Add read-only dashboard and import validation UI. Done with an authenticated paste-to-validate workbench and dry-run create action.
+5. Add Privy auth boundary and fail-closed authenticated route checks. Server access-token verification and browser Privy provider/login controls done; linked GitHub/Base/Solana identity policy remains deferred.
 6. Add dry-run agent run creation and audit records. Done with local memory adapter and `DATABASE_URL` Postgres adapter using sanitized export metadata.
 7. Add Gordo/Aeon import-plan adapter. Done as dry-run plan with target/file checks.
 8. Add Hermes import-plan adapter. Done as dry-run plan with target/file checks.
@@ -78,9 +78,11 @@ evidence for each item below:
 | Portal DB route smoke | `DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal_ci" npm run portal:test:db` |
 | Portal tests/build | `npm run verify:hosted` |
 | Diff hygiene | `git diff --check` |
+| GitHub production environment bootstrap | `npm run hosted:setup-github-env -- --repo chipoto69/fieldtheory --apply --allow-missing-secrets --protect-main` |
 | Production secret preflight | `gh secret list --env production --repo chipoto69/fieldtheory` must include Vercel, Privy, and `DATABASE_URL`; `X402_ENABLED` must be unset or `false` |
+| Main branch protection | `gh api repos/chipoto69/fieldtheory/branches/main --jq '{name, protected}'` and branch protection detail must show required `preview`, no force pushes/deletions, linear history, conversation resolution, and admin enforcement |
 | Target production DB migration | protected `vercel-production` workflow step `Migrate target production database` |
-| Vercel production public smoke | protected `vercel-production` workflow step `Smoke production public endpoints` |
+| Vercel production public smoke | protected `vercel-production` workflow step `Smoke production public endpoints` must require `configuration_ready`, auth/store readiness, disabled x402, and unauthenticated `/api/agents` returning `401` |
 | Vercel preview smoke | `curl -fsS "$FIELD_THEORY_PREVIEW_URL/api/health" && curl -fsS "$FIELD_THEORY_PREVIEW_URL/api/contracts" && curl -fsS "$FIELD_THEORY_PREVIEW_URL/api/x402/discovery"` |
 | Durable DB proof | `psql "$DATABASE_URL" -c "select * from fieldtheory_schema_version;"` |
 
@@ -92,8 +94,11 @@ Fill this ledger before undrafting or promoting a production deployment:
 | Preview URL |  |
 | Production URL |  |
 | Vercel project id |  |
-| GitHub production environment exists |  |
-| Required GitHub production secrets present |  |
+| GitHub production environment exists | verified 2026-06-01 with `environment_exists=true` |
+| GitHub production deployment branch policy | verified 2026-06-01: custom branch policy `main` |
+| GitHub production `X402_ENABLED` variable | verified 2026-06-01: `X402_ENABLED=false` |
+| Main branch protection | verified 2026-06-01: protected, required `preview`, strict checks, no force pushes/deletions, linear history, conversation resolution, admin enforcement |
+| Required GitHub production secrets present | missing 2026-06-01: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `DATABASE_URL`, `PRIVY_APP_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`, `PRIVY_APP_SECRET`; optional `PRIVY_JWT_VERIFICATION_KEY` missing |
 | Privy app id and redirect URLs |  |
 | Base EVM policy owner |  |
 | Solana policy owner |  |
@@ -102,6 +107,7 @@ Fill this ledger before undrafting or promoting a production deployment:
 | Post-deploy `/api/health` output |  |
 | Post-deploy `/api/contracts` output |  |
 | Post-deploy `/api/x402/discovery` output |  |
+| Post-deploy unauthenticated `/api/agents` status |  |
 | Post-deploy authenticated mutation failure/success evidence |  |
 | Rollback deployment id |  |
 | Wiki log entry |  |

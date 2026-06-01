@@ -18,6 +18,17 @@ secrets are absent.
 
 ## Required Secrets
 
+Create the non-secret environment scaffold first:
+
+```bash
+npm run hosted:setup-github-env -- --repo chipoto69/fieldtheory --apply --allow-missing-secrets --protect-main
+```
+
+The command creates the GitHub `production` environment, restricts deployments
+to `main`, protects `main` with the required `preview` check, sets
+`X402_ENABLED=false`, and reports missing secrets without storing any secret
+values.
+
 | Secret | Purpose |
 |---|---|
 | `VERCEL_TOKEN` | Authenticates Vercel CLI in GitHub Actions. |
@@ -114,12 +125,19 @@ Production is the preview workflow plus:
 - `vercel deploy --prebuilt --prod`
 - post-deploy public smoke against `/api/health`, `/api/contracts`, and
   `/api/x402/discovery`
+- health JSON must report `status: "configuration_ready"`, configured auth,
+  configured durable store, mutable routes ready, and `x402Enabled: false`
+- unauthenticated `/api/agents` must return `401`, proving protected routes are
+  auth-gated rather than missing Privy runtime config
 
 ## Required Gates Before Enabling
 
 - `apps/portal` exists.
 - Portal has unit tests and build script.
 - Contract fixture smoke runs in CI.
+- GitHub `production` environment exists with a `main` deployment branch policy.
+- `main` branch protection requires the `preview` check and disallows force
+  pushes/deletions.
 - Privy app URLs include preview and production domains.
 - `DATABASE_URL` is configured in Vercel and schema version `1` has been
   migrated on the same target database the deployment will use.
@@ -140,9 +158,9 @@ Current scaffold status:
   Raycast, diff checks, a throwaway Postgres schema migration, the DB route
   smoke, production secret preflight, and the target production `DATABASE_URL`
   migration on protected `main`; it captures the production deployment URL and
-  smokes public health/contracts/x402-discovery routes. Production deploy fails
-  fast when required Vercel, Privy, database, or x402-disable settings are
-  missing.
+  smokes public health/contracts/x402-discovery routes plus unauthenticated
+  protected-route behavior. Production deploy fails fast when required Vercel,
+  Privy, database, or x402-disable settings are missing.
 - `apps/portal/vercel.json` keeps the Vercel project rooted in the portal app.
 
 The throwaway CI migration only proves the migration script. Production release
