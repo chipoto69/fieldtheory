@@ -60,6 +60,31 @@ tags: [release, readiness, vercel, privy, agents]
 | E2E | Playwright or route smoke for health/contracts/auth failure/import validation |
 | Deploy | Vercel preview and production workflows with post-deploy smoke |
 
+## Release Candidate Evidence
+
+Do not move this PR out of draft until the release candidate has current
+evidence for each item below:
+
+| Evidence | Command |
+|---|---|
+| Live PR checks are green | `gh pr checks 1` |
+| Failed workflow diagnosis, if any check is red | `gh run view <run-id> --log-failed` |
+| Local root test under runner-compatible shell | `bash -lc 'HOME="$(mktemp -d)" npm test'` |
+| Root build | `npm run build` |
+| Release package | `npm run release:check` |
+| Raycast | `npm --prefix raycast/fieldtheory ci && npm --prefix raycast/fieldtheory run lint && npm --prefix raycast/fieldtheory run build` |
+| Portal dependency install | `npm --prefix apps/portal ci` |
+| Portal DB schema | `DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal_ci" npm --prefix apps/portal run db:migrate` |
+| Portal DB route smoke | `DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal_ci" npm run portal:test:db` |
+| Portal tests/build | `npm run verify:hosted` |
+| Diff hygiene | `git diff --check` |
+| Vercel preview smoke | `curl -fsS "$FIELD_THEORY_PREVIEW_URL/api/health" && curl -fsS "$FIELD_THEORY_PREVIEW_URL/api/contracts" && curl -fsS "$FIELD_THEORY_PREVIEW_URL/api/x402/discovery"` |
+| Durable DB proof | `psql "$DATABASE_URL" -c "select * from fieldtheory_schema_version;"` |
+
+Rollback remains a release gate: the operator must identify the Vercel
+deployment to promote or roll back before production deploy is considered
+ready.
+
 ## Stop Conditions
 
 - Any endpoint lacks an auth class.

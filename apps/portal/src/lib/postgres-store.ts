@@ -109,6 +109,11 @@ class PostgresHostedStore implements HostedStore {
     });
   }
 
+  async close(): Promise<void> {
+    await this.sql.end({ timeout: 5 });
+    this.schemaReady = undefined;
+  }
+
   private async ensureSchema(): Promise<void> {
     this.schemaReady ??= this.prepareSchema();
     await this.schemaReady;
@@ -302,11 +307,23 @@ function toPostgresJson(value: unknown): postgres.JSONValue {
   return value as postgres.JSONValue;
 }
 
-const globalStore = globalThis as typeof globalThis & { __fieldTheoryPostgresStore?: PostgresHostedStore };
+const globalStore = globalThis as typeof globalThis & {
+  __fieldTheoryPostgresStore?: PostgresHostedStore;
+  __fieldTheoryPostgresStoreUrl?: string;
+};
 
 export function getPostgresHostedStore(): HostedStore {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is required for Postgres hosted store.");
-  globalStore.__fieldTheoryPostgresStore ??= new PostgresHostedStore(databaseUrl);
+  if (!globalStore.__fieldTheoryPostgresStore || globalStore.__fieldTheoryPostgresStoreUrl !== databaseUrl) {
+    globalStore.__fieldTheoryPostgresStore = new PostgresHostedStore(databaseUrl);
+    globalStore.__fieldTheoryPostgresStoreUrl = databaseUrl;
+  }
   return globalStore.__fieldTheoryPostgresStore;
+}
+
+export async function closePostgresHostedStoreForTests(): Promise<void> {
+  await globalStore.__fieldTheoryPostgresStore?.close();
+  globalStore.__fieldTheoryPostgresStore = undefined;
+  globalStore.__fieldTheoryPostgresStoreUrl = undefined;
 }

@@ -72,13 +72,18 @@ jobs:
       - run: npm --prefix raycast/fieldtheory run build
       - run: npm --prefix apps/portal ci
       - run: DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal_ci" npm --prefix apps/portal run db:migrate
+      - run: DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal_ci" npm run portal:test:db
       - run: npm run verify:hosted
       - run: npm install --global vercel@54.6.1
+        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' }}
       - run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' }}
         working-directory: apps/portal
       - run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' }}
         working-directory: apps/portal
       - run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' }}
         working-directory: apps/portal
 ```
 
@@ -90,7 +95,8 @@ Production is the preview workflow plus:
 - job-level branch guard for manual dispatch
 - GitHub `production` environment
 - required Vercel secret preflight
-- Postgres schema migration gate before Vercel build
+- Postgres schema migration gate against the target production `DATABASE_URL`
+  before Vercel build
 - `vercel pull --environment=production`
 - `vercel deploy --prebuilt --prod`
 - post-deploy smoke against `/api/health`, `/api/contracts`, and authenticated
@@ -103,7 +109,7 @@ Production is the preview workflow plus:
 - Contract fixture smoke runs in CI.
 - Privy app URLs include preview and production domains.
 - `DATABASE_URL` is configured in Vercel and schema version `1` has been
-  migrated.
+  migrated on the same target database the deployment will use.
 - `X402_ENABLED=false` in production until x402 review passes.
 - Rollback instructions exist in the release checklist.
 
@@ -111,8 +117,15 @@ Current scaffold status:
 
 - `.github/workflows/vercel-preview.yml` runs root CLI gates, portal tests, and
   portal build on pull requests, runs a throwaway Postgres schema migration, then
-  deploys preview only when Vercel secrets exist.
+  exercises one DB-backed route smoke, then deploys preview only when Vercel
+  secrets exist.
 - `.github/workflows/vercel-production.yml` runs the same gates plus release,
-  Raycast, diff checks, and a throwaway Postgres schema migration on protected
-  `main`; production deploy fails fast when Vercel secrets are missing.
+  Raycast, diff checks, a throwaway Postgres schema migration, and the DB route
+  smoke on protected `main`; production deploy fails fast when Vercel secrets are
+  missing.
 - `apps/portal/vercel.json` keeps the Vercel project rooted in the portal app.
+
+The throwaway CI migration only proves the migration script. Production release
+must run `npm --prefix apps/portal run db:migrate` against the target
+`DATABASE_URL` and verify `fieldtheory_schema_version` before traffic is
+considered ready.

@@ -45,7 +45,7 @@ pass in CI and the Vercel project is explicitly linked.
 | `FIELD_THEORY_CONTRACT_FIXTURE_DIR` | M2 tests | Points tests at generated M1 smoke fixtures. |
 | `FIELD_THEORY_AUDIT_STORE` | M2 local | Local JSON/sqlite audit store path for development. |
 | `FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE` | tests only | Allows in-memory mutations outside production; production ignores it when `DATABASE_URL` is absent. |
-| `FIELD_THEORY_PORTAL_AUTO_CREATE_SCHEMA` | local only | Optional local bootstrap convenience. Keep `false` in production and run `db:migrate`. |
+| `FIELD_THEORY_PORTAL_AUTO_CREATE_SCHEMA` | local or break-glass only | Optional local bootstrap convenience. Keep `false` in normal production and run `db:migrate`. |
 | `NEXT_PUBLIC_BASE_CHAIN_ID` | M2 scaffold | Base network selection; default is Base Sepolia (`84532`) until configured. |
 | `NEXT_PUBLIC_SOLANA_CLUSTER` | M2 scaffold | Solana cluster selection; default is `devnet` until configured. |
 | `X402_ENABLED` | M3 only | Must default false. |
@@ -69,6 +69,12 @@ Vercel's GitHub Actions documentation recommends installing Vercel CLI, running
 `vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}`,
 then `vercel build`, then `vercel deploy --prebuilt`. Use separate workflows for
 preview and production.
+
+The repository workflows run `db:migrate` against their own CI Postgres service.
+That proves the migration script and schema contract, but it does not migrate
+the real preview or production database. Before routing real traffic, run
+`npm --prefix apps/portal run db:migrate` against the target `DATABASE_URL` and
+verify `fieldtheory_schema_version`.
 
 ## Privy Setup Gate
 
@@ -167,8 +173,8 @@ psql "$DATABASE_URL" -c "select count(*) from fieldtheory_audit_events;"
 
 The route adapter can auto-create schema only outside production, or in
 production only when `FIELD_THEORY_PORTAL_AUTO_CREATE_SCHEMA=true` is explicitly
-set for a controlled recovery. Normal production deploys must run
-`db:migrate` before traffic.
+set for a controlled break-glass recovery. Normal production deploys must run
+`db:migrate` before traffic and keep that variable unset.
 
 ## CI Matrix
 
@@ -182,11 +188,15 @@ set for a controlled recovery. Normal production deploys must run
 | Portal build | `npm --prefix apps/portal run build` |
 | Portal route smoke | `npm --prefix apps/portal test:e2e` |
 | Portal DB schema | `DATABASE_URL=postgres://... npm --prefix apps/portal run db:migrate` |
+| Portal DB route smoke | `DATABASE_URL=postgres://... npm run portal:test:db` |
 | Vercel preview | `vercel build && vercel deploy --prebuilt` from GitHub Actions |
 | Vercel production | same as preview, but only from protected `main` |
 
 Portal gates now execute against `apps/portal`. Production deploy remains blocked
 until those gates pass in CI and real Vercel/Privy secrets are configured.
+The CI Postgres migration and DB route smoke are throwaway proofs only;
+production readiness still requires a migration against the target
+`DATABASE_URL`.
 
 The in-memory import/run/audit adapter is local/test only. In production mode,
 protected mutation routes return `durable_store_not_configured` unless

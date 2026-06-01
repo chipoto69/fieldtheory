@@ -42,7 +42,7 @@ tags: [security, privy, wallet, x402, agents]
 | Ownership gate | Artifact and run reads require owner checks. |
 | Authority gate | Apply-capable routes must be disabled until a separate PR. |
 | Secret gate | Token, cookie, private-key, and BIP39 fixtures are rejected before persistence. |
-| Audit gate | Every validation, import, run creation, and failed authorization writes an audit event. |
+| Audit gate | Successful validation, import, and run creation write audit events; failed-auth audit needs a privacy-preserving design before it becomes a release claim. |
 | x402 gate | No enforcement until replay, verify/settle, refund/failure, and privacy review pass. |
 
 ## Current Mitigations
@@ -69,6 +69,19 @@ tags: [security, privy, wallet, x402, agents]
   target-specific dry-run artifact paths.
 - x402 discovery remains non-enforcing; health can report that x402 was
   requested by env, but `x402Enabled` remains false until enforcement exists.
+- `/api/health` exposes non-secret readiness flags for Privy server config,
+  durable-store config, mutable-route readiness, deferred wallet linking, and
+  disabled x402 enforcement. It does not prove the production schema; operators
+  must run `db:migrate` and check `fieldtheory_schema_version`.
+
+## Current Limits
+
+- Browser-side Privy login and wallet linking are not mounted yet; the current
+  server gate only verifies bearer tokens on protected route handlers.
+- Failed authorization attempts return closed errors but are not yet persisted
+  to the audit log.
+- The public health endpoint reports whether `DATABASE_URL` is configured, not
+  whether the database is reachable or migrated.
 
 ## x402 Review Checklist
 

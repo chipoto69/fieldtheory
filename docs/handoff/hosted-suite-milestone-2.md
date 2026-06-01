@@ -221,11 +221,9 @@ replay/audit strategy are approved.
 3. Extend the current portal as a thin consumer of those contracts.
 4. Add browser Privy login and linked GitHub/Base/Solana identity policies after
    the server verification boundary stays green.
-5. Add browser Privy login and identity-link policy before enabling production
-   access.
-6. Add backup/restore and migration-version gates before declaring the durable
+5. Add backup/restore and migration-version gates before declaring the durable
    store production-complete.
-7. Draft x402 endpoint architecture before writing payment enforcement code.
+6. Draft x402 endpoint architecture before writing payment enforcement code.
 
 ## M2 Entry Gate
 

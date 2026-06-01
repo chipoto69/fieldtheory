@@ -39,10 +39,21 @@ test.afterEach(() => {
 
 test("public health and contract routes do not require auth", async () => {
   process.env.X402_ENABLED = "true";
+  delete process.env.PRIVY_APP_ID;
+  delete process.env.NEXT_PUBLIC_PRIVY_APP_ID;
+  delete process.env.PRIVY_APP_SECRET;
+  delete process.env.DATABASE_URL;
+  setEnv("NODE_ENV", "production");
+
   const health = await healthGet();
   const healthBody = await health.json();
   assert.equal(health.status, 200);
-  assert.equal(healthBody.status, "ready");
+  assert.equal(healthBody.status, "configuration_required");
+  assert.equal(healthBody.readiness.production, true);
+  assert.equal(healthBody.readiness.authConfigured, false);
+  assert.equal(healthBody.readiness.durableStoreConfigured, false);
+  assert.equal(healthBody.readiness.mutableRoutesReady, false);
+  assert.equal(healthBody.readiness.walletLinking, "deferred");
   assert.equal(healthBody.x402Enabled, false);
   assert.equal(healthBody.x402Requested, true);
 
@@ -50,6 +61,23 @@ test("public health and contract routes do not require auth", async () => {
   const body = await contracts.json();
   assert.equal(contracts.status, 200);
   assert.equal(body.contracts.brief, "agent-brief-pack.v1");
+});
+
+test("health reports mutable routes ready only after production dependencies are configured", async () => {
+  setEnv("NODE_ENV", "production");
+  process.env.PRIVY_APP_ID = "test-app";
+  process.env.PRIVY_APP_SECRET = "test-secret";
+  process.env.DATABASE_URL = "postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory";
+
+  const health = await healthGet();
+  const body = await health.json();
+  assert.equal(health.status, 200);
+  assert.equal(body.status, "ready");
+  assert.equal(body.readiness.authConfigured, true);
+  assert.equal(body.readiness.durableStoreConfigured, true);
+  assert.equal(body.readiness.mutableStoreReady, true);
+  assert.equal(body.readiness.mutableRoutesReady, true);
+  assert.equal(body.readiness.schema, "requires-migration-proof");
 });
 
 test("protected routes fail closed when Privy server config is absent", async () => {

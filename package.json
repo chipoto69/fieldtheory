@@ -9,12 +9,13 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "tsx --test tests/**/*.test.ts",
+    "test": "tsx --test tests/*.test.ts",
     "dev": "tsx src/cli.ts",
     "start": "node dist/cli.js",
     "prepublishOnly": "npm run release:check",
     "release:check": "npm run build && npm pack --dry-run && node bin/ft.mjs --help",
     "portal:test": "npm --prefix apps/portal test",
+    "portal:test:db": "npm --prefix apps/portal run test:db",
     "portal:build": "npm --prefix apps/portal run build",
     "portal:typecheck": "npm --prefix apps/portal run typecheck",
     "verify:hosted": "npm run portal:test && npm run portal:typecheck && npm run portal:build"

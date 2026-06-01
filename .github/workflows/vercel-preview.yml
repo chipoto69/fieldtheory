@@ -46,6 +46,7 @@ jobs:
       - run: npm --prefix raycast/fieldtheory run build
       - run: npm --prefix apps/portal ci
       - run: DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal_ci" npm --prefix apps/portal run db:migrate
+      - run: DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal_ci" npm run portal:test:db
       - run: npm run verify:hosted
       - run: npm install --global "vercel@$VERCEL_CLI_VERSION"
         if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' }}
