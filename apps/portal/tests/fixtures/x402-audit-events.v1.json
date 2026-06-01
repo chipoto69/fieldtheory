@@ -1,0 +1,71 @@
+{
+  "version": "fieldtheory.x402-audit-events.v1",
+  "events": [
+    {
+      "id": "x402_audit_challenge_issued",
+      "endpointId": "paid-brief-export",
+      "actorUserId": "privy:user_123",
+      "challengeId": "challenge_example_001",
+      "paymentRequirementHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "paymentPayloadHash": null,
+      "outcome": "challenge_issued",
+      "status": "challenge_returned",
+      "createdAt": "2026-06-01T00:00:00.000Z"
+    },
+    {
+      "id": "x402_audit_verify_failed",
+      "endpointId": "paid-brief-export",
+      "actorUserId": "privy:user_123",
+      "challengeId": "challenge_example_001",
+      "paymentRequirementHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "paymentPayloadHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "outcome": "verify_failed",
+      "status": "payment_not_verified",
+      "createdAt": "2026-06-01T00:00:05.000Z"
+    },
+    {
+      "id": "x402_audit_verify_passed",
+      "endpointId": "paid-brief-export",
+      "actorUserId": "privy:user_123",
+      "challengeId": "challenge_example_002",
+      "paymentRequirementHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "paymentPayloadHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "outcome": "verify_passed",
+      "status": "payment_verified",
+      "createdAt": "2026-06-01T00:01:00.000Z"
+    },
+    {
+      "id": "x402_audit_settle_failed",
+      "endpointId": "paid-agent-run",
+      "actorUserId": "privy:user_456",
+      "challengeId": "challenge_example_003",
+      "paymentRequirementHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "paymentPayloadHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "outcome": "settle_failed",
+      "status": "settlement_failed",
+      "createdAt": "2026-06-01T00:02:00.000Z"
+    },
+    {
+      "id": "x402_audit_settle_passed",
+      "endpointId": "paid-agent-run",
+      "actorUserId": "privy:user_456",
+      "challengeId": "challenge_example_004",
+      "paymentRequirementHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "paymentPayloadHash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "outcome": "settle_passed",
+      "status": "settlement_confirmed",
+      "createdAt": "2026-06-01T00:03:00.000Z"
+    },
+    {
+      "id": "x402_audit_replay_blocked",
+      "endpointId": "paid-agent-run",
+      "actorUserId": "privy:user_456",
+      "challengeId": "challenge_example_004",
+      "paymentRequirementHash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "paymentPayloadHash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "outcome": "replay_blocked",
+      "status": "duplicate_payment_identifier",
+      "createdAt": "2026-06-01T00:03:15.000Z"
+    }
+  ]
+}

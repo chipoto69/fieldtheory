@@ -133,6 +133,11 @@ x402 remains disabled until a dedicated handoff verifies:
 - privacy review of payment metadata
 - audit log shape
 
+The current non-enforcing handoff lives in
+`docs/handoff/x402-milestone-3.md`. The live discovery route must continue to
+mirror `apps/portal/src/lib/x402-discovery.v1.json` and the downstream fixture
+`apps/portal/tests/fixtures/x402-discovery.v1.json` while `X402_ENABLED=false`.
+
 The x402 docs describe the basic flow as request, HTTP 402 response with payment
 instructions, payment payload submission, verify/settle, then resource delivery.
 This repo must not implement settlement until those gates pass.

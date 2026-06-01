@@ -218,6 +218,17 @@ design payment-gated endpoints around stable Field Theory contracts and must
 not add enforcement until the hosted app, auth model, endpoint inventory, and
 replay/audit strategy are approved.
 
+Milestone 3 now has a non-enforcing fixture-backed handoff:
+
+- `docs/handoff/x402-milestone-3.md`
+- `apps/portal/src/lib/x402-discovery.v1.json`
+- `apps/portal/tests/fixtures/x402-discovery.v1.json`
+- `apps/portal/tests/fixtures/x402-audit-events.v1.json`
+
+`/api/x402/discovery` mirrors the discovery fixture exactly and keeps
+`enabled: false`, `enforcement: "disabled"`, and
+`settlement: "not-implemented"`.
+
 ## Next Hosted Work Items
 
 1. Read the real `agent-brief-pack.v1` JSON from the M1 smoke output.
@@ -227,7 +238,8 @@ replay/audit strategy are approved.
    Privy login and server verification boundaries stay green.
 5. Add backup/restore and migration-version gates before declaring the durable
    store production-complete.
-6. Draft x402 endpoint architecture before writing payment enforcement code.
+6. Use the x402 Milestone 3 handoff fixtures before writing payment enforcement
+   code.
 
 ## M2 Entry Gate
 

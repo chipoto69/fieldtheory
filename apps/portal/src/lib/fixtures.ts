@@ -1,3 +1,5 @@
+import x402DiscoveryFixture from "./x402-discovery.v1.json";
+
 export const supportedContracts = {
   brief: "agent-brief-pack.v1",
   capture: "fieldtheory.capture.v1",
@@ -38,21 +40,5 @@ export const targetRegistry = [
   },
 ] as const;
 
-export const x402EndpointPlans = [
-  {
-    id: "paid-brief-export",
-    route: "/api/x402/protected/briefs/:id",
-    method: "GET",
-    pricePolicy: "unset",
-    facilitator: "undecided",
-    status: "planned",
-  },
-  {
-    id: "paid-agent-run",
-    route: "/api/x402/protected/agents/runs/:id",
-    method: "GET",
-    pricePolicy: "unset",
-    facilitator: "undecided",
-    status: "planned",
-  },
-] as const;
+export const x402Discovery = x402DiscoveryFixture;
+export const x402EndpointPlans = x402Discovery.endpoints;

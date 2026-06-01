@@ -112,3 +112,6 @@ tags: [security, privy, wallet, x402, agents]
   payment states.
 - Audit log records payment challenge id, endpoint id, actor id, and outcome.
 - Payment metadata does not include raw captures or private source content.
+- Discovery and audit fixtures stay non-enforcing and hash-only:
+  `apps/portal/tests/fixtures/x402-discovery.v1.json` and
+  `apps/portal/tests/fixtures/x402-audit-events.v1.json`.

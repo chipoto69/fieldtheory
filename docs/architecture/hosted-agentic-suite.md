@@ -140,7 +140,7 @@ through composite store methods so durable writes are transactional.
 | `fieldtheory_imports` | Uploaded/imported contract metadata, hashes, owner id, validation status. |
 | `fieldtheory_agent_runs` | Dry-run plan, target, status, owner id, result envelope. |
 | `fieldtheory_audit_events` | Append-only event log with actor, target, contract hash, and outcome. |
-| `x402_endpoint_plans` | Planned endpoint id, price policy, facilitator assumptions, enforcement status. |
+| `x402_endpoint_plans` | Planned endpoint id, price policy, facilitator assumptions, replay protection, accepted network placeholders, and enforcement status from `fieldtheory.x402-discovery.v1`. |
 
 ## Deployment Flow
 
@@ -163,6 +163,6 @@ production workflows.
 |---|---|
 | Database provider | Postgres via `DATABASE_URL`; backup/restore and migration versioning still need release gates. |
 | Agent execution location | Vercel owns control plane; long-running work may need GitHub Actions or external worker. |
-| x402 facilitator | Document assumptions only; no enforcement. |
+| x402 facilitator | Document assumptions and fixture contracts only; no enforcement. |
 | Apply gates | Dry-run only until a human-reviewed apply plan exists. |
 | Secret ownership | GitHub/Vercel/Privy secrets are operator-managed and never stored in Field Theory captures. |

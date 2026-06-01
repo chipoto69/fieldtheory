@@ -44,7 +44,11 @@ tags: [release, readiness, vercel, privy, agents]
 9. Add preview GitHub Action. Done; deploy step skips without secrets and emits an explicit skipped-deploy notice.
 10. Add production GitHub Action after preview and portal gates pass. Done as protected-main workflow; deploy fails fast without Vercel, Privy, database, and x402-disable configuration.
 11. Add durable store migration gate. Done with `db:migrate`, GitHub Actions Postgres service, DB route smoke, target production `DATABASE_URL` migration, and public post-deploy smoke.
-12. Draft x402 endpoint handoff and fixtures.
+12. Draft x402 endpoint handoff and fixtures. Done with
+    `docs/handoff/x402-milestone-3.md`,
+    `apps/portal/src/lib/x402-discovery.v1.json`,
+    `apps/portal/tests/fixtures/x402-discovery.v1.json`, and
+    `apps/portal/tests/fixtures/x402-audit-events.v1.json`.
 13. Enable x402 enforcement in a later gate only.
 
 ## Validation Matrix
@@ -77,6 +81,7 @@ evidence for each item below:
 | Portal DB schema | `DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal_ci" npm --prefix apps/portal run db:migrate` |
 | Portal DB route smoke | `DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal_ci" npm run portal:test:db` |
 | Portal tests/build | `npm run verify:hosted` |
+| x402 handoff fixtures | `npm --prefix apps/portal test -- --test-name-pattern "x402"` |
 | Local browser workbench smoke | Run the portal with `NEXT_PUBLIC_FIELD_THEORY_LOCAL_OPERATOR=true` plus server-side `PRIVY_DEV_ALLOW_UNSIGNED=true`, then validate a manifest and create a dry-run run from the browser |
 | Diff hygiene | `git diff --check` |
 | GitHub production environment bootstrap | `npm run hosted:setup-github-env -- --repo chipoto69/fieldtheory --apply --allow-missing-secrets --protect-main` |
@@ -104,6 +109,7 @@ Fill this ledger before undrafting or promoting a production deployment:
 | Linked identity policy mode | scaffolded 2026-06-01: `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true` requires GitHub OAuth, configured Base EVM chain id, and Solana identity before protected write routes; production env var not set yet |
 | Base EVM policy owner | missing 2026-06-01: owner must choose `FIELD_THEORY_BASE_CHAIN_ID` / `NEXT_PUBLIC_BASE_CHAIN_ID` before production |
 | Solana policy owner | missing 2026-06-01: owner must choose `FIELD_THEORY_SOLANA_CLUSTER` / `NEXT_PUBLIC_SOLANA_CLUSTER` before production |
+| x402 handoff fixtures | recorded 2026-06-01: non-enforcing discovery and audit fixtures added; `/api/x402/discovery` mirrors the fixture and `X402_ENABLED=false` remains required |
 | Target database provider and owner | blocked 2026-06-01: provider not selected and `DATABASE_URL` secret absent |
 | `fieldtheory_schema_version` output | blocked 2026-06-01: target production database not configured |
 | Post-deploy `/api/health` output | blocked 2026-06-01: no production deployment URL |

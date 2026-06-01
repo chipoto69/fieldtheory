@@ -81,7 +81,7 @@ context into Aeon/Gordo and Hermes without losing provenance or write authority.
 | Production Vercel deploy | Protected production deployment with documented secrets | Vercel deployment only; no external write side effects. |
 | Agent runtime endpoints | Agent-facing contract fetch, run creation, status, and artifact download | Requires authenticated user and run ownership. |
 | Wallet-gated surfaces | Privy identity checks around private dashboard and paid endpoint previews | Wallet ownership proves access tier only after policy mapping. |
-| x402 architecture handoff | Endpoint inventory, payment challenge flow, replay/audit strategy, facilitator assumptions | Architecture and fixtures first; enforcement in a later gate. |
+| x402 architecture handoff | Endpoint inventory, payment challenge flow, replay/audit strategy, facilitator assumptions | Fixture-backed handoff first; enforcement in a later gate. |
 
 ## Endpoint Inventory
 
@@ -131,7 +131,9 @@ using embedded wallet UI signing flows.
    `GET /api/agents/runs/:id`.
 7. Later apply gates can dispatch to Gordo/Aeon or Hermes.
 8. Later x402 gates can challenge paid endpoint calls with HTTP 402 and verify
-   settlement before returning protected output.
+   settlement before returning protected output. Until then,
+   `/api/x402/discovery` mirrors the non-enforcing
+   `fieldtheory.x402-discovery.v1` fixture.
 
 ## Acceptance Criteria
 
@@ -145,7 +147,7 @@ using embedded wallet UI signing flows.
 | Gordo/Aeon | Import plan consumes `target: "aeon"` manifests, requires `aeon/aeon.yml.draft`, and keeps it as a draft. |
 | Hermes | Import plan consumes `target: "hermes"` manifests, requires `hermes/task-payload.dry-run.json`, and emits staged profile handoff only. |
 | Vercel CI | Preview and production workflows use `vercel build` and `vercel deploy --prebuilt`; production deploy runs only from protected main. |
-| x402 | Handoff includes endpoint inventory, pricing owner, facilitator assumptions, replay protection, and audit log requirements before enforcement. |
+| x402 | Handoff includes endpoint inventory, pricing owner, facilitator assumptions, replay protection, audit log requirements, and fixture-backed route parity before enforcement. |
 
 ## External Docs Checked
 

@@ -32,7 +32,7 @@ requests are accepted.
 | `/api/agents/runs/[id]` | `GET` | Privy owner | none | run status plus owner-scoped `auditEvents[]` | none |
 | `/api/gordo/import-plan` | `POST` | Privy | export manifest | Aeon/Gordo plan | accepted plan audit event |
 | `/api/hermes/import-plan` | `POST` | Privy | export manifest | Hermes plan | accepted plan audit event |
-| `/api/x402/discovery` | `GET` | none | none | endpoint inventory | none |
+| `/api/x402/discovery` | `GET` | none | none | `fieldtheory.x402-discovery.v1` endpoint inventory | none |
 
 ## Auth Classes
 
@@ -101,3 +101,10 @@ are `/api/briefs/validate`, `/api/exports/validate`,
 `/api/x402/discovery` may list planned endpoints, prices, and enforcement
 status. It must not verify, settle, or return paid protected content until the
 x402 handoff passes.
+
+The current route mirrors `apps/portal/src/lib/x402-discovery.v1.json`, which
+has a matching downstream handoff fixture at
+`apps/portal/tests/fixtures/x402-discovery.v1.json`. The fixture names x402 V2
+headers and planned Base Sepolia plus Solana devnet payment entries, but keeps
+`enabled: false`, `enforcement: "disabled"`, and
+`settlement: "not-implemented"`.
