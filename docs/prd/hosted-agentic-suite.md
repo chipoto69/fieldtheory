@@ -127,7 +127,8 @@ using embedded wallet UI signing flows.
 4. Portal stores sanitized import metadata and audit events through
    `HostedStore`.
 5. Portal creates a dry-run agent handoff plan.
-6. Operator reviews the plan and audit envelope.
+6. Operator reviews the plan and owner-scoped audit envelope in the workbench or
+   `GET /api/agents/runs/:id`.
 7. Later apply gates can dispatch to Gordo/Aeon or Hermes.
 8. Later x402 gates can challenge paid endpoint calls with HTTP 402 and verify
    settlement before returning protected output.

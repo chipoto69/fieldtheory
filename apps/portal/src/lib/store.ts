@@ -52,6 +52,7 @@ export interface HostedStore {
   createRun(input: CreateRunInput): Promise<AgentRun>;
   createRunWithAudit(input: CreateRunInput, audit: CreateRunAuditInput): Promise<{ run: AgentRun; audit: AuditEvent }>;
   getRun(id: string): Promise<AgentRun | undefined>;
+  listAuditEventsForTarget(actorUserId: string, targetType: string, targetId: string): Promise<AuditEvent[]>;
   appendAudit(input: AppendAuditInput): Promise<AuditEvent>;
 }
 
@@ -114,6 +115,14 @@ export class MemoryHostedStore implements HostedStore {
 
   async getRun(id: string): Promise<AgentRun | undefined> {
     return this.runs.get(id);
+  }
+
+  async listAuditEventsForTarget(actorUserId: string, targetType: string, targetId: string): Promise<AuditEvent[]> {
+    return this.auditEvents.filter((event) => (
+      event.actorUserId === actorUserId
+      && event.targetType === targetType
+      && event.targetId === targetId
+    ));
   }
 
   async appendAudit(input: AppendAuditInput): Promise<AuditEvent> {

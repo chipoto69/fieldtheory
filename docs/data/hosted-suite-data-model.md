@@ -92,6 +92,10 @@ is absent. Validation import + audit writes and run + audit writes use composite
 store methods so the Postgres adapter commits those paired records in one
 transaction.
 
+Run readback uses the same owner id as the authenticated Privy subject and
+returns only audit events whose `actor_user_id`, `target_type`, and `target_id`
+match that owner-scoped run. The read path is intentionally non-mutating.
+
 ## Retention Rules
 
 | Record | Default retention |

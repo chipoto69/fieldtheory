@@ -210,11 +210,18 @@ test("export validation plus dry-run creation returns a run envelope", async () 
   assert.equal(runBody.run.resultEnvelope.plan.applyEnabled, false);
   assert.equal(runBody.run.resultEnvelope.plan.source.runId, "aeon-20260531T130000Z");
   assert.ok(runBody.run.resultEnvelope.plan.source.fileRelPaths.some((file: string) => file.endsWith("/aeon/aeon.yml.draft")));
+  assert.equal(runBody.auditEvents.length, 1);
+  assert.equal(runBody.auditEvents[0].action, "agent.run.create");
+  assert.equal(runBody.auditEvents[0].targetId, runBody.run.id);
 
   const readRun = await runGet(authRequest(`http://localhost/api/agents/runs/${runBody.run.id}`), {
     params: Promise.resolve({ id: runBody.run.id }),
   });
+  const readRunBody = await readRun.json();
   assert.equal(readRun.status, 200);
+  assert.equal(readRunBody.auditEvents.length, 1);
+  assert.equal(readRunBody.auditEvents[0].action, "agent.run.create");
+  assert.equal(readRunBody.auditEvents[0].targetId, runBody.run.id);
 
   const userBRead = await runGet(authRequest(`http://localhost/api/agents/runs/${runBody.run.id}`, {}, "dev:other"), {
     params: Promise.resolve({ id: runBody.run.id }),

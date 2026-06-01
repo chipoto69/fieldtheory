@@ -25,6 +25,13 @@ type RunResponse = {
     status: string;
     resultEnvelope?: Record<string, unknown>;
   };
+  auditEvents?: Array<{
+    id: string;
+    action: string;
+    targetId: string;
+    outcome: string;
+    createdAt: string;
+  }>;
   error?: { code: string; message: string };
 };
 
@@ -159,7 +166,28 @@ function PrivyWorkbench() {
       )}
 
       {run?.run && (
-        <pre className="code">{JSON.stringify(run.run, null, 2)}</pre>
+        <>
+          <div className="result-grid">
+            <div className="result-box">
+              <strong>Run</strong>
+              <span>{run.run.id}</span>
+              <span>{run.run.target} / {run.run.status}</span>
+            </div>
+            <div className="result-box">
+              <strong>Audit</strong>
+              {(run.auditEvents?.length ?? 0) === 0 ? (
+                <span>no events</span>
+              ) : (
+                <ul>
+                  {run.auditEvents?.map((event) => (
+                    <li key={event.id}>{event.action}: {event.outcome}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+          <pre className="code">{JSON.stringify({ run: run.run, auditEvents: run.auditEvents ?? [] }, null, 2)}</pre>
+        </>
       )}
     </section>
   );

@@ -36,7 +36,7 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const plan = buildImportPlan(target, artifact.exportSummary ?? { runId: importId, fileRelPaths: [], forbiddenWrites: [] });
-    const { run } = await store.createRunWithAudit(
+    const { run, audit } = await store.createRunWithAudit(
       {
         ownerUserId: auth.user.id,
         target,
@@ -55,7 +55,7 @@ export async function POST(request: Request): Promise<Response> {
         outcome: "accepted",
       },
     );
-    return jsonOk({ run }, { status: 201 });
+    return jsonOk({ run, auditEvents: [audit] }, { status: 201 });
   } catch (error) {
     return jsonErrorFrom(error);
   }

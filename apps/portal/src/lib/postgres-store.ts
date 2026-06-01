@@ -101,6 +101,20 @@ class PostgresHostedStore implements HostedStore {
     });
   }
 
+  async listAuditEventsForTarget(actorUserId: string, targetType: string, targetId: string): Promise<AuditEvent[]> {
+    return this.withStore(async () => {
+      await this.ensureSchema();
+      const rows = await this.sql<AuditRow[]>`
+        select * from fieldtheory_audit_events
+        where actor_user_id = ${actorUserId}
+          and target_type = ${targetType}
+          and target_id = ${targetId}
+        order by created_at asc, id asc
+      `;
+      return rows.map(auditFromRow);
+    });
+  }
+
   async appendAudit(input: AppendAuditInput): Promise<AuditEvent> {
     return this.withStore(async () => {
       await this.ensureSchema();
@@ -270,6 +284,17 @@ type RunRow = {
   created_at: Date | string;
 };
 
+type AuditRow = {
+  id: string;
+  actor_user_id: string;
+  action: string;
+  target_type: string;
+  target_id: string;
+  contract_hash: string | null;
+  outcome: AuditEvent["outcome"];
+  created_at: Date | string;
+};
+
 function importFromRow(row: ImportRow): ArtifactImport {
   return {
     id: row.id,
@@ -292,6 +317,19 @@ function runFromRow(row: RunRow): AgentRun {
     status: row.status,
     importId: row.import_id,
     resultEnvelope: row.result_envelope,
+    createdAt: toIso(row.created_at),
+  };
+}
+
+function auditFromRow(row: AuditRow): AuditEvent {
+  return {
+    id: row.id,
+    actorUserId: row.actor_user_id,
+    action: row.action,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    contractHash: row.contract_hash ?? undefined,
+    outcome: row.outcome,
     createdAt: toIso(row.created_at),
   };
 }

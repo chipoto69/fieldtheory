@@ -38,7 +38,7 @@ tags: [release, readiness, vercel, privy, agents]
 3. Add local fixture smoke for M1 generated artifacts. Done with portal route fixtures; generated CLI smoke fixtures still pending.
 4. Add read-only dashboard and import validation UI. Done with an authenticated paste-to-validate workbench and dry-run create action.
 5. Add Privy auth boundary and fail-closed authenticated route checks. Server access-token verification and browser Privy provider/login controls done; linked GitHub/Base/Solana identity policy remains deferred.
-6. Add dry-run agent run creation and audit records. Done with local memory adapter and `DATABASE_URL` Postgres adapter using sanitized export metadata.
+6. Add dry-run agent run creation, owner-scoped audit readback, and audit records. Done with local memory adapter and `DATABASE_URL` Postgres adapter using sanitized export metadata.
 7. Add Gordo/Aeon import-plan adapter. Done as dry-run plan with target/file checks.
 8. Add Hermes import-plan adapter. Done as dry-run plan with target/file checks.
 9. Add preview GitHub Action. Done; deploy step skips without secrets and emits an explicit skipped-deploy notice.

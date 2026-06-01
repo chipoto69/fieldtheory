@@ -28,8 +28,8 @@ requests are accepted.
 | `/api/briefs/validate` | `POST` | Privy | `AgentBriefPack` | validation report | audit event |
 | `/api/exports/validate` | `POST` | Privy | export manifest plus optional file list | validation report | audit event |
 | `/api/agents` | `GET` | Privy | none | target registry | none |
-| `/api/agents/runs` | `POST` | Privy | `{target, importId, mode}` | dry-run record | audit event, run record |
-| `/api/agents/runs/[id]` | `GET` | Privy owner | none | run status and artifacts | none |
+| `/api/agents/runs` | `POST` | Privy | `{target, importId, mode}` | dry-run record plus `auditEvents[]` | audit event, run record |
+| `/api/agents/runs/[id]` | `GET` | Privy owner | none | run status plus owner-scoped `auditEvents[]` | none |
 | `/api/gordo/import-plan` | `POST` | Privy | export manifest | Aeon/Gordo plan | accepted plan audit event |
 | `/api/hermes/import-plan` | `POST` | Privy | export manifest | Hermes plan | accepted plan audit event |
 | `/api/x402/discovery` | `GET` | none | none | endpoint inventory | none |
@@ -82,6 +82,11 @@ Target-specific import plan endpoints must also reject mismatches:
 | `dry-run` | Allowed; writes hosted run metadata and audit only. |
 | `apply-plan` | Returned only inside generated dry-run plans; rejected as a requested run mode. |
 | `apply` | Forbidden until a separate apply-gate PR. |
+
+Run creation and readback responses include the audit envelope associated with
+the run target so operators can review who requested the handoff, which action
+was accepted, and which hosted run id was affected before any later apply gate
+exists.
 
 ## x402 Boundary
 

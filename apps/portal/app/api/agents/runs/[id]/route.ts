@@ -17,8 +17,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     if (!run || run.ownerUserId !== auth.user.id) {
       return jsonError("run_not_found", "Run was not found for this user.", 404);
     }
+    const auditEvents = await getHostedStore().listAuditEventsForTarget(auth.user.id, "agent_run", run.id);
 
-    return jsonOk({ run });
+    return jsonOk({ run, auditEvents });
   } catch (error) {
     return jsonErrorFrom(error);
   }
