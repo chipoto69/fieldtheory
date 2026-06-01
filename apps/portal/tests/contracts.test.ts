@@ -68,6 +68,26 @@ test("export manifest validator rejects traversal, hidden paths, and secret-like
   assert.ok(report.issues.some((issue) => issue.path === "inputs"));
 });
 
+test("export manifest validator rejects inconsistent contract metadata", () => {
+  const emptyRunId = validAeonManifest();
+  emptyRunId.runId = "";
+  let report = validateExportManifest(emptyRunId);
+  assert.equal(report.valid, false);
+  assert.ok(report.issues.some((issue) => issue.path === "runId"));
+
+  const missingContracts = validAeonManifest();
+  missingContracts.contracts = null;
+  report = validateExportManifest(missingContracts);
+  assert.equal(report.valid, false);
+  assert.ok(report.issues.some((issue) => issue.path === "contracts"));
+
+  const backslashTraversal = validAeonManifest();
+  backslashTraversal.files[0].relPath = "fieldtheory\\exports\\aeon-20260531T130000Z\\..\\secret.json";
+  report = validateExportManifest(backslashTraversal);
+  assert.equal(report.valid, false);
+  assert.ok(report.issues.some((issue) => issue.path === "files[0].relPath"));
+});
+
 test("export manifest validator rejects result envelope secrets before summaries persist", () => {
   const tokenManifest = validAeonManifest();
   tokenManifest.resultEnvelope.warnings = ["bearer abcdefghijklmnopqrstuvwxyz123456"];

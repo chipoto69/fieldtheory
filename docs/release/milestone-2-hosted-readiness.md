@@ -90,10 +90,10 @@ Fill this ledger before undrafting or promoting a production deployment:
 
 | Field | Evidence |
 |---|---|
-| PR check run URL |  |
-| Preview URL |  |
-| Production URL |  |
-| Vercel project id |  |
+| PR check run URL | verified 2026-06-01: `preview` passed at `https://github.com/chipoto69/fieldtheory/actions/runs/26734054348/job/78783699506`; Vercel preview deploy step skipped because `VERCEL_*` secrets are absent |
+| Preview URL | blocked 2026-06-01: no Vercel preview URL because `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` are absent |
+| Production URL | blocked 2026-06-01: production deploy remains disabled until Vercel, Privy, and `DATABASE_URL` secrets plus target DB proof exist |
+| Vercel project id | missing 2026-06-01: no linked `.vercel` project metadata or GitHub `VERCEL_PROJECT_ID` secret |
 | GitHub production environment exists | verified 2026-06-01 with `environment_exists=true` |
 | GitHub production deployment branch policy | verified 2026-06-01: custom branch policy `main` |
 | GitHub production `X402_ENABLED` variable | verified 2026-06-01: `X402_ENABLED=false` |
@@ -102,16 +102,16 @@ Fill this ledger before undrafting or promoting a production deployment:
 | Privy app id and redirect URLs |  |
 | Base EVM policy owner |  |
 | Solana policy owner |  |
-| Target database provider and owner |  |
-| `fieldtheory_schema_version` output |  |
-| Post-deploy `/api/health` output |  |
-| Post-deploy `/api/contracts` output |  |
-| Post-deploy `/api/x402/discovery` output |  |
-| Post-deploy unauthenticated `/api/agents` status |  |
-| Post-deploy authenticated mutation failure/success evidence |  |
-| Rollback deployment id |  |
-| Wiki log entry |  |
-| GBrain timeline entry, if project page exists |  |
+| Target database provider and owner | blocked 2026-06-01: provider not selected and `DATABASE_URL` secret absent |
+| `fieldtheory_schema_version` output | blocked 2026-06-01: target production database not configured |
+| Post-deploy `/api/health` output | blocked 2026-06-01: no production deployment URL |
+| Post-deploy `/api/contracts` output | blocked 2026-06-01: no production deployment URL |
+| Post-deploy `/api/x402/discovery` output | blocked 2026-06-01: no production deployment URL |
+| Post-deploy unauthenticated `/api/agents` status | blocked 2026-06-01: no production deployment URL |
+| Post-deploy authenticated mutation failure/success evidence | blocked 2026-06-01: no production deployment URL, Privy app config, or target database |
+| Rollback deployment id | blocked 2026-06-01: no Vercel deployment has been created |
+| Wiki log entry | recorded 2026-06-01 in `/Users/rudlord/wiki/log.md` for commit `6383b02` |
+| GBrain timeline entry, if project page exists | attempted 2026-06-01: `fieldtheory` timeline write returned `status: ok`; subsequent query returned no page results |
 
 Rollback remains a release gate: the operator must identify the Vercel
 deployment to promote or roll back before production deploy is considered

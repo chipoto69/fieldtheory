@@ -78,8 +78,9 @@ tags: [security, privy, wallet, x402, agents]
 
 ## Current Limits
 
-- Browser-side Privy login and wallet linking are not mounted yet; the current
-  server gate only verifies bearer tokens on protected route handlers.
+- Browser-side Privy login controls are mounted when `NEXT_PUBLIC_PRIVY_APP_ID`
+  exists, but linked GitHub/Base/Solana wallet policy is still deferred; the
+  current server gate only verifies bearer tokens on protected route handlers.
 - Development auth does not fabricate linked GitHub, EVM, or Solana identities;
   protected route responses mark linked-identity policy as deferred.
 - Failed authorization attempts return closed errors but are not yet persisted

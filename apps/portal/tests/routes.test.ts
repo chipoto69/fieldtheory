@@ -11,8 +11,9 @@ import { POST as gordoPlanPost } from "../app/api/gordo/import-plan/route";
 import { POST as hermesPlanPost } from "../app/api/hermes/import-plan/route";
 import { GET as x402Get } from "../app/api/x402/discovery/route";
 import { setPrivyVerifierForTests } from "../src/lib/auth";
+import { closePostgresHostedStoreForTests } from "../src/lib/postgres-store";
 import { requireMutableStore } from "../src/lib/store-guard";
-import { getHostedStore, hostedStore } from "../src/lib/store";
+import { getHostedStore, hostedStore, MemoryHostedStore } from "../src/lib/store";
 import { validAeonManifest, validBriefPack, validHermesManifest } from "./fixtures";
 
 const previousEnv = {
@@ -31,9 +32,10 @@ test.beforeEach(() => {
   delete process.env.DATABASE_URL;
 });
 
-test.afterEach(() => {
+test.afterEach(async () => {
   hostedStore.resetForTests();
   setPrivyVerifierForTests(undefined);
+  await closePostgresHostedStoreForTests();
   restoreEnv();
 });
 
@@ -220,6 +222,21 @@ test("export validation plus dry-run creation returns a run envelope", async () 
   assert.equal(userBRead.status, 404);
 });
 
+test("run detail returns a JSON error when the durable store is unavailable", async () => {
+  enableMockPrivyAuth("operator");
+  setEnv("NODE_ENV", "production");
+  process.env.DATABASE_URL = "postgres://fieldtheory:fieldtheory@127.0.0.1:1/fieldtheory";
+  delete process.env.FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE;
+
+  const response = await runGet(authRequest("http://localhost/api/agents/runs/run_missing", {}, "privy.valid"), {
+    params: Promise.resolve({ id: "run_missing" }),
+  });
+  const body = await response.json();
+  assert.equal(response.status, 503);
+  assert.equal(body.ok, false);
+  assert.equal(body.error.code, "store_schema_not_ready");
+});
+
 test("same artifact imports are owner-scoped", async () => {
   enableDevAuth();
 
@@ -312,6 +329,59 @@ test("target-specific import plans reject mismatched manifests", async () => {
   assert.equal(hermesPlan.status, 200);
   assert.equal(hermesBody.plan.source.runId, "hermes-20260531T130000Z");
   assert.ok(hermesBody.plan.source.fileRelPaths.some((file: string) => file.endsWith("/hermes/task-payload.dry-run.json")));
+});
+
+test("target-specific import plans return ok false for invalid manifests", async () => {
+  enableDevAuth();
+
+  const invalidManifest = { version: "fieldtheory.agent-export.v1", target: "aeon" };
+  const gordoInvalid = await gordoPlanPost(jsonRequest("/api/gordo/import-plan", invalidManifest));
+  const gordoBody = await gordoInvalid.json();
+  assert.equal(gordoInvalid.status, 422);
+  assert.equal(gordoBody.ok, false);
+  assert.equal(gordoBody.report.valid, false);
+
+  const hermesInvalid = await hermesPlanPost(jsonRequest("/api/hermes/import-plan", invalidManifest));
+  const hermesBody = await hermesInvalid.json();
+  assert.equal(hermesInvalid.status, 422);
+  assert.equal(hermesBody.ok, false);
+  assert.equal(hermesBody.report.valid, false);
+});
+
+test("agent run ids are unique when runs are created in the same millisecond", async () => {
+  const store = new MemoryHostedStore();
+  const originalDate = globalThis.Date;
+  const fixedIso = "2026-06-01T00:00:00.000Z";
+  const fixedTime = originalDate.parse(fixedIso);
+
+  class FixedDate extends originalDate {
+    constructor(value?: string | number | Date) {
+      super(value ?? fixedIso);
+    }
+
+    static now(): number {
+      return fixedTime;
+    }
+  }
+
+  (globalThis as { Date: DateConstructor }).Date = FixedDate as DateConstructor;
+  try {
+    const runInput = {
+      ownerUserId: "operator",
+      target: "aeon" as const,
+      mode: "dry-run" as const,
+      importId: "import_same",
+      resultEnvelope: { plan: { dryRun: true } },
+    };
+    const first = await store.createRun(runInput);
+    const second = await store.createRun(runInput);
+
+    assert.notEqual(first.id, second.id);
+    assert.equal(first.createdAt, fixedIso);
+    assert.equal(second.createdAt, fixedIso);
+  } finally {
+    (globalThis as { Date: DateConstructor }).Date = originalDate;
+  }
 });
 
 function jsonRequest(path: string, body: unknown): Request {

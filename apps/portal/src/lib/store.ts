@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { stableHash } from "@/lib/http";
 import type { ExportManifestSummary } from "@/lib/contracts";
 import { getPostgresHostedStore } from "@/lib/postgres-store";
@@ -94,7 +95,7 @@ export class MemoryHostedStore implements HostedStore {
     const now = new Date().toISOString();
     const run: AgentRun = {
       ...input,
-      id: idFor("run", `${input.ownerUserId}:${input.target}:${input.importId}:${now}`),
+      id: idFor("run", `${input.ownerUserId}:${input.target}:${input.importId}:${now}:${randomUUID()}`),
       status: "created",
       createdAt: now,
     };

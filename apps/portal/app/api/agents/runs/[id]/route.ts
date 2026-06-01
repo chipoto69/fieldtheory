@@ -1,5 +1,5 @@
 import { requirePrivyUser } from "@/lib/auth";
-import { jsonError, jsonOk } from "@/lib/http";
+import { jsonError, jsonErrorFrom, jsonOk } from "@/lib/http";
 import { getHostedStore } from "@/lib/store";
 import { requireMutableStore } from "@/lib/store-guard";
 
@@ -11,11 +11,15 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const storeGuard = requireMutableStore();
   if (storeGuard) return storeGuard;
 
-  const { id } = await context.params;
-  const run = await getHostedStore().getRun(id);
-  if (!run || run.ownerUserId !== auth.user.id) {
-    return jsonError("run_not_found", "Run was not found for this user.", 404);
-  }
+  try {
+    const { id } = await context.params;
+    const run = await getHostedStore().getRun(id);
+    if (!run || run.ownerUserId !== auth.user.id) {
+      return jsonError("run_not_found", "Run was not found for this user.", 404);
+    }
 
-  return jsonOk({ run });
+    return jsonOk({ run });
+  } catch (error) {
+    return jsonErrorFrom(error);
+  }
 }

@@ -139,7 +139,12 @@ export function validateExportManifest(input: unknown): ValidationReport {
   for (const key of ["runId", "generatedAt", "contracts", "forbiddenWrites", "files", "resultEnvelope"]) {
     if (!(key in input)) issues.push({ path: key, message: `${key} is required.` });
   }
-  if (isRecord(input.contracts)) {
+  if (typeof input.runId !== "string" || input.runId.trim().length === 0) {
+    issues.push({ path: "runId", message: "runId must be a non-empty string." });
+  }
+  if (!isRecord(input.contracts)) {
+    if ("contracts" in input) issues.push({ path: "contracts", message: "contracts must be an object." });
+  } else {
     requireLiteral(input, issues, "contracts.brief", BRIEF_VERSION);
     requireLiteral(input, issues, "contracts.capture", "fieldtheory.capture.v1");
   }
@@ -254,6 +259,9 @@ function validateReferences(input: Record<string, unknown>, issues: ValidationIs
 function validateSafeRelPath(relPath: string, pathLabel: string, issues: ValidationIssue[]): void {
   if (relPath.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(relPath)) {
     issues.push({ path: pathLabel, message: "Path must be relative." });
+  }
+  if (relPath.includes("\\")) {
+    issues.push({ path: pathLabel, message: "Path must use POSIX separators." });
   }
   const segments = relPath.split("/");
   if (segments.some((segment) => segment === "" || segment === "." || segment === ".." || segment === ".git" || segment.startsWith("."))) {

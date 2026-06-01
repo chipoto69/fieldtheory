@@ -16,7 +16,7 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const manifest = await readJson(request);
     const report = validateExportManifest(manifest);
-    if (!report.valid) return jsonOk({ report }, { status: 422 });
+    if (!report.valid) return Response.json({ ok: false, report }, { status: 422 });
     const summary = summarizeExportManifest(manifest);
     if (!summary) return jsonError("invalid_manifest_summary", "Export manifest summary could not be derived.", 422);
     if (summary.target !== "hermes") return jsonError("target_mismatch", "Hermes import plans require a hermes export manifest.", 422);

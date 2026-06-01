@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import postgres, { type Sql } from "postgres";
 import { JsonRequestError, stableHash } from "@/lib/http";
 import { assertPostgresSchemaReady, createPostgresSchema } from "@/lib/postgres-schema";
@@ -157,7 +158,7 @@ function buildRun(input: CreateRunInput): AgentRun {
   const now = new Date().toISOString();
   return {
     ...input,
-    id: idFor("run", `${input.ownerUserId}:${input.target}:${input.importId}:${now}`),
+    id: idFor("run", `${input.ownerUserId}:${input.target}:${input.importId}:${now}:${randomUUID()}`),
     status: "created",
     createdAt: now,
   };
