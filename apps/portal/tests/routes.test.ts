@@ -72,12 +72,12 @@ test("health reports mutable routes ready only after production dependencies are
   const health = await healthGet();
   const body = await health.json();
   assert.equal(health.status, 200);
-  assert.equal(body.status, "ready");
+  assert.equal(body.status, "configuration_ready");
   assert.equal(body.readiness.authConfigured, true);
   assert.equal(body.readiness.durableStoreConfigured, true);
   assert.equal(body.readiness.mutableStoreReady, true);
   assert.equal(body.readiness.mutableRoutesReady, true);
-  assert.equal(body.readiness.schema, "requires-migration-proof");
+  assert.equal(body.readiness.schema, "requires_external_migration_proof");
 });
 
 test("protected routes fail closed when Privy server config is absent", async () => {
@@ -99,6 +99,19 @@ test("protected routes accept a verified Privy access token", async () => {
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.equal(body.actor.id, "privy-user-a");
+  assert.deepEqual(body.actor.identities, []);
+  assert.equal(body.actor.identityPolicyStatus, "deferred");
+});
+
+test("development auth does not fabricate linked GitHub or wallet identities", async () => {
+  enableDevAuth();
+
+  const response = await agentsGet(authRequest("http://localhost/api/agents"));
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.actor.id, "operator");
+  assert.deepEqual(body.actor.identities, []);
+  assert.equal(body.actor.identityPolicyStatus, "deferred");
 });
 
 test("production rejects unsigned development tokens", async () => {

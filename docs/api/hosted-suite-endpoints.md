@@ -30,8 +30,8 @@ requests are accepted.
 | `/api/agents` | `GET` | Privy | none | target registry | none |
 | `/api/agents/runs` | `POST` | Privy | `{target, importId, mode}` | dry-run record | audit event, run record |
 | `/api/agents/runs/[id]` | `GET` | Privy owner | none | run status and artifacts | none |
-| `/api/gordo/import-plan` | `POST` | Privy | export manifest | Aeon/Gordo plan | audit event |
-| `/api/hermes/import-plan` | `POST` | Privy | export manifest | Hermes plan | audit event |
+| `/api/gordo/import-plan` | `POST` | Privy | export manifest | Aeon/Gordo plan | accepted plan audit event |
+| `/api/hermes/import-plan` | `POST` | Privy | export manifest | Hermes plan | accepted plan audit event |
 | `/api/x402/discovery` | `GET` | none | none | endpoint inventory | none |
 
 ## Auth Classes

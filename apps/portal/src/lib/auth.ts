@@ -58,11 +58,7 @@ export async function requirePrivyUser(request: Request): Promise<AuthResult> {
         id,
         privyUserId: id,
         authSource: "development",
-        identities: [
-          { type: "github", subject: `${id}-github` },
-          { type: "evm", subject: "0x0000000000000000000000000000000000000000" },
-          { type: "solana", subject: "DevSolanaIdentity111111111111111111111111111" },
-        ],
+        identities: [],
       },
     };
   }

@@ -222,6 +222,19 @@ local-first control plane instead of separate tool surfaces.
 - **Next feature plan**: `docs/features/agent-brief-packs.md` specifies the
   proposed recall/source-packet/dispatch bridge from bookmarks to agent work.
 
+What is shipped now:
+
+- The M1 CLI/Raycast layer is the shippable local product surface: capture,
+  recall, packets, soul drafts, and dry-run Aeon/Hermes export bundles.
+- The M2 hosted portal is a validated control-plane scaffold with server-side
+  auth checks, dry-run agent APIs, health/contracts/x402 discovery routes,
+  Postgres metadata persistence, and protected Vercel production workflow gates.
+- The hosted portal is not production-live until the Vercel project, production
+  environment secrets, Privy browser login/wallet linking, target database
+  migration proof, and post-deploy smoke evidence are recorded.
+- Apply gates, GitHub writeback, Hermes writeback, and x402 enforcement remain
+  out of scope until their handoff documents pass review.
+
 Raycast development:
 
 ```bash

@@ -80,7 +80,8 @@ sequenceDiagram
   O->>CLI: ft export aeon --soul --briefs --json
   CLI-->>O: agent-export manifest + files
   O->>Web: import manifest/brief bundle
-  Web->>Auth: verify GitHub and wallet identity
+  Web->>Auth: current: verify Privy bearer token
+  Note over Web,Auth: planned: GitHub/Base/Solana linked identity policy
   Web->>API: POST /api/exports/validate
   API->>API: validate contract and forbidden writes
   API->>Store: insert import + audit event

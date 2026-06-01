@@ -57,7 +57,12 @@ The portal stores derived export metadata, not the uploaded manifest body:
   "fileRelPaths": ["fieldtheory/exports/aeon-20260531T130000Z/aeon/aeon.yml.draft"],
   "fileHashes": ["..."],
   "forbiddenWrites": ["create_repo", "network_call"],
-  "resultEnvelope": { "status": "complete" }
+  "resultEnvelope": {
+    "status": "complete",
+    "resultCount": 1,
+    "warningCount": 0,
+    "generatedBy": "fieldtheory"
+  }
 }
 ```
 
@@ -65,7 +70,8 @@ The portal stores derived export metadata, not the uploaded manifest body:
 is accepted for hosted routing and it must pass the path-safety validator.
 `inputs`, file metadata, brief content, and `resultEnvelope` are rejected before
 persistence when they contain token, cookie, private-key, or BIP39 seed phrase
-patterns.
+patterns. Persisted export summaries keep only result-envelope status, result
+count, warning count, and generator id; warning text and raw details are dropped.
 
 ## Store Adapter
 

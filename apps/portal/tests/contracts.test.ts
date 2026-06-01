@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateAgentBriefPack, validateExportManifest } from "../src/lib/contracts";
+import { summarizeExportManifest, validateAgentBriefPack, validateExportManifest } from "../src/lib/contracts";
 import { validAeonManifest, validBriefPack } from "./fixtures";
 
 test("AgentBriefPack validator accepts a cited source packet", () => {
@@ -84,4 +84,21 @@ test("export manifest validator rejects result envelope secrets before summaries
   const seedReport = validateExportManifest(seedManifest);
   assert.equal(seedReport.valid, false);
   assert.ok(seedReport.issues.some((issue) => issue.path === "resultEnvelope"));
+});
+
+test("export manifest summaries retain only result envelope counters", () => {
+  const manifest = validAeonManifest();
+  manifest.resultEnvelope.warnings = ["private but not secret operator note"];
+  manifest.resultEnvelope.details = "raw local context should not persist";
+
+  const summary = summarizeExportManifest(manifest);
+  assert.ok(summary);
+  assert.deepEqual(summary.resultEnvelope, {
+    status: "complete",
+    resultCount: 1,
+    warningCount: 1,
+    generatedBy: "fieldtheory",
+  });
+  assert.equal(JSON.stringify(summary).includes("private but not secret"), false);
+  assert.equal(JSON.stringify(summary).includes("raw local context"), false);
 });

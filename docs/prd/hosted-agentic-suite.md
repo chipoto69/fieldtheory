@@ -66,7 +66,7 @@ context into Aeon/Gordo and Hermes without losing provenance or write authority.
 | Capability | Required shape | Authority |
 |---|---|---|
 | Next.js portal | `apps/portal` with App Router, dashboard, endpoint docs, and agent run views | Reads staged fixtures and server-side store adapters only. |
-| Auth scaffold | Privy server access-token verification plus planned GitHub, Base EVM, and Solana wallet linking | Authenticates identities; does not authorize payments by itself. |
+| Auth scaffold | Privy server access-token verification plus deferred GitHub, Base EVM, and Solana wallet linking | Authenticates the bearer token only today; linked identity policy is a later gate and does not authorize payments by itself. |
 | Contract API | Route handlers for health, contracts, briefs, exports, agents, and x402 discovery | Returns typed JSON only until apply gates exist. |
 | Durable store | `DATABASE_URL` Postgres adapter plus explicit schema migration | Stores only hosted metadata, sanitized summaries, runs, and audit records. |
 | Gordo/Aeon adapter | Dry-run import of `fieldtheory.agent-export.v1` plus optional apply-plan preview | No repo mutation until explicit apply command. |
@@ -92,7 +92,7 @@ methods.
 
 | Endpoint | Method | Auth | x402 | Purpose |
 |---|---|---|---|---|
-| `/api/health` | `GET` | none | none | Build/runtime readiness. |
+| `/api/health` | `GET` | none | none | Build/runtime configuration readiness; not schema proof. |
 | `/api/contracts` | `GET` | none | none | Supported contract versions and schema links. |
 | `/api/briefs/validate` | `POST` | Privy | none | Validate an uploaded or generated `AgentBriefPack`. |
 | `/api/exports/validate` | `POST` | Privy | none | Validate export manifest shape and forbidden writes. |
@@ -139,7 +139,7 @@ using embedded wallet UI signing flows.
 | Contract fidelity | Hosted validators reject unknown contract versions, missing evidence, target payloads with duplicated forbidden actions, unsafe file paths, secret-like content in result envelopes, and manifests that imply remote writes. |
 | Auth scaffold | App builds without real secrets using documented dummy env values; authenticated routes fail closed when Privy server config is absent; server routes verify Privy access tokens through `@privy-io/node`; unsigned dev tokens are disabled in production. Browser Privy SDK install remains deferred until the wallet-linking gate. |
 | Durable store | Production mutations require `DATABASE_URL`, ignore memory-store override, and require the schema marker created by `npm --prefix apps/portal run db:migrate`. |
-| Wallet linking | UI distinguishes GitHub login, Base EVM wallet, Solana wallet, and linked identity state. |
+| Wallet linking | Current routes report linked-identity policy as deferred and do not synthesize GitHub/Base/Solana identities. Real Privy browser login and wallet linking remain behind the wallet-linking gate. |
 | Agent runs | Initial run creation is dry-run only and stores audit envelopes; no external write happens in M2. |
 | Gordo/Aeon | Import plan consumes `target: "aeon"` manifests, requires `aeon/aeon.yml.draft`, and keeps it as a draft. |
 | Hermes | Import plan consumes `target: "hermes"` manifests, requires `hermes/task-payload.dry-run.json`, and emits staged profile handoff only. |

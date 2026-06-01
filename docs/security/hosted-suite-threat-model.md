@@ -61,7 +61,8 @@ tags: [security, privy, wallet, x402, agents]
 - Import IDs are owner-scoped from `ownerUserId + sha256`, so two users can
   import the same artifact without overwriting ownership.
 - Export imports keep sanitized summaries only: target, run id, relative paths,
-  hashes, forbidden writes, and result envelope.
+  hashes, forbidden writes, and result envelope status/counts. Warning text,
+  raw details, inputs, and source snippets are not persisted in the summary.
 - Briefs, manifests, file metadata, inputs, and result envelopes are screened
   for token, cookie, private-key, and BIP39 seed phrase patterns before
   persistence.
@@ -69,15 +70,18 @@ tags: [security, privy, wallet, x402, agents]
   target-specific dry-run artifact paths.
 - x402 discovery remains non-enforcing; health can report that x402 was
   requested by env, but `x402Enabled` remains false until enforcement exists.
-- `/api/health` exposes non-secret readiness flags for Privy server config,
+- `/api/health` exposes non-secret configuration readiness flags for Privy server config,
   durable-store config, mutable-route readiness, deferred wallet linking, and
-  disabled x402 enforcement. It does not prove the production schema; operators
-  must run `db:migrate` and check `fieldtheory_schema_version`.
+  disabled x402 enforcement. Its positive status is `configuration_ready`, not
+  production traffic readiness. It does not prove the production schema;
+  operators must run `db:migrate` and check `fieldtheory_schema_version`.
 
 ## Current Limits
 
 - Browser-side Privy login and wallet linking are not mounted yet; the current
   server gate only verifies bearer tokens on protected route handlers.
+- Development auth does not fabricate linked GitHub, EVM, or Solana identities;
+  protected route responses mark linked-identity policy as deferred.
 - Failed authorization attempts return closed errors but are not yet persisted
   to the audit log.
 - The public health endpoint reports whether `DATABASE_URL` is configured, not

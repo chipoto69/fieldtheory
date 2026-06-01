@@ -13,6 +13,7 @@ export async function GET(request: Request): Promise<Response> {
     actor: {
       id: auth.user.id,
       identities: auth.user.identities.map((identity) => identity.type),
+      identityPolicyStatus: "deferred",
     },
   });
 }

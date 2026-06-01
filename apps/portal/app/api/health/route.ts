@@ -11,7 +11,7 @@ export async function GET(): Promise<Response> {
   return Response.json({
     ok: true,
     service: "fieldtheory-portal",
-    status: mutableRoutesReady ? "ready" : "configuration_required",
+    status: mutableRoutesReady ? "configuration_ready" : "configuration_required",
     version: "0.2.0",
     readiness: {
       production,
@@ -19,7 +19,7 @@ export async function GET(): Promise<Response> {
       durableStoreConfigured,
       mutableStoreReady,
       mutableRoutesReady,
-      schema: durableStoreConfigured ? "requires-migration-proof" : "not_configured",
+      schema: durableStoreConfigured ? "requires_external_migration_proof" : "not_configured",
       walletLinking: "deferred",
       x402Enforcement: "disabled",
     },

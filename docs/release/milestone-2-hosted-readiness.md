@@ -29,7 +29,7 @@ tags: [release, readiness, vercel, privy, agents]
 | `docs/deploy/vercel-github-actions.md` | required before workflows |
 | `apps/portal` | initial scaffold present |
 | `.github/workflows/vercel-preview.yml` | initial scaffold present |
-| `.github/workflows/vercel-production.yml` | guarded production workflow present; protected-main only, fails without Vercel secrets, and runs a Postgres schema gate |
+| `.github/workflows/vercel-production.yml` | guarded production workflow present; protected-main only, fails without Vercel/Privy/DB secrets, keeps x402 disabled, runs CI plus target Postgres schema gates, and smokes public production endpoints after deploy |
 
 ## Implementation Order
 
@@ -41,9 +41,9 @@ tags: [release, readiness, vercel, privy, agents]
 6. Add dry-run agent run creation and audit records. Done with local memory adapter and `DATABASE_URL` Postgres adapter using sanitized export metadata.
 7. Add Gordo/Aeon import-plan adapter. Done as dry-run plan with target/file checks.
 8. Add Hermes import-plan adapter. Done as dry-run plan with target/file checks.
-9. Add preview GitHub Action. Done; deploy step skips without secrets.
-10. Add production GitHub Action after preview and portal gates pass. Done as protected-main workflow; deploy fails fast without secrets.
-11. Add durable store migration gate. Done with `db:migrate` and GitHub Actions Postgres service.
+9. Add preview GitHub Action. Done; deploy step skips without secrets and emits an explicit skipped-deploy notice.
+10. Add production GitHub Action after preview and portal gates pass. Done as protected-main workflow; deploy fails fast without Vercel, Privy, database, and x402-disable configuration.
+11. Add durable store migration gate. Done with `db:migrate`, GitHub Actions Postgres service, DB route smoke, target production `DATABASE_URL` migration, and public post-deploy smoke.
 12. Draft x402 endpoint handoff and fixtures.
 13. Enable x402 enforcement in a later gate only.
 
@@ -78,8 +78,34 @@ evidence for each item below:
 | Portal DB route smoke | `DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal_ci" npm run portal:test:db` |
 | Portal tests/build | `npm run verify:hosted` |
 | Diff hygiene | `git diff --check` |
+| Production secret preflight | `gh secret list --env production --repo chipoto69/fieldtheory` must include Vercel, Privy, and `DATABASE_URL`; `X402_ENABLED` must be unset or `false` |
+| Target production DB migration | protected `vercel-production` workflow step `Migrate target production database` |
+| Vercel production public smoke | protected `vercel-production` workflow step `Smoke production public endpoints` |
 | Vercel preview smoke | `curl -fsS "$FIELD_THEORY_PREVIEW_URL/api/health" && curl -fsS "$FIELD_THEORY_PREVIEW_URL/api/contracts" && curl -fsS "$FIELD_THEORY_PREVIEW_URL/api/x402/discovery"` |
 | Durable DB proof | `psql "$DATABASE_URL" -c "select * from fieldtheory_schema_version;"` |
+
+Fill this ledger before undrafting or promoting a production deployment:
+
+| Field | Evidence |
+|---|---|
+| PR check run URL |  |
+| Preview URL |  |
+| Production URL |  |
+| Vercel project id |  |
+| GitHub production environment exists |  |
+| Required GitHub production secrets present |  |
+| Privy app id and redirect URLs |  |
+| Base EVM policy owner |  |
+| Solana policy owner |  |
+| Target database provider and owner |  |
+| `fieldtheory_schema_version` output |  |
+| Post-deploy `/api/health` output |  |
+| Post-deploy `/api/contracts` output |  |
+| Post-deploy `/api/x402/discovery` output |  |
+| Post-deploy authenticated mutation failure/success evidence |  |
+| Rollback deployment id |  |
+| Wiki log entry |  |
+| GBrain timeline entry, if project page exists |  |
 
 Rollback remains a release gate: the operator must identify the Vercel
 deployment to promote or roll back before production deploy is considered

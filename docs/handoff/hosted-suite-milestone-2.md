@@ -73,8 +73,8 @@ The first Milestone 2 scaffold now exists under `apps/portal`:
 - Server-side Privy access-token verification through `@privy-io/node`; unsigned
   development tokens are local/test only and disabled in production.
 - Sanitized export import summaries that preserve target, run id, run-scoped
-  relative paths, hashes, forbidden writes, and result envelopes without storing
-  absolute source paths.
+  relative paths, hashes, forbidden writes, and result-envelope status/counts
+  without storing absolute source paths, warning text, or raw details.
 - Owner-scoped artifact import IDs prevent two users importing the same contract
   payload from overwriting each other's ownership.
 

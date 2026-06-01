@@ -19,7 +19,14 @@ export interface ExportManifestSummary {
   fileRelPaths: string[];
   fileHashes: string[];
   forbiddenWrites: string[];
-  resultEnvelope: Record<string, unknown>;
+  resultEnvelope: ExportResultEnvelopeSummary;
+}
+
+export interface ExportResultEnvelopeSummary {
+  status?: string;
+  resultCount?: number;
+  warningCount: number;
+  generatedBy?: string;
 }
 
 const BRIEF_VERSION = "agent-brief-pack.v1";
@@ -209,7 +216,17 @@ export function summarizeExportManifest(input: unknown): ExportManifestSummary |
     fileRelPaths,
     fileHashes,
     forbiddenWrites: input.forbiddenWrites.filter((action): action is string => typeof action === "string"),
-    resultEnvelope: isRecord(input.resultEnvelope) ? input.resultEnvelope : {},
+    resultEnvelope: summarizeResultEnvelope(input.resultEnvelope),
+  };
+}
+
+function summarizeResultEnvelope(value: unknown): ExportResultEnvelopeSummary {
+  if (!isRecord(value)) return { warningCount: 0 };
+  return {
+    status: typeof value.status === "string" ? value.status.slice(0, 80) : undefined,
+    resultCount: typeof value.resultCount === "number" && Number.isFinite(value.resultCount) ? value.resultCount : undefined,
+    warningCount: Array.isArray(value.warnings) ? value.warnings.length : 0,
+    generatedBy: typeof value.generatedBy === "string" ? value.generatedBy.slice(0, 80) : undefined,
   };
 }
 

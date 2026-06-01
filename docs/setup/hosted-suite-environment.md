@@ -20,6 +20,8 @@ surfaces, and the first Milestone 2 hosted scaffold:
   Gordo/Aeon import plans, Hermes import plans, and x402 discovery
 - server-side Privy access-token verification with a local/test-only dev token
   bypass
+- linked GitHub/Base/Solana identity policy marked as deferred; development
+  auth does not fabricate wallet or GitHub identities
 - `DATABASE_URL`-backed Postgres adapter for imports, runs, and audit events
 - explicit `npm --prefix apps/portal run db:migrate` schema bootstrap
 
@@ -64,6 +66,7 @@ pass in CI and the Vercel project is explicitly linked.
 | `PRIVY_APP_SECRET` | after auth scaffold | Server-only; never expose to browser. |
 | `PRIVY_JWT_VERIFICATION_KEY` | optional | Server-only verification key from the Privy dashboard. |
 | `DATABASE_URL` | before production mutations | Vercel Postgres/Neon/Supabase connection string; run schema migration before deploy. |
+| `X402_ENABLED` | production variable | GitHub production environment variable, not a secret. Keep unset or `false` until the x402 handoff passes. |
 
 Vercel's GitHub Actions documentation recommends installing Vercel CLI, running
 `vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}`,
@@ -71,10 +74,10 @@ then `vercel build`, then `vercel deploy --prebuilt`. Use separate workflows for
 preview and production.
 
 The repository workflows run `db:migrate` against their own CI Postgres service.
-That proves the migration script and schema contract, but it does not migrate
-the real preview or production database. Before routing real traffic, run
-`npm --prefix apps/portal run db:migrate` against the target `DATABASE_URL` and
-verify `fieldtheory_schema_version`.
+That proves the migration script and schema contract. The protected production
+workflow also runs `db:migrate` against the target `DATABASE_URL` secret before
+Vercel build. Before routing real traffic, verify `fieldtheory_schema_version`
+on the target database and smoke the deployed routes.
 
 ## Privy Setup Gate
 
@@ -127,7 +130,9 @@ curl -i -X POST http://127.0.0.1:3000/api/briefs/validate
 
 The final POST should fail closed without a valid Privy access token. For local
 route-handler tests only, the test suite sets `PRIVY_DEV_ALLOW_UNSIGNED=true`
-and injects a verifier. Do not enable that bypass in production.
+and injects a verifier. That dev path authenticates a test actor only; it does
+not claim linked GitHub, Base EVM, or Solana identities. Do not enable that
+bypass in production.
 
 ## Postgres Durable Store Smoke
 
@@ -194,9 +199,9 @@ set for a controlled break-glass recovery. Normal production deploys must run
 
 Portal gates now execute against `apps/portal`. Production deploy remains blocked
 until those gates pass in CI and real Vercel/Privy secrets are configured.
-The CI Postgres migration and DB route smoke are throwaway proofs only;
-production readiness still requires a migration against the target
-`DATABASE_URL`.
+The CI Postgres migration and DB route smoke are throwaway proofs only.
+Production readiness also requires the protected production workflow to migrate
+the target `DATABASE_URL` and pass post-deploy route smoke.
 
 The in-memory import/run/audit adapter is local/test only. In production mode,
 protected mutation routes return `durable_store_not_configured` unless
@@ -205,8 +210,10 @@ schema marker created by `db:migrate` and returns `store_schema_not_ready`
 instead of creating tables from request handlers.
 
 Export imports currently persist only sanitized metadata: target, run id,
-run-scoped `relPath` values, file hashes, forbidden writes, and result envelope.
-Absolute `files[].path` metadata is ignored and never used for routing.
+run-scoped `relPath` values, file hashes, forbidden writes, and result envelope
+status/counts. Warning text, raw details, and source snippets are intentionally
+discarded from the persisted summary. Absolute `files[].path` metadata is
+ignored and never used for routing.
 
 ## Production Deployment Gate
 
@@ -216,7 +223,10 @@ Production deploy is allowed only when:
 - Branch has merged through protected `main`.
 - CLI gates and portal gates pass in GitHub Actions.
 - Vercel project id and org id are set as GitHub secrets.
-- `DATABASE_URL` is set in Vercel and the schema migration has run.
+- `DATABASE_URL` is set in both Vercel and the GitHub production environment,
+  and the production workflow has migrated the target schema.
+- `PRIVY_APP_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`, and `PRIVY_APP_SECRET` are set in
+  both Vercel and the GitHub production environment.
 - Privy redirect URLs include the production domain.
 - `X402_ENABLED=false` unless the x402 handoff has passed.
 - The deployment workflow uses `vercel deploy --prebuilt --prod`.

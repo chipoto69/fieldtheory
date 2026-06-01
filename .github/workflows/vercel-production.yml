@@ -28,6 +28,12 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      PRODUCTION_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      PRODUCTION_PRIVY_APP_ID: ${{ secrets.PRIVY_APP_ID }}
+      PRODUCTION_NEXT_PUBLIC_PRIVY_APP_ID: ${{ secrets.NEXT_PUBLIC_PRIVY_APP_ID }}
+      PRODUCTION_PRIVY_APP_SECRET: ${{ secrets.PRIVY_APP_SECRET }}
+      PRODUCTION_PRIVY_JWT_VERIFICATION_KEY: ${{ secrets.PRIVY_JWT_VERIFICATION_KEY }}
+      X402_ENABLED: ${{ vars.X402_ENABLED }}
       VERCEL_CLI_VERSION: 54.6.1
     steps:
       - uses: actions/checkout@v4
@@ -39,12 +45,20 @@ jobs:
             package-lock.json
             raycast/fieldtheory/package-lock.json
             apps/portal/package-lock.json
-      - name: Require production Vercel secrets
+      - name: Require production deploy secrets
         run: |
-          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
-            echo "::error::Production deploy requires VERCEL_TOKEN, VERCEL_ORG_ID, and VERCEL_PROJECT_ID."
-            exit 1
+          missing=0
+          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID PRODUCTION_DATABASE_URL PRODUCTION_PRIVY_APP_ID PRODUCTION_NEXT_PUBLIC_PRIVY_APP_ID PRODUCTION_PRIVY_APP_SECRET; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Production deploy requires $name."
+              missing=1
+            fi
+          done
+          if [ "${X402_ENABLED:-false}" != "false" ]; then
+            echo "::error::Production deploy requires X402_ENABLED=false until the x402 handoff is implemented."
+            missing=1
           fi
+          exit "$missing"
       - run: npm ci
       - run: npm run build
       - run: HOME="$(mktemp -d)" npm test
@@ -58,6 +72,10 @@ jobs:
       - run: DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal_ci" npm run portal:test:db
       - run: npm run verify:hosted
       - run: npm install --global "vercel@$VERCEL_CLI_VERSION"
+      - name: Migrate target production database
+        run: npm --prefix apps/portal run db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
       - name: Pull Vercel production environment
         working-directory: apps/portal
         run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
@@ -65,5 +83,22 @@ jobs:
         working-directory: apps/portal
         run: vercel build --prod --token="$VERCEL_TOKEN"
       - name: Deploy Vercel production artifact
+        id: deploy
         working-directory: apps/portal
-        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+        run: |
+          deployment_output="$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")"
+          printf '%s\n' "$deployment_output"
+          deployment_url="$(printf '%s\n' "$deployment_output" | awk '/^https:\/\// { url=$0 } END { print url }')"
+          case "$deployment_url" in
+            https://*) ;;
+            *)
+              echo "::error::Vercel deploy did not return an https deployment URL."
+              exit 1
+              ;;
+          esac
+          echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
+      - name: Smoke production public endpoints
+        run: |
+          curl -fsS "${{ steps.deploy.outputs.url }}/api/health"
+          curl -fsS "${{ steps.deploy.outputs.url }}/api/contracts"
+          curl -fsS "${{ steps.deploy.outputs.url }}/api/x402/discovery"

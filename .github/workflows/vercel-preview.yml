@@ -48,6 +48,9 @@ jobs:
       - run: DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal_ci" npm --prefix apps/portal run db:migrate
       - run: DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal_ci" npm run portal:test:db
       - run: npm run verify:hosted
+      - name: Report skipped Vercel preview deploy
+        if: ${{ env.VERCEL_TOKEN == '' || env.VERCEL_ORG_ID == '' || env.VERCEL_PROJECT_ID == '' }}
+        run: echo "::notice::Vercel preview deploy skipped because VERCEL_* secrets are not configured."
       - run: npm install --global "vercel@$VERCEL_CLI_VERSION"
         if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' }}
       - name: Pull Vercel preview environment
