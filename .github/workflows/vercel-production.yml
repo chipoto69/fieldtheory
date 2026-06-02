@@ -54,8 +54,8 @@ jobs:
               missing=1
             fi
           done
-          if [ "${X402_ENABLED:-false}" != "false" ]; then
-            echo "::error::Production deploy requires X402_ENABLED=false until the x402 handoff is implemented."
+          if [ "${X402_ENABLED:-}" != "false" ]; then
+            echo "::error::Production deploy requires an explicit X402_ENABLED=false variable until the x402 handoff is implemented."
             missing=1
           fi
           exit "$missing"
@@ -97,6 +97,7 @@ jobs:
               ;;
           esac
           echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
+          echo "deployment_ref=$deployment_url" >> "$GITHUB_OUTPUT"
       - name: Smoke production public endpoints
         run: |
           health="$(curl -fsS "${{ steps.deploy.outputs.url }}/api/health")"

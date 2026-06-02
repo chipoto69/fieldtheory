@@ -12,6 +12,7 @@ export const endpointInventory = [
   { route: "/api/briefs/validate", method: "POST", auth: "privy-user" },
   { route: "/api/exports/validate", method: "POST", auth: "privy-user" },
   { route: "/api/agents", method: "GET", auth: "privy-user" },
+  { route: "/api/agents/runs", method: "GET", auth: "privy-user" },
   { route: "/api/agents/runs", method: "POST", auth: "privy-user" },
   { route: "/api/agents/runs/[id]", method: "GET", auth: "artifact-owner" },
   { route: "/api/gordo/import-plan", method: "POST", auth: "privy-user" },

@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { summarizeExportManifest, validateAgentBriefPack, validateExportManifest } from "../src/lib/contracts";
+import { endpointInventory } from "../src/lib/fixtures";
 import { validAeonManifest, validBriefPack } from "./fixtures";
 
 test("AgentBriefPack validator accepts a cited source packet", () => {
@@ -121,4 +123,15 @@ test("export manifest summaries retain only result envelope counters", () => {
   });
   assert.equal(JSON.stringify(summary).includes("private but not secret"), false);
   assert.equal(JSON.stringify(summary).includes("raw local context"), false);
+});
+
+test("endpoint inventory and docs include owner-scoped run history", () => {
+  assert.ok(endpointInventory.some((endpoint) => (
+    endpoint.route === "/api/agents/runs"
+    && endpoint.method === "GET"
+    && endpoint.auth === "privy-user"
+  )));
+
+  const docs = readFileSync(new URL("../../../docs/api/hosted-suite-endpoints.md", import.meta.url), "utf8");
+  assert.match(docs, /\| `\/api\/agents\/runs` \| `GET` \| Privy \| none \| owner-scoped recent runs plus `auditEvents\[\]` per run \| none \|/);
 });

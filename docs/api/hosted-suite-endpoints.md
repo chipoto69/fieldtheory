@@ -28,6 +28,7 @@ requests are accepted.
 | `/api/briefs/validate` | `POST` | Privy | `AgentBriefPack` | validation report | audit event |
 | `/api/exports/validate` | `POST` | Privy | export manifest plus optional file list | validation report | audit event |
 | `/api/agents` | `GET` | Privy | none | target registry | none |
+| `/api/agents/runs` | `GET` | Privy | none | owner-scoped recent runs plus `auditEvents[]` per run | none |
 | `/api/agents/runs` | `POST` | Privy | `{target, importId, mode}` | dry-run record plus `auditEvents[]` | audit event, run record |
 | `/api/agents/runs/[id]` | `GET` | Privy owner | none | run status plus owner-scoped `auditEvents[]` | none |
 | `/api/gordo/import-plan` | `POST` | Privy | export manifest | Aeon/Gordo plan | accepted plan audit event |
@@ -83,10 +84,10 @@ Target-specific import plan endpoints must also reject mismatches:
 | `apply-plan` | Returned only inside generated dry-run plans; rejected as a requested run mode. |
 | `apply` | Forbidden until a separate apply-gate PR. |
 
-Run creation and readback responses include the audit envelope associated with
-the run target so operators can review who requested the handoff, which action
-was accepted, and which hosted run id was affected before any later apply gate
-exists.
+Run creation, run index, and run detail responses include the audit envelope
+associated with each run target so operators can review who requested the
+handoff, which action was accepted, and which hosted run id was affected before
+any later apply gate exists.
 
 When `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true`, protected write routes
 return `403 identity_policy_unsatisfied` before store writes unless the verified

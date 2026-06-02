@@ -80,7 +80,7 @@ pass in CI and the Vercel project is explicitly linked.
 | `PRIVY_APP_SECRET` | after auth scaffold | Server-only; never expose to browser. |
 | `PRIVY_JWT_VERIFICATION_KEY` | optional | Server-only verification key from the Privy dashboard. |
 | `DATABASE_URL` | before production mutations | Vercel Postgres/Neon/Supabase connection string; run schema migration before deploy. |
-| `X402_ENABLED` | production variable | GitHub production environment variable, not a secret. Keep unset or `false` until the x402 handoff passes. |
+| `X402_ENABLED` | production variable | GitHub production environment variable, not a secret. Keep explicitly `false` until the x402 handoff passes. |
 
 Bootstrap the non-secret GitHub environment state before adding secrets:
 

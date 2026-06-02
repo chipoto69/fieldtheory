@@ -5,7 +5,7 @@ import { GET as contractsGet } from "../app/api/contracts/route";
 import { POST as briefValidatePost } from "../app/api/briefs/validate/route";
 import { POST as exportValidatePost } from "../app/api/exports/validate/route";
 import { GET as agentsGet } from "../app/api/agents/route";
-import { POST as runsPost } from "../app/api/agents/runs/route";
+import { GET as runsGet, POST as runsPost } from "../app/api/agents/runs/route";
 import { GET as runGet } from "../app/api/agents/runs/[id]/route";
 import { POST as gordoPlanPost } from "../app/api/gordo/import-plan/route";
 import { POST as hermesPlanPost } from "../app/api/hermes/import-plan/route";
@@ -325,6 +325,50 @@ test("export validation plus dry-run creation returns a run envelope", async () 
     params: Promise.resolve({ id: runBody.run.id }),
   });
   assert.equal(userBRead.status, 404);
+});
+
+test("agent run index returns owner-scoped recent runs with audit events", async () => {
+  enableDevAuth();
+  const aeonImport = await exportValidatePost(authJsonRequest("/api/exports/validate", validAeonManifest(), "dev:user-a"));
+  const aeonImportBody = await aeonImport.json();
+  const hermesImport = await exportValidatePost(authJsonRequest("/api/exports/validate", validHermesManifest(), "dev:user-a"));
+  const hermesImportBody = await hermesImport.json();
+  const otherImport = await exportValidatePost(authJsonRequest("/api/exports/validate", validAeonManifest(), "dev:user-b"));
+  const otherImportBody = await otherImport.json();
+
+  const aeonRun = await runsPost(authJsonRequest("/api/agents/runs", {
+    target: "aeon",
+    importId: aeonImportBody.import.id,
+    mode: "dry-run",
+  }, "dev:user-a"));
+  const aeonRunBody = await aeonRun.json();
+  const hermesRun = await runsPost(authJsonRequest("/api/agents/runs", {
+    target: "hermes",
+    importId: hermesImportBody.import.id,
+    mode: "dry-run",
+  }, "dev:user-a"));
+  const hermesRunBody = await hermesRun.json();
+  await runsPost(authJsonRequest("/api/agents/runs", {
+    target: "aeon",
+    importId: otherImportBody.import.id,
+    mode: "dry-run",
+  }, "dev:user-b"));
+
+  const response = await runsGet(authRequest("http://localhost/api/agents/runs", {}, "dev:user-a"));
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.runs.length, 2);
+  assert.deepEqual(
+    body.runs.map((item: { run: { id: string } }) => item.run.id).sort(),
+    [aeonRunBody.run.id, hermesRunBody.run.id].sort(),
+  );
+  assert.ok(body.runs.every((item: { run: { ownerUserId: string } }) => item.run.ownerUserId === "user-a"));
+  assert.ok(body.runs.every((item: { auditEvents: Array<{ action: string; targetId: string }> }) => item.auditEvents.length === 1));
+  assert.ok(body.runs.every((item: { run: { id: string }; auditEvents: Array<{ action: string; targetId: string }> }) => (
+    item.auditEvents[0].action === "agent.run.create" && item.auditEvents[0].targetId === item.run.id
+  )));
+  assert.equal(body.count, 2);
 });
 
 test("run detail returns a JSON error when the durable store is unavailable", async () => {

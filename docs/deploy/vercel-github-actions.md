@@ -43,7 +43,7 @@ values.
 
 | Variable | Purpose |
 |---|---|
-| `X402_ENABLED` | GitHub environment variable. Must be unset or `false` until x402 enforcement is implemented. |
+| `X402_ENABLED` | GitHub environment variable. Must be explicitly `false` until x402 enforcement is implemented. |
 
 ## Preview Workflow Shape
 
@@ -145,7 +145,7 @@ Production is the preview workflow plus:
 - Matching `DATABASE_URL`, `PRIVY_APP_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`, and
   `PRIVY_APP_SECRET` are set as GitHub production environment secrets so the
   workflow can fail fast and migrate the target database.
-- `X402_ENABLED=false` in production until x402 review passes.
+- Explicit `X402_ENABLED=false` in production until x402 review passes.
 - Rollback instructions exist in the release checklist.
 - `npm run hosted:check-readiness -- --remote --strict` reports `ready`.
 
@@ -172,8 +172,9 @@ authenticated route behavior before traffic is considered ready.
 
 ## Rollback
 
-The production workflow captures the deployment URL but the operator must record
-the deployment id in `docs/release/milestone-2-hosted-readiness.md` before
-promotion. If smoke fails after deploy, use Vercel's dashboard or CLI to
-promote the last known-good deployment, then rerun the public smoke commands and
-update the release ledger with the rollback deployment id.
+The production workflow captures the deployment URL as the rollback deployment
+reference. The operator must record that reference in
+`docs/release/milestone-2-hosted-readiness.md` before promotion. If smoke fails
+after deploy, use Vercel's dashboard or CLI to promote the last known-good
+deployment, then rerun the public smoke commands and update the release ledger
+with the rollback deployment reference.

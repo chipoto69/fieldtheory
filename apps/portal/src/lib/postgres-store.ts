@@ -101,6 +101,19 @@ class PostgresHostedStore implements HostedStore {
     });
   }
 
+  async listRunsForOwner(ownerUserId: string, limit = 20): Promise<AgentRun[]> {
+    return this.withStore(async () => {
+      await this.ensureSchema();
+      const rows = await this.sql<RunRow[]>`
+        select * from fieldtheory_agent_runs
+        where owner_user_id = ${ownerUserId}
+        order by created_at desc, id desc
+        limit ${limit}
+      `;
+      return rows.map(runFromRow);
+    });
+  }
+
   async listAuditEventsForTarget(actorUserId: string, targetType: string, targetId: string): Promise<AuditEvent[]> {
     return this.withStore(async () => {
       await this.ensureSchema();

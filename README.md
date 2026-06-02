@@ -231,8 +231,9 @@ What is shipped now:
 - The M1 CLI/Raycast layer is the shippable local product surface: capture,
   recall, packets, soul drafts, and dry-run Aeon/Hermes export bundles.
 - The M2 hosted portal is a validated control-plane scaffold with server-side
-  auth checks, browser Privy login controls, a paste-to-validate operator
-  workbench, dry-run agent APIs, health/contracts/x402 discovery routes,
+  auth checks, browser Privy login controls, an example-backed operator
+  workbench with live readiness/identity status, recent run history, selected
+  run detail, dry-run agent APIs, health/contracts/x402 discovery routes,
   Postgres metadata persistence, and protected Vercel production workflow gates.
 - The hosted portal is not production-live until the Vercel project, production
   environment secrets, server-side linked GitHub/Base/Solana identity policy,

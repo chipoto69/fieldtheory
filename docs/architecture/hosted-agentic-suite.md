@@ -90,6 +90,8 @@ sequenceDiagram
   Agent-->>API: staged plan, no writeback
   API->>Store: insert run + audit event
   API-->>Web: run status + artifacts
+  Web->>API: GET /api/agents/runs
+  API-->>Web: owner-scoped run history + audit envelopes
 ```
 
 ## Endpoint Boundary
@@ -106,7 +108,7 @@ sequenceDiagram
 
 | Actor | Allowed in M2 | Forbidden in M2 |
 |---|---|---|
-| Portal UI | Upload/import manifests, show plans, create dry-run runs | Direct filesystem access to operator stores. |
+| Portal UI | Upload/import manifests, show live readiness and identity policy, show plans, create dry-run runs, inspect owner-scoped run history | Direct filesystem access to operator stores. |
 | Route handlers | Validate contracts, write audit log, store run metadata through `HostedStore` | Git pushes, Vercel deploy calls, GitHub secret writes, Hermes writeback. |
 | Gordo adapter | Generate apply plan from export bundle | Create repos, write workflows, dispatch GitHub Actions. |
 | Hermes adapter | Generate staged task payload preview | Mutate Hermes Kanban/profile state. |
@@ -121,7 +123,7 @@ sequenceDiagram
 | `app/api/briefs/validate/route.ts` | nodejs | Calls shared validator package. |
 | `app/api/exports/validate/route.ts` | nodejs | Checks manifest paths and forbidden writes. |
 | `app/api/agents/route.ts` | nodejs | Lists configured targets and disabled apply status. |
-| `app/api/agents/runs/route.ts` | nodejs | Creates dry-run plans only. |
+| `app/api/agents/runs/route.ts` | nodejs | Lists owner-scoped run history and creates dry-run plans only. |
 | `app/api/agents/runs/[id]/route.ts` | nodejs | Reads run status and audit envelope. |
 | `app/api/gordo/import-plan/route.ts` | nodejs | Builds Aeon/Gordo import plan from manifest. |
 | `app/api/hermes/import-plan/route.ts` | nodejs | Builds Hermes import plan from task payload. |

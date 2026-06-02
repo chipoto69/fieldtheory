@@ -79,7 +79,7 @@ context into Aeon/Gordo and Hermes without losing provenance or write authority.
 | Capability | Required shape | Authority |
 |---|---|---|
 | Production Vercel deploy | Protected production deployment with documented secrets | Vercel deployment only; no external write side effects. |
-| Agent runtime endpoints | Agent-facing contract fetch, run creation, status, and artifact download | Requires authenticated user and run ownership. |
+| Agent runtime endpoints | Agent-facing contract fetch, run creation, status, owner-scoped history, and artifact download | Requires authenticated user and run ownership. |
 | Wallet-gated surfaces | Privy identity checks around private dashboard and paid endpoint previews | Wallet ownership proves access tier only after policy mapping. |
 | x402 architecture handoff | Endpoint inventory, payment challenge flow, replay/audit strategy, facilitator assumptions | Fixture-backed handoff first; enforcement in a later gate. |
 
@@ -97,6 +97,7 @@ methods.
 | `/api/briefs/validate` | `POST` | Privy | none | Validate an uploaded or generated `AgentBriefPack`. |
 | `/api/exports/validate` | `POST` | Privy | none | Validate export manifest shape and forbidden writes. |
 | `/api/agents` | `GET` | Privy | none | List configured local/remote agent targets. |
+| `/api/agents/runs` | `GET` | Privy | deferred | List owner-scoped dry-run handoffs and audit envelopes. |
 | `/api/agents/runs` | `POST` | Privy | deferred | Create a dry-run agent handoff from a validated export. |
 | `/api/agents/runs/:id` | `GET` | Privy | deferred | Read run status, artifacts, and audit envelope. |
 | `/api/gordo/import-plan` | `POST` | Privy | none | Convert export bundle into a Gordo/Aeon apply plan. |
@@ -127,8 +128,8 @@ using embedded wallet UI signing flows.
 4. Portal stores sanitized import metadata and audit events through
    `HostedStore`.
 5. Portal creates a dry-run agent handoff plan.
-6. Operator reviews the plan and owner-scoped audit envelope in the workbench or
-   `GET /api/agents/runs/:id`.
+6. Operator reviews the plan and owner-scoped audit envelope in the workbench,
+   `GET /api/agents/runs`, or `GET /api/agents/runs/:id`.
 7. Later apply gates can dispatch to Gordo/Aeon or Hermes.
 8. Later x402 gates can challenge paid endpoint calls with HTTP 402 and verify
    settlement before returning protected output. Until then,
@@ -143,7 +144,7 @@ using embedded wallet UI signing flows.
 | Auth scaffold | App builds without real secrets using documented dummy env values; authenticated routes fail closed when Privy server config is absent; server routes verify Privy access tokens through `@privy-io/node`; unsigned dev tokens are disabled in production; browser login controls use `@privy-io/react-auth` when `NEXT_PUBLIC_PRIVY_APP_ID` is configured; local browser operator mode can smoke protected routes outside production with server-side dev auth only. |
 | Durable store | Production mutations require `DATABASE_URL`, ignore memory-store override, and require the schema marker created by `npm --prefix apps/portal run db:migrate`. |
 | Wallet linking | Routes report linked-identity policy as deferred by default. When `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true`, server auth loads Privy linked accounts and requires GitHub, configured Base EVM chain id, and Solana identities before protected write routes: brief validation, export validation, Gordo/Aeon import plans, Hermes import plans, and agent run creation. Development auth cannot satisfy the policy. The Solana cluster value is a policy label in M2, not settlement proof. Payment/apply authority remains behind later gates. |
-| Agent runs | Initial run creation is dry-run only and stores audit envelopes; no external write happens in M2. |
+| Agent runs | Initial run creation is dry-run only; owner-scoped run index/detail responses expose audit envelopes; no external write happens in M2. |
 | Gordo/Aeon | Import plan consumes `target: "aeon"` manifests, requires `aeon/aeon.yml.draft`, and keeps it as a draft. |
 | Hermes | Import plan consumes `target: "hermes"` manifests, requires `hermes/task-payload.dry-run.json`, and emits staged profile handoff only. |
 | Vercel CI | Preview and production workflows use `vercel build` and `vercel deploy --prebuilt`; production deploy runs only from protected main. |

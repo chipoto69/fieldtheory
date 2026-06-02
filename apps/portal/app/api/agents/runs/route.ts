@@ -7,6 +7,26 @@ import { requireMutableStore } from "@/lib/store-guard";
 
 export const runtime = "nodejs";
 
+export async function GET(request: Request): Promise<Response> {
+  const auth = await requirePrivyUser(request);
+  if (!auth.ok) return auth.response;
+  const storeGuard = requireMutableStore();
+  if (storeGuard) return storeGuard;
+
+  try {
+    const limit = readLimit(request);
+    const store = getHostedStore();
+    const runs = await store.listRunsForOwner(auth.user.id, limit);
+    const runsWithAuditEvents = await Promise.all(runs.map(async (run) => ({
+      run,
+      auditEvents: await store.listAuditEventsForTarget(auth.user.id, "agent_run", run.id),
+    })));
+    return jsonOk({ runs: runsWithAuditEvents, count: runsWithAuditEvents.length });
+  } catch (error) {
+    return jsonErrorFrom(error);
+  }
+}
+
 export async function POST(request: Request): Promise<Response> {
   const auth = await requirePrivyUser(request);
   if (!auth.ok) return auth.response;
@@ -75,6 +95,14 @@ function isRunMode(value: unknown): value is RunMode {
 function isImportCompatibleWithTarget(importTarget: string | undefined, requestedTarget: AgentTarget): boolean {
   if (requestedTarget === "aeon" || requestedTarget === "hermes") return importTarget === requestedTarget;
   return importTarget === undefined || importTarget === "soul";
+}
+
+function readLimit(request: Request): number {
+  const value = new URL(request.url).searchParams.get("limit");
+  if (!value) return 20;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) return 20;
+  return Math.min(Math.max(parsed, 1), 50);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

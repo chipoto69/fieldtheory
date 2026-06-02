@@ -266,6 +266,23 @@ button {
   align-items: center;
 }
 
+.fixture-row {
+  border: 1px solid var(--line);
+  background: #fbfcfe;
+  padding: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.fixture-row span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
 .field {
   display: grid;
   gap: 8px;
@@ -327,6 +344,21 @@ textarea {
 .result-box ul {
   margin: 0;
   padding-left: 18px;
+}
+
+.link-button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent-2);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.link-button:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
 }
 
 .timeline {

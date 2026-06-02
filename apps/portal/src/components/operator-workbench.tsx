@@ -4,6 +4,7 @@ import { useLogin, usePrivy } from "@privy-io/react-auth";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { buildLocalOperatorAuthorization, isLocalOperatorModeEnabled, localOperatorIdFromEnv } from "@/lib/local-operator";
+import { workbenchFixtures } from "@/lib/workbench-fixtures";
 
 type ValidationResponse = {
   report?: {
@@ -33,6 +34,46 @@ type RunResponse = {
     targetId: string;
     outcome: string;
     createdAt: string;
+  }>;
+  error?: { code: string; message: string };
+};
+
+type RunHistoryResponse = {
+  runs?: Array<{
+    run: NonNullable<RunResponse["run"]> & { createdAt: string };
+    auditEvents: NonNullable<RunResponse["auditEvents"]>;
+  }>;
+  count?: number;
+  error?: { code: string; message: string };
+};
+
+type HealthResponse = {
+  status?: string;
+  readiness?: {
+    authConfigured?: boolean;
+    durableStoreConfigured?: boolean;
+    mutableRoutesReady?: boolean;
+    walletLinking?: string;
+    x402Enforcement?: string;
+  };
+  x402Enabled?: boolean;
+  error?: { code: string; message: string };
+};
+
+type AgentsResponse = {
+  actor?: {
+    id: string;
+    identities: string[];
+    identityPolicyStatus: string;
+    identityPolicy?: {
+      missing?: string[];
+      required?: string[];
+    };
+  };
+  targets?: Array<{
+    id: string;
+    label: string;
+    applyEnabled: boolean;
   }>;
   error?: { code: string; message: string };
 };
@@ -112,13 +153,46 @@ function WorkbenchCore({
   const [input, setInput] = useState("");
   const [validation, setValidation] = useState<ValidationResponse | undefined>();
   const [run, setRun] = useState<RunResponse | undefined>();
+  const [runHistory, setRunHistory] = useState<RunHistoryResponse | undefined>();
+  const [health, setHealth] = useState<HealthResponse | undefined>();
+  const [agents, setAgents] = useState<AgentsResponse | undefined>();
+  const [selectedRun, setSelectedRun] = useState<RunResponse | undefined>();
   const [error, setError] = useState<string | undefined>();
-  const [busy, setBusy] = useState<"validate" | "run" | undefined>();
+  const [busy, setBusy] = useState<"validate" | "run" | "history" | "status" | "detail" | undefined>();
 
   const detected = useMemo(() => detectPayload(input), [input]);
   const runTarget = validation?.import ? targetForImport(validation.import) : "content-os";
   const canValidate = ready && authenticated && input.trim().length > 0 && !busy;
   const canRun = ready && authenticated && validation?.report?.valid === true && Boolean(validation.import?.id) && !busy;
+  const canRefresh = ready && authenticated && !busy;
+
+  function loadFixture(fixtureId: string) {
+    const fixture = workbenchFixtures.find((item) => item.id === fixtureId);
+    if (!fixture) return;
+    setInput(JSON.stringify(fixture.payload, null, 2));
+    setValidation(undefined);
+    setRun(undefined);
+    setError(undefined);
+  }
+
+  async function refreshOperatorState() {
+    setBusy("status");
+    setError(undefined);
+    try {
+      const [healthBody, agentsBody] = await Promise.all([
+        publicJson<HealthResponse>("/api/health"),
+        authenticatedGet<AgentsResponse>("/api/agents", getAuthorization),
+      ]);
+      setHealth(healthBody);
+      setAgents(agentsBody);
+      const apiError = healthBody.error ?? agentsBody.error;
+      if (apiError) setError(`${apiError.code}: ${apiError.message}`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(undefined);
+    }
+  }
 
   async function validateInput() {
     setBusy("validate");
@@ -150,6 +224,7 @@ function WorkbenchCore({
       }, getAuthorization);
       setRun(body);
       if (body.error) setError(`${body.error.code}: ${body.error.message}`);
+      else await refreshRuns();
     } catch (cause) {
       setRun(undefined);
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -157,6 +232,39 @@ function WorkbenchCore({
       setBusy(undefined);
     }
   }
+
+  async function refreshRuns() {
+    setBusy("history");
+    setError(undefined);
+    try {
+      const body = await authenticatedGet<RunHistoryResponse>("/api/agents/runs", getAuthorization);
+      setRunHistory(body);
+      if (body.error) setError(`${body.error.code}: ${body.error.message}`);
+    } catch (cause) {
+      setRunHistory(undefined);
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(undefined);
+    }
+  }
+
+  async function inspectRun(runId: string) {
+    setBusy("detail");
+    setError(undefined);
+    try {
+      const body = await authenticatedGet<RunResponse>(`/api/agents/runs/${encodeURIComponent(runId)}`, getAuthorization);
+      setSelectedRun(body);
+      if (body.error) setError(`${body.error.code}: ${body.error.message}`);
+    } catch (cause) {
+      setSelectedRun(undefined);
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(undefined);
+    }
+  }
+
+  const identityMissing = agents?.actor?.identityPolicy?.missing ?? [];
+  const targetCount = agents?.targets?.length ?? 0;
 
   return (
     <section className="panel workbench" aria-label="Operator workbench">
@@ -169,6 +277,51 @@ function WorkbenchCore({
       </div>
 
       {loginPanel}
+
+      <div className="button-row">
+        <button className="btn secondary" type="button" disabled={!canRefresh} onClick={refreshOperatorState}>
+          {busy === "status" ? "Refreshing" : "Refresh status"}
+        </button>
+        {health && (
+          <span className="detected-kind">
+            {health.status ?? "unknown"} / mutable {health.readiness?.mutableRoutesReady ? "ready" : "blocked"} / x402 {health.x402Enabled ? "on" : "off"}
+          </span>
+        )}
+        {agents?.actor && (
+          <span className="detected-kind">
+            {agents.actor.id} / {agents.actor.identityPolicyStatus} / {targetCount} targets
+          </span>
+        )}
+      </div>
+
+      {(health || agents) && (
+        <div className="result-grid">
+          <div className="result-box">
+            <strong>Readiness</strong>
+            <span>auth: {health?.readiness?.authConfigured ? "configured" : "blocked"}</span>
+            <span>store: {health?.readiness?.durableStoreConfigured ? "durable" : "local/test"}</span>
+            <span>wallet: {health?.readiness?.walletLinking ?? "unknown"}</span>
+          </div>
+          <div className="result-box">
+            <strong>Identity policy</strong>
+            <span>{agents?.actor?.identityPolicyStatus ?? "unknown"}</span>
+            {identityMissing.length === 0 ? (
+              <span>missing: none</span>
+            ) : (
+              <span>missing: {identityMissing.join(", ")}</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="fixture-row" aria-label="Workbench example payloads">
+        <span>Examples</span>
+        {workbenchFixtures.map((fixture) => (
+          <button className="btn secondary" type="button" key={fixture.id} onClick={() => loadFixture(fixture.id)}>
+            {fixture.label}
+          </button>
+        ))}
+      </div>
 
       <label className="field">
         <span>Brief or export JSON</span>
@@ -186,6 +339,9 @@ function WorkbenchCore({
         </button>
         <button className="btn secondary" type="button" disabled={!canRun} onClick={createRun}>
           {busy === "run" ? "Creating" : `Create ${runTarget} dry-run`}
+        </button>
+        <button className="btn secondary" type="button" disabled={!canRefresh} onClick={refreshRuns}>
+          {busy === "history" ? "Refreshing" : "Refresh runs"}
         </button>
         <span className="detected-kind">{detected}</span>
       </div>
@@ -238,6 +394,35 @@ function WorkbenchCore({
           <pre className="code">{JSON.stringify({ run: run.run, auditEvents: run.auditEvents ?? [] }, null, 2)}</pre>
         </>
       )}
+
+      {runHistory && (
+        <div className="result-box">
+          <strong>Recent runs</strong>
+          {(runHistory.runs?.length ?? 0) === 0 ? (
+            <span>none</span>
+          ) : (
+            <ul>
+              {runHistory.runs?.map((item) => (
+                <li key={item.run.id}>
+                  {item.run.target} / {item.run.status} / {item.auditEvents.length} audit event{item.auditEvents.length === 1 ? "" : "s"} / {item.run.id}
+                  {" "}
+                  <button className="link-button" type="button" disabled={Boolean(busy)} onClick={() => inspectRun(item.run.id)}>
+                    inspect
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {selectedRun?.run && (
+        <div className="result-box">
+          <strong>Selected run detail</strong>
+          <span>{selectedRun.run.target} / {selectedRun.run.status} / {selectedRun.run.id}</span>
+          <pre className="code">{JSON.stringify({ run: selectedRun.run, auditEvents: selectedRun.auditEvents ?? [] }, null, 2)}</pre>
+        </div>
+      )}
     </section>
   );
 }
@@ -257,6 +442,31 @@ async function authenticatedJson<T>(
     },
     body: JSON.stringify(payload),
   });
+  const body = await response.json() as T;
+  if (!response.ok && !isApiError(body)) {
+    throw new Error(`Request failed with HTTP ${response.status}.`);
+  }
+  return body;
+}
+
+async function authenticatedGet<T>(
+  path: string,
+  getAuthorization: () => Promise<string | null>,
+): Promise<T> {
+  const authorization = await getAuthorization();
+  if (!authorization) throw new Error("No authorization token is available.");
+  const response = await fetch(path, {
+    headers: { authorization },
+  });
+  const body = await response.json() as T;
+  if (!response.ok && !isApiError(body)) {
+    throw new Error(`Request failed with HTTP ${response.status}.`);
+  }
+  return body;
+}
+
+async function publicJson<T>(path: string): Promise<T> {
+  const response = await fetch(path);
   const body = await response.json() as T;
   if (!response.ok && !isApiError(body)) {
     throw new Error(`Request failed with HTTP ${response.status}.`);
