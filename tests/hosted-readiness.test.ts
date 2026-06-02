@@ -63,6 +63,57 @@ test("hosted deploy readiness blocks missing secrets, missing Vercel link, and e
   assert.doesNotMatch(serialized, /privy_secret_value/);
 });
 
+test("hosted deploy readiness emits secret-safe operator actions for blockers", async () => {
+  const root = await makeReadyRepo({ vercelLink: false });
+  const report = await evaluateHostedDeployReadiness({
+    repoRoot: root,
+    repo: "chipoto69/fieldtheory",
+    environment: "production",
+    branch: "main",
+    env: {
+      VERCEL_TOKEN: "vercel_token_secret_value",
+      DATABASE_URL: "postgres://user:password@example.com/fieldtheory",
+      PRIVY_APP_SECRET: "privy_secret_value",
+      X402_ENABLED: "true",
+    },
+    github: {
+      checked: true,
+      environmentExists: true,
+      deploymentBranchPolicy: "main",
+      branchProtected: true,
+      requiredStatusChecks: [],
+      secrets: ["VERCEL_TOKEN"],
+      variables: [],
+    },
+  });
+
+  assert.equal(report.status, "blocked");
+  assert.ok(report.operatorActions.some((action) => (
+    action.id === "vercel_project_link"
+    && action.command === "cd apps/portal && vercel link"
+  )));
+  assert.ok(report.operatorActions.some((action) => (
+    action.id === "github_required_checks"
+    && action.command?.includes("hosted:setup-github-env")
+    && action.command.includes("--protect-main")
+  )));
+  assert.ok(report.operatorActions.some((action) => (
+    action.id === "github_required_secrets"
+    && action.command?.includes("gh secret set")
+    && action.command.includes("PRIVY_APP_SECRET")
+  )));
+  assert.ok(report.operatorActions.some((action) => (
+    action.id === "x402_disabled"
+    && action.command === "gh variable set X402_ENABLED --repo chipoto69/fieldtheory --env production --body false"
+  )));
+
+  const serialized = JSON.stringify(report) + "\n" + formatReadinessMarkdown(report);
+  assert.match(serialized, /## Operator Actions/);
+  assert.doesNotMatch(serialized, /vercel_token_secret_value/);
+  assert.doesNotMatch(serialized, /postgres:\/\/user:password@example\.com/);
+  assert.doesNotMatch(serialized, /privy_secret_value/);
+});
+
 test("hosted deploy readiness reports missing required local release artifacts", async () => {
   const root = await makeReadyRepo();
   const missingFile = join(root, "docs/handoff/x402-milestone-3.md");

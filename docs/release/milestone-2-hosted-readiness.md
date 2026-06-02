@@ -132,9 +132,12 @@ ready.
 
 The readiness auditor output contract is
 `fieldtheory.hosted-deploy-readiness.v1`. It reports `status`, `checks`,
-`blockers`, and `warnings` and must list secret names only, never secret values.
-It treats missing or true `X402_ENABLED` as blocked; production readiness
-requires the explicit `false` policy.
+`blockers`, `warnings`, and `operatorActions` and must list secret names only,
+never secret values. `operatorActions[]` is the operator handoff plan for the
+next authenticated run: link Vercel, apply non-secret GitHub environment state,
+set missing GitHub production secrets, restore required status checks, and set
+`X402_ENABLED=false`. It treats missing or true `X402_ENABLED` as blocked;
+production readiness requires the explicit `false` policy.
 
 ## Stop Conditions
 

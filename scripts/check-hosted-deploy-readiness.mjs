@@ -62,6 +62,9 @@ async function main() {
     repoRoot,
     env: process.env,
     github,
+    repo: options.repo,
+    environment: options.environment,
+    branch: options.branch,
   });
 
   if (options.json) {
@@ -78,6 +81,9 @@ async function main() {
 export async function evaluateHostedDeployReadiness(options = {}) {
   const repoRoot = options.repoRoot ?? process.cwd();
   const env = options.env ?? process.env;
+  const repo = options.repo ?? "chipoto69/fieldtheory";
+  const environment = options.environment ?? "production";
+  const branch = options.branch ?? "main";
   const requiredLocalFiles = options.requiredLocalFiles ?? REQUIRED_LOCAL_FILES;
   const checks = [];
 
@@ -196,6 +202,7 @@ export async function evaluateHostedDeployReadiness(options = {}) {
   const warnings = checks
     .filter((check) => check.status === "warn")
     .map((check) => ({ id: check.id, title: check.title, detail: check.detail }));
+  const operatorActions = buildOperatorActions(checks, { repo, environment, branch });
 
   return {
     version: "fieldtheory.hosted-deploy-readiness.v1",
@@ -204,11 +211,13 @@ export async function evaluateHostedDeployReadiness(options = {}) {
     summary: {
       blockerCount: blockers.length,
       warningCount: warnings.length,
+      actionCount: operatorActions.length,
       checkedRemote: Boolean(github.checked),
     },
     checks,
     blockers,
     warnings,
+    operatorActions,
   };
 }
 
@@ -234,11 +243,135 @@ export function formatReadinessMarkdown(report) {
     }
     lines.push("");
   }
+  if (Array.isArray(report.operatorActions) && report.operatorActions.length > 0) {
+    lines.push("## Operator Actions", "");
+    for (const action of report.operatorActions) {
+      lines.push(`- [${action.severity}] ${action.title}: ${action.action}`);
+      if (action.command) lines.push(`  Command: \`${action.command}\``);
+      if (action.docs) lines.push(`  Docs: ${action.docs}`);
+    }
+    lines.push("");
+  }
   lines.push("## Checks", "");
   for (const check of report.checks) {
     lines.push(`- [${check.status}] ${check.title}: ${check.detail}`);
   }
   return `${lines.join("\n")}\n`;
+}
+
+function buildOperatorActions(checks, context) {
+  return checks
+    .filter((check) => check.status === "block" || check.status === "warn")
+    .map((check) => operatorActionForCheck(check, context))
+    .filter(Boolean);
+}
+
+function operatorActionForCheck(check, context) {
+  const base = {
+    id: check.id,
+    severity: check.status,
+    title: check.title,
+  };
+
+  switch (check.id) {
+    case "local_artifacts":
+      return {
+        ...base,
+        action: "Restore the required release artifacts before deployment readiness is evaluated again.",
+        docs: "docs/release/milestone-2-hosted-readiness.md",
+      };
+    case "package_scripts":
+      return {
+        ...base,
+        action: "Restore the hosted release scripts in the root package.json before CI or deployment setup continues.",
+        docs: "docs/setup/hosted-suite-environment.md",
+      };
+    case "vercel_project_link":
+      return {
+        ...base,
+        action: "Link the portal to the intended Vercel project locally; do not commit .vercel metadata.",
+        command: "cd apps/portal && vercel link",
+        docs: "docs/setup/hosted-suite-environment.md",
+      };
+    case "github_remote_state":
+      return {
+        ...base,
+        action: "Restore GitHub CLI authentication, then rerun the remote readiness auditor.",
+        command: `gh auth login -h github.com && ${readinessCommand(context)}`,
+        docs: "docs/deploy/vercel-github-actions.md",
+      };
+    case "github_environment":
+    case "github_deployment_branch":
+    case "github_branch_protection":
+    case "github_required_checks":
+      return {
+        ...base,
+        action: "Apply the non-secret GitHub production environment and protected-main bootstrap.",
+        command: setupGithubEnvironmentCommand(context),
+        docs: "docs/deploy/vercel-github-actions.md",
+      };
+    case "github_required_secrets":
+      return {
+        ...base,
+        action: "Set the missing GitHub production secret names with operator-owned values, and mirror matching values in Vercel.",
+        command: secretSetCommand(REQUIRED_GITHUB_SECRETS, context),
+        docs: "docs/setup/hosted-suite-environment.md",
+      };
+    case "github_optional_secrets":
+      return {
+        ...base,
+        action: "Set the optional Privy verification key only if the production Privy dashboard policy uses it.",
+        command: secretSetCommand(OPTIONAL_GITHUB_SECRETS, context),
+        docs: "docs/setup/hosted-suite-environment.md",
+      };
+    case "x402_disabled":
+      return {
+        ...base,
+        action: "Set the GitHub production environment variable to keep x402 enforcement explicitly disabled.",
+        command: `gh variable set X402_ENABLED --repo ${shellToken(context.repo)} --env ${shellToken(context.environment)} --body false`,
+        docs: "docs/handoff/x402-milestone-3.md",
+      };
+    default:
+      return {
+        ...base,
+        action: "Resolve this readiness check before production promotion.",
+        docs: "docs/release/milestone-2-hosted-readiness.md",
+      };
+  }
+}
+
+function setupGithubEnvironmentCommand(context) {
+  return [
+    "npm run hosted:setup-github-env --",
+    "--repo",
+    shellToken(context.repo),
+    "--environment",
+    shellToken(context.environment),
+    "--branch",
+    shellToken(context.branch),
+    "--apply",
+    "--allow-missing-secrets",
+    "--protect-main",
+  ].join(" ");
+}
+
+function readinessCommand(context) {
+  return [
+    "npm run hosted:check-readiness --",
+    "--repo",
+    shellToken(context.repo),
+    "--environment",
+    shellToken(context.environment),
+    "--branch",
+    shellToken(context.branch),
+    "--remote",
+    "--strict",
+    "--json",
+  ].join(" ");
+}
+
+function secretSetCommand(names, context) {
+  return `for name in ${names.map(shellToken).join(" ")}; do gh secret set "$name" --repo ${shellToken(context.repo)} --env ${shellToken(context.environment)}; done`;
 }
 
 function parseArgs(args) {
@@ -395,6 +528,12 @@ function readRequiredStatusChecks(protection) {
     return statusChecks.checks.map((check) => check?.context).filter(Boolean);
   }
   return [];
+}
+
+function shellToken(value) {
+  const text = String(value ?? "");
+  if (/^[A-Za-z0-9_./:@=-]+$/.test(text)) return text;
+  return `'${text.replace(/'/g, "'\\''")}'`;
 }
 
 function ghJson(args, options = {}) {

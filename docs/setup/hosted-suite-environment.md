@@ -260,8 +260,12 @@ the target `DATABASE_URL` and pass post-deploy route smoke.
 
 `npm run hosted:check-readiness -- --remote --strict --json` is the local
 auditor for that final preflight. It reports machine-readable `status`,
-`blockers`, and `warnings`; it checks secret names only and never prints secret
-values. It requires `X402_ENABLED=false` explicitly for production readiness.
+`blockers`, `warnings`, and `operatorActions`; it checks secret names only and
+never prints secret values. `operatorActions[]` is the safe handoff checklist
+for the next authenticated operator: Vercel linking, GitHub environment
+bootstrap, missing secret-name population, branch-protection drift, and the
+required `X402_ENABLED=false` policy. It requires `X402_ENABLED=false`
+explicitly for production readiness.
 
 The in-memory import/run/audit adapter is local/test only. In production mode,
 protected mutation routes return `durable_store_not_configured` unless

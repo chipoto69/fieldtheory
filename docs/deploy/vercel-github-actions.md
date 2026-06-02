@@ -28,7 +28,9 @@ npm run hosted:check-readiness -- --remote --strict
 The command creates the GitHub `production` environment, restricts deployments
 to `main`, protects `main` with the required `preview` check, sets
 `X402_ENABLED=false`, and reports missing secrets without storing any secret
-values.
+values. The readiness auditor also emits secret-safe `operatorActions[]` with
+the exact follow-up commands for the authenticated operator; those actions name
+required secret keys but never include secret values.
 
 | Secret | Purpose |
 |---|---|
