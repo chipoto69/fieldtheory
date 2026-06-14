@@ -24,6 +24,7 @@ export interface AgentRun {
   mode: RunMode;
   status: "created" | "blocked";
   importId: string;
+  idempotencyKey?: string;
   resultEnvelope: Record<string, unknown>;
   createdAt: string;
 }
@@ -52,6 +53,7 @@ export interface HostedStore {
   createRun(input: CreateRunInput): Promise<AgentRun>;
   createRunWithAudit(input: CreateRunInput, audit: CreateRunAuditInput): Promise<{ run: AgentRun; audit: AuditEvent }>;
   getRun(id: string): Promise<AgentRun | undefined>;
+  findRunByIdempotencyKey(ownerUserId: string, idempotencyKey: string): Promise<AgentRun | undefined>;
   listRunsForOwner(ownerUserId: string, limit?: number): Promise<AgentRun[]>;
   listAuditEventsForTarget(actorUserId: string, targetType: string, targetId: string): Promise<AuditEvent[]>;
   appendAudit(input: AppendAuditInput): Promise<AuditEvent>;
@@ -116,6 +118,12 @@ export class MemoryHostedStore implements HostedStore {
 
   async getRun(id: string): Promise<AgentRun | undefined> {
     return this.runs.get(id);
+  }
+
+  async findRunByIdempotencyKey(ownerUserId: string, idempotencyKey: string): Promise<AgentRun | undefined> {
+    return [...this.runs.values()].find((run) => (
+      run.ownerUserId === ownerUserId && run.idempotencyKey === idempotencyKey
+    ));
   }
 
   async listRunsForOwner(ownerUserId: string, limit = 20): Promise<AgentRun[]> {

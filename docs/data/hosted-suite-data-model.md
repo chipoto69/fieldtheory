@@ -22,7 +22,7 @@ imports a brief/export artifact.
 | `Identity` | `id`, `userId`, `type`, `subject`, `verifiedAt` | `type` is `github`, `evm`, or `solana`. |
 | `ArtifactImport` | `id`, `ownerUserId`, `contractVersion`, `kind`, `sha256`, `validationStatus`, `exportSummary`, `createdAt` | Imported `AgentBriefPack` or export manifest. IDs are owner-scoped from `ownerUserId + sha256`. Export summaries are sanitized and exclude raw payloads and absolute paths. |
 | `ArtifactFile` | `id`, `importId`, `relPath`, `sha256`, `contentType`, `sizeBytes` | Optional file metadata; content storage provider is undecided. |
-| `AgentRun` | `id`, `ownerUserId`, `target`, `mode`, `status`, `importId`, `resultEnvelope`, `createdAt` | M2 permits `dry-run` only. |
+| `AgentRun` | `id`, `ownerUserId`, `target`, `mode`, `status`, `importId`, `idempotencyKey`, `resultEnvelope`, `createdAt` | M2 permits `dry-run` only. `idempotencyKey` is optional and owner-scoped. |
 | `AuditEvent` | `id`, `actorUserId`, `action`, `targetType`, `targetId`, `contractHash`, `outcome`, `createdAt` | Append-only. |
 | `X402EndpointPlan` | `id`, `route`, `method`, `pricePolicy`, `facilitator`, `status`, `createdAt` | `status` remains `planned` until enforcement review. |
 
@@ -42,6 +42,9 @@ imports a brief/export artifact.
 - Aeon and Hermes runs require target-compatible export imports; a Hermes export
   cannot create a Gordo/Aeon plan and an Aeon export cannot create a Hermes
   plan.
+- Optional run `idempotencyKey` values are scoped by `ownerUserId`. Replays with
+  the same owner/key return the existing run and audit envelope instead of
+  writing duplicate run or audit rows.
 - Linked identities are resolved from Privy at request time for the M2 scaffold;
   they are not persisted in the current Postgres schema. Linked wallets prove
   identity state; they do not automatically grant payment or apply authority.
@@ -81,9 +84,9 @@ Postgres is the first durable hosted adapter. It is selected when
 
 | Table | Purpose |
 |---|---|
-| `fieldtheory_schema_version` | Migration marker; version `1` is required in production. |
+| `fieldtheory_schema_version` | Migration marker; version `2` is required in production. |
 | `fieldtheory_imports` | Owner-scoped artifact import metadata and sanitized export summary. |
-| `fieldtheory_agent_runs` | Dry-run agent run records and result envelopes. |
+| `fieldtheory_agent_runs` | Dry-run agent run records, optional owner-scoped `idempotency_key`, and result envelopes. |
 | `fieldtheory_audit_events` | Append-only hosted action records. |
 
 Run `npm --prefix apps/portal run db:migrate` with `DATABASE_URL` before
@@ -92,6 +95,8 @@ production. Production returns `store_schema_not_ready` when the migration marke
 is absent. Validation import + audit writes and run + audit writes use composite
 store methods so the Postgres adapter commits those paired records in one
 transaction.
+Schema v2 adds `fieldtheory_agent_runs.idempotency_key` plus a unique partial
+index on `(owner_user_id, idempotency_key)` where the key is present.
 
 Run readback uses the same owner id as the authenticated Privy subject and
 returns only audit events whose `actor_user_id`, `target_type`, and `target_id`

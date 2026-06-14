@@ -120,7 +120,7 @@ Fill this ledger before undrafting or promoting a production deployment:
 | Post-deploy unauthenticated `/api/agents` status | blocked 2026-06-01: no production deployment URL |
 | Post-deploy authenticated mutation failure/success evidence | blocked 2026-06-01: no production deployment URL, Privy app config, or target database |
 | Backup/restore drill | blocked 2026-06-02: target database provider is not selected, so backup and restore evidence cannot exist yet |
-| Migration version policy | blocked 2026-06-02: schema v1 exists; migration-forward and rollback policy beyond v1 is not approved |
+| Migration version policy | partial 2026-06-14: schema v2 adds owner-scoped run idempotency; migration-forward script exists, but rollback and backup/restore policy are not approved |
 | Audit retention policy | blocked 2026-06-02: append-only audit storage exists; retention period is not approved |
 | Rollback deployment reference | blocked 2026-06-01: no Vercel deployment has been created; production workflow will capture the deployment URL as rollback reference |
 | Wiki log entry | recorded 2026-06-01 in `/Users/rudlord/wiki/log.md` for commit `e2330be`; later product increments require their own closeout lines |

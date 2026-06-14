@@ -327,6 +327,44 @@ test("export validation plus dry-run creation returns a run envelope", async () 
   assert.equal(userBRead.status, 404);
 });
 
+test("agent run creation replays owner-scoped idempotency keys without duplicate audits", async () => {
+  enableDevAuth();
+  const validate = await exportValidatePost(jsonRequest("/api/exports/validate", validAeonManifest()));
+  const importBody = await validate.json();
+  const requestBody = {
+    target: "aeon",
+    importId: importBody.import.id,
+    mode: "dry-run",
+    idempotencyKey: "retry:aeon:operator:001",
+  };
+
+  const first = await runsPost(jsonRequest("/api/agents/runs", requestBody));
+  const firstBody = await first.json();
+  const second = await runsPost(jsonRequest("/api/agents/runs", requestBody));
+  const secondBody = await second.json();
+
+  assert.equal(first.status, 201);
+  assert.equal(second.status, 200);
+  assert.equal(firstBody.idempotentReplay, false);
+  assert.equal(secondBody.idempotentReplay, true);
+  assert.equal(secondBody.run.id, firstBody.run.id);
+  assert.equal(secondBody.run.createdAt, firstBody.run.createdAt);
+  assert.equal(secondBody.run.idempotencyKey, "retry:aeon:operator:001");
+  assert.equal(firstBody.auditEvents.length, 1);
+  assert.equal(secondBody.auditEvents.length, 1);
+  assert.equal(secondBody.auditEvents[0].id, firstBody.auditEvents[0].id);
+  assert.equal(hostedStore.listAuditEvents().filter((event) => event.action === "agent.run.create").length, 1);
+
+  const conflict = await runsPost(jsonRequest("/api/agents/runs", {
+    ...requestBody,
+    target: "hermes",
+  }));
+  const conflictBody = await conflict.json();
+  assert.equal(conflict.status, 409);
+  assert.equal(conflictBody.error.code, "idempotency_conflict");
+  assert.equal(hostedStore.listAuditEvents().filter((event) => event.action === "agent.run.create").length, 1);
+});
+
 test("agent run index returns owner-scoped recent runs with audit events", async () => {
   enableDevAuth();
   const aeonImport = await exportValidatePost(authJsonRequest("/api/exports/validate", validAeonManifest(), "dev:user-a"));

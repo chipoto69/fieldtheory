@@ -1,7 +1,7 @@
 import type { Sql } from "postgres";
 import { JsonRequestError } from "./http";
 
-export const POSTGRES_SCHEMA_VERSION = 1;
+export const POSTGRES_SCHEMA_VERSION = 2;
 
 export async function createPostgresSchema(sql: Sql): Promise<void> {
   await sql.begin(async (tx) => {
@@ -31,10 +31,12 @@ export async function createPostgresSchema(sql: Sql): Promise<void> {
         mode text not null,
         status text not null,
         import_id text not null references fieldtheory_imports(id),
+        idempotency_key text,
         result_envelope jsonb not null,
         created_at timestamptz not null
       )
     `;
+    await tx`alter table fieldtheory_agent_runs add column if not exists idempotency_key text`;
     await tx`
       create table if not exists fieldtheory_audit_events (
         id text primary key,
@@ -49,6 +51,11 @@ export async function createPostgresSchema(sql: Sql): Promise<void> {
     `;
     await tx`create index if not exists fieldtheory_imports_owner_idx on fieldtheory_imports(owner_user_id)`;
     await tx`create index if not exists fieldtheory_runs_owner_idx on fieldtheory_agent_runs(owner_user_id)`;
+    await tx`
+      create unique index if not exists fieldtheory_runs_owner_idempotency_idx
+      on fieldtheory_agent_runs(owner_user_id, idempotency_key)
+      where idempotency_key is not null
+    `;
     await tx`create index if not exists fieldtheory_audit_actor_idx on fieldtheory_audit_events(actor_user_id)`;
     await tx`
       insert into fieldtheory_schema_version (version)

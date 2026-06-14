@@ -16,7 +16,7 @@ GBrain, Hermes, Aeon/Gordo, GitHub, Vercel, or x402 settlement state until a
 later apply gate exists.
 
 State-changing hosted routes use `HostedStore`. In production, `DATABASE_URL`
-must select the Postgres adapter and schema version `1` must be migrated before
+must select the Postgres adapter and schema version `2` must be migrated before
 requests are accepted.
 
 ## Route Table
@@ -29,7 +29,7 @@ requests are accepted.
 | `/api/exports/validate` | `POST` | Privy | export manifest plus optional file list | validation report | audit event |
 | `/api/agents` | `GET` | Privy | none | target registry | none |
 | `/api/agents/runs` | `GET` | Privy | none | owner-scoped recent runs plus `auditEvents[]` per run | none |
-| `/api/agents/runs` | `POST` | Privy | `{target, importId, mode}` | dry-run record plus `auditEvents[]` | audit event, run record |
+| `/api/agents/runs` | `POST` | Privy | `{target, importId, mode, idempotencyKey?}` | dry-run record plus `auditEvents[]` and `idempotentReplay` | audit event, run record unless replayed |
 | `/api/agents/runs/[id]` | `GET` | Privy owner | none | run status plus owner-scoped `auditEvents[]` | none |
 | `/api/gordo/import-plan` | `POST` | Privy | export manifest | Aeon/Gordo plan | accepted plan audit event |
 | `/api/hermes/import-plan` | `POST` | Privy | export manifest | Hermes plan | accepted plan audit event |
@@ -88,6 +88,13 @@ Run creation, run index, and run detail responses include the audit envelope
 associated with each run target so operators can review who requested the
 handoff, which action was accepted, and which hosted run id was affected before
 any later apply gate exists.
+
+`POST /api/agents/runs` accepts an optional `idempotencyKey` made from
+letters, numbers, `_`, `.`, `/`, `:`, `@`, `=`, or `-`, up to 160 characters.
+The key is scoped to the authenticated owner. A repeat request with the same
+owner, key, target, import id, and mode returns the existing run with
+`idempotentReplay: true` and does not create a second audit event. Reusing the
+same key for a different run request returns `409 idempotency_conflict`.
 
 When `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true`, protected write routes
 return `403 identity_policy_unsatisfied` before store writes unless the verified

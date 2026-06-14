@@ -66,7 +66,7 @@ The first Milestone 2 scaffold now exists under `apps/portal`:
   dry-run run creation/status, Gordo/Aeon import plans, and Hermes import plans.
 - In-memory local/test adapter plus `DATABASE_URL` Postgres adapter for imports,
   runs, and audit events.
-- `npm --prefix apps/portal run db:migrate` creates schema version `1`; production
+- `npm --prefix apps/portal run db:migrate` creates schema version `2`; production
   checks that marker and fails closed instead of auto-creating tables.
 - Preview and production GitHub Actions workflows with CI, Postgres migration
   smoke, Vercel deploy steps, and production public endpoint smoke.
@@ -77,6 +77,9 @@ The first Milestone 2 scaffold now exists under `apps/portal`:
 - Sanitized export import summaries that preserve target, run id, run-scoped
   relative paths, hashes, forbidden writes, and result-envelope status/counts
   without storing absolute source paths, warning text, or raw details.
+- Owner-scoped `idempotencyKey` support on dry-run agent creation so safe
+  retries return the original run and audit envelope instead of duplicating
+  handoff records.
 - Owner-scoped artifact import IDs prevent two users importing the same contract
   payload from overwriting each other's ownership.
 

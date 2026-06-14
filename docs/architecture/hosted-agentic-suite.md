@@ -123,7 +123,7 @@ sequenceDiagram
 | `app/api/briefs/validate/route.ts` | nodejs | Calls shared validator package. |
 | `app/api/exports/validate/route.ts` | nodejs | Checks manifest paths and forbidden writes. |
 | `app/api/agents/route.ts` | nodejs | Lists configured targets and disabled apply status. |
-| `app/api/agents/runs/route.ts` | nodejs | Lists owner-scoped run history and creates dry-run plans only. |
+| `app/api/agents/runs/route.ts` | nodejs | Lists owner-scoped run history and creates dry-run plans only; optional `idempotencyKey` replays return the original run. |
 | `app/api/agents/runs/[id]/route.ts` | nodejs | Reads run status and audit envelope. |
 | `app/api/gordo/import-plan/route.ts` | nodejs | Builds Aeon/Gordo import plan from manifest. |
 | `app/api/hermes/import-plan/route.ts` | nodejs | Builds Hermes import plan from task payload. |
@@ -132,7 +132,7 @@ sequenceDiagram
 ## Storage Model
 
 M2 uses a small typed persistence layer. Memory is local/test only. Postgres is
-selected by `DATABASE_URL`; production requires schema version `1` from
+selected by `DATABASE_URL`; production requires schema version `2` from
 `npm --prefix apps/portal run db:migrate`. Import/audit and run/audit writes go
 through composite store methods so durable writes are transactional.
 
@@ -140,7 +140,7 @@ through composite store methods so durable writes are transactional.
 |---|---|
 | `users` | Planned: Privy user id, GitHub identity, linked EVM/Solana wallet summaries. |
 | `fieldtheory_imports` | Uploaded/imported contract metadata, hashes, owner id, validation status. |
-| `fieldtheory_agent_runs` | Dry-run plan, target, status, owner id, result envelope. |
+| `fieldtheory_agent_runs` | Dry-run plan, target, status, owner id, optional idempotency key, result envelope. |
 | `fieldtheory_audit_events` | Append-only event log with actor, target, contract hash, and outcome. |
 | `x402_endpoint_plans` | Planned endpoint id, price policy, facilitator assumptions, replay protection, accepted network placeholders, and enforcement status from `fieldtheory.x402-discovery.v1`. |
 

@@ -45,10 +45,22 @@ test("postgres-backed route smoke persists imports, runs, and audit events", {
       target: "aeon",
       importId: validateBody.import.id,
       mode: "dry-run",
+      idempotencyKey: "postgres-smoke:aeon:001",
     }));
     const runBody = await createRun.json();
     assert.equal(createRun.status, 201);
     assert.equal(runBody.run.ownerUserId, "postgres-operator");
+
+    const replayRun = await runsPost(authJsonRequest("/api/agents/runs", {
+      target: "aeon",
+      importId: validateBody.import.id,
+      mode: "dry-run",
+      idempotencyKey: "postgres-smoke:aeon:001",
+    }));
+    const replayBody = await replayRun.json();
+    assert.equal(replayRun.status, 200);
+    assert.equal(replayBody.idempotentReplay, true);
+    assert.equal(replayBody.run.id, runBody.run.id);
 
     const readRun = await runGet(authRequest(`http://localhost/api/agents/runs/${runBody.run.id}`), {
       params: Promise.resolve({ id: runBody.run.id }),

@@ -149,7 +149,7 @@ Production is the preview workflow plus:
 - `main` branch protection requires the `preview` check and disallows force
   pushes/deletions.
 - Privy app URLs include preview and production domains.
-- `DATABASE_URL` is configured in Vercel and schema version `1` has been
+- `DATABASE_URL` is configured in Vercel and schema version `2` has been
   migrated on the same target database the deployment will use.
 - Matching `DATABASE_URL`, `PRIVY_APP_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`, and
   `PRIVY_APP_SECRET` are set as GitHub production environment secrets so the

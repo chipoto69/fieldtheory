@@ -101,6 +101,19 @@ class PostgresHostedStore implements HostedStore {
     });
   }
 
+  async findRunByIdempotencyKey(ownerUserId: string, idempotencyKey: string): Promise<AgentRun | undefined> {
+    return this.withStore(async () => {
+      await this.ensureSchema();
+      const rows = await this.sql<RunRow[]>`
+        select * from fieldtheory_agent_runs
+        where owner_user_id = ${ownerUserId}
+          and idempotency_key = ${idempotencyKey}
+        limit 1
+      `;
+      return rows[0] ? runFromRow(rows[0]) : undefined;
+    });
+  }
+
   async listRunsForOwner(ownerUserId: string, limit = 20): Promise<AgentRun[]> {
     return this.withStore(async () => {
       await this.ensureSchema();
@@ -236,6 +249,7 @@ async function insertRun(sql: StoreSql, run: AgentRun): Promise<void> {
       mode,
       status,
       import_id,
+      idempotency_key,
       result_envelope,
       created_at
     ) values (
@@ -245,6 +259,7 @@ async function insertRun(sql: StoreSql, run: AgentRun): Promise<void> {
       ${run.mode},
       ${run.status},
       ${run.importId},
+      ${run.idempotencyKey ?? null},
       ${sql.json(toPostgresJson(run.resultEnvelope))},
       ${run.createdAt}
     )
@@ -293,6 +308,7 @@ type RunRow = {
   mode: AgentRun["mode"];
   status: AgentRun["status"];
   import_id: string;
+  idempotency_key: string | null;
   result_envelope: Record<string, unknown>;
   created_at: Date | string;
 };
@@ -329,6 +345,7 @@ function runFromRow(row: RunRow): AgentRun {
     mode: row.mode,
     status: row.status,
     importId: row.import_id,
+    idempotencyKey: row.idempotency_key ?? undefined,
     resultEnvelope: row.result_envelope,
     createdAt: toIso(row.created_at),
   };
