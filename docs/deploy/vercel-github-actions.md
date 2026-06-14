@@ -43,7 +43,7 @@ secret keys but never include secret values.
 | `PRIVY_APP_SECRET` | Server-side Privy verification. |
 | `PRIVY_JWT_VERIFICATION_KEY` | Optional Privy verification key to avoid a runtime key fetch. |
 | `DATABASE_URL` | Postgres durable store used by hosted mutation routes. |
-| `FIELD_THEORY_PRODUCTION_SMOKE_BEARER_TOKEN` | Optional Privy bearer token for authenticated production import/run/readback smoke. When absent, the smoke step emits a skip notice instead of failing deployment. |
+| `FIELD_THEORY_PRODUCTION_SMOKE_BEARER_TOKEN` | Required Privy bearer token for authenticated production import/run/readback smoke. The token must belong to a smoke operator with linked GitHub, Base EVM, and Solana identities. |
 
 | Variable | Purpose |
 |---|---|
@@ -133,22 +133,23 @@ Production is the preview workflow plus:
 - Postgres schema migration gate against the target production `DATABASE_URL`
   before Vercel build
 - `vercel pull --environment=production`
-- `vercel deploy --prebuilt --prod`
+- Vercel production runtime env-name check for `DATABASE_URL`, Privy,
+  linked-identity variables, and `X402_ENABLED`
+- `vercel deploy --prebuilt --prod --skip-domain`
 - post-deploy public smoke runs
   `npm run hosted:smoke -- --base-url "$DEPLOYMENT_URL" --json`
 - the smoke script requires `/api/health` to report
-  `status: "configuration_ready"`, configured auth, configured durable store,
-  mutable routes ready, required wallet linking, Base mainnet / Solana
-  mainnet-beta policy, and `x402Enabled: false`
+  `status: "configuration_ready"`, matching server/browser Privy app IDs,
+  configured auth, configured durable store, mutable routes ready, required
+  wallet linking, Base mainnet / Solana mainnet-beta policy, and
+  `x402Enabled: false`
 - the same smoke script requires `/api/contracts` to stay apply-disabled,
   `/api/x402/discovery` to stay non-enforcing, and unauthenticated
   `/api/agents` to return `401`
-- optional authenticated smoke skips with a GitHub notice until
-  `FIELD_THEORY_PRODUCTION_SMOKE_BEARER_TOKEN` exists; once configured it runs
-  `hosted:smoke` with a dry-run fixture and proves `/api/agents`,
-  `/api/briefs/validate`, `/api/agents/runs`, and run readback against the
-  durable store without printing token, wallet, subject, DB URL, or request-body
-  values
+- authenticated smoke is mandatory; it runs `hosted:smoke` with a dry-run
+  fixture and proves `/api/agents`, `/api/briefs/validate`,
+  `/api/agents/runs`, and run readback against the durable store without
+  printing token, wallet, subject, DB URL, or request-body values
 
 ## Required Gates Before Enabling
 
@@ -184,12 +185,11 @@ Current scaffold status:
   Raycast, diff checks, a throwaway Postgres schema migration, the DB route
   smoke, production secret and linked-identity policy preflight, and the target
   production `DATABASE_URL` migration on protected `main`; it captures the
-  production deployment URL and smokes public health/contracts/x402-discovery
-  routes plus unauthenticated protected-route behavior through
-  `npm run hosted:smoke`. It also includes an authenticated operator smoke that
-  is skipped until a production Privy bearer token is configured. Production
-  deploy fails fast when required Vercel, Privy, database, linked-identity, or x402-disable
-  settings are missing.
+  production deployment URL, verifies required Vercel runtime env names, and
+  smokes public health/contracts/x402-discovery routes plus unauthenticated and
+  authenticated protected-route behavior through `npm run hosted:smoke`.
+  Production deploy fails fast when required Vercel, Privy, database, smoke
+  token, linked-identity, or x402-disable settings are missing.
 - `apps/portal/vercel.json` keeps the Vercel project rooted in the portal app.
 
 The throwaway CI migration only proves the migration script. Production release
@@ -199,9 +199,11 @@ authenticated route behavior before traffic is considered ready.
 
 ## Rollback
 
-The production workflow captures the deployment URL as the rollback deployment
-reference. The operator must record that reference in
-`docs/release/milestone-2-hosted-readiness.md` before promotion. If smoke fails
-after deploy, use Vercel's dashboard or CLI to promote the last known-good
-deployment, then rerun the public smoke commands and update the release ledger
-with the rollback deployment reference.
+The production workflow requires an explicit rollback posture before promotion.
+Set `FIELD_THEORY_ROLLBACK_REF` to the previous known-good production
+deployment URL/id, or set `FIELD_THEORY_FIRST_PRODUCTION_RELEASE=true` only for
+the initial launch when no production deployment exists yet. If smoke fails
+before promotion, the workflow stops and custom domains stay on the previous
+deployment. If rollback is needed after promotion, use Vercel's dashboard or CLI
+to promote the last known-good deployment, then rerun smoke and update the
+release ledger with the rollback evidence.

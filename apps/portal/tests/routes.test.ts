@@ -73,6 +73,7 @@ test("public health and contract routes do not require auth", async () => {
 test("health reports mutable routes ready only after production dependencies are configured", async () => {
   setEnv("NODE_ENV", "production");
   process.env.PRIVY_APP_ID = "test-app";
+  process.env.NEXT_PUBLIC_PRIVY_APP_ID = "test-app";
   process.env.PRIVY_APP_SECRET = "test-secret";
   process.env.DATABASE_URL = "postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory";
 
@@ -81,10 +82,28 @@ test("health reports mutable routes ready only after production dependencies are
   assert.equal(health.status, 200);
   assert.equal(body.status, "configuration_ready");
   assert.equal(body.readiness.authConfigured, true);
+  assert.equal(body.readiness.privyAppIdsMatch, true);
   assert.equal(body.readiness.durableStoreConfigured, true);
   assert.equal(body.readiness.mutableStoreReady, true);
   assert.equal(body.readiness.mutableRoutesReady, true);
   assert.equal(body.readiness.schema, "requires_external_migration_proof");
+});
+
+test("health blocks production readiness when Privy server and browser app ids differ", async () => {
+  setEnv("NODE_ENV", "production");
+  process.env.PRIVY_APP_ID = "server-app";
+  process.env.NEXT_PUBLIC_PRIVY_APP_ID = "browser-app";
+  process.env.PRIVY_APP_SECRET = "test-secret";
+  process.env.DATABASE_URL = "postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory";
+
+  const health = await healthGet();
+  const body = await health.json();
+  assert.equal(health.status, 200);
+  assert.equal(body.status, "configuration_required");
+  assert.equal(body.readiness.authConfigured, false);
+  assert.equal(body.readiness.privyAppIdsMatch, false);
+  assert.equal(body.readiness.durableStoreConfigured, true);
+  assert.equal(body.readiness.mutableRoutesReady, false);
 });
 
 test("protected routes fail closed when Privy server config is absent", async () => {

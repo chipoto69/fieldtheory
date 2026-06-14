@@ -30,6 +30,7 @@ test("hosted deploy readiness passes only with local artifacts, Vercel link, Git
         { name: "NEXT_PUBLIC_BASE_CHAIN_ID", value: "8453" },
         { name: "FIELD_THEORY_SOLANA_CLUSTER", value: "mainnet-beta" },
         { name: "NEXT_PUBLIC_SOLANA_CLUSTER", value: "mainnet-beta" },
+        { name: "FIELD_THEORY_FIRST_PRODUCTION_RELEASE", value: "true" },
       ],
     },
   });
@@ -37,6 +38,40 @@ test("hosted deploy readiness passes only with local artifacts, Vercel link, Git
   assert.equal(report.status, "ready");
   assert.equal(report.blockers.length, 0);
   assert.ok(report.checks.every((check) => check.status === "pass" || check.status === "warn"));
+});
+
+test("hosted deploy readiness blocks missing rollback posture", async () => {
+  const root = await makeReadyRepo();
+  const report = await evaluateHostedDeployReadiness({
+    repoRoot: root,
+    repo: "chipoto69/fieldtheory",
+    environment: "production",
+    github: {
+      checked: true,
+      environmentExists: true,
+      deploymentBranchPolicy: "main",
+      branchProtected: true,
+      requiredStatusChecks: ["preview"],
+      secrets: [...REQUIRED_GITHUB_SECRETS],
+      variables: [
+        { name: "X402_ENABLED", value: "false" },
+        { name: "FIELD_THEORY_REQUIRE_LINKED_IDENTITIES", value: "true" },
+        { name: "FIELD_THEORY_BASE_CHAIN_ID", value: "8453" },
+        { name: "NEXT_PUBLIC_BASE_CHAIN_ID", value: "8453" },
+        { name: "FIELD_THEORY_SOLANA_CLUSTER", value: "mainnet-beta" },
+        { name: "NEXT_PUBLIC_SOLANA_CLUSTER", value: "mainnet-beta" },
+      ],
+    },
+  });
+
+  assert.equal(report.status, "blocked");
+  const blocker = report.blockers.find((item) => item.id === "rollback_posture");
+  assert.ok(blocker);
+  assert.match(blocker.detail, /FIELD_THEORY_FIRST_PRODUCTION_RELEASE/);
+  const action = report.operatorActions.find((item) => item.id === "rollback_posture");
+  assert.ok(action);
+  assert.match(action.command ?? "", /FIELD_THEORY_FIRST_PRODUCTION_RELEASE/);
+  assert.match(action.command ?? "", /FIELD_THEORY_ROLLBACK_REF/);
 });
 
 test("hosted deploy readiness blocks missing linked identity production policy", async () => {
@@ -290,6 +325,7 @@ async function makeReadyRepo(options: { vercelLink?: boolean } = {}): Promise<st
         "hosted:setup-github-env": "node scripts/setup-github-production-env.mjs",
         "hosted:check-readiness": "node scripts/check-hosted-deploy-readiness.mjs",
         "hosted:smoke": "node scripts/smoke-hosted-deployment.mjs",
+        "hosted:collect-evidence": "node scripts/collect-hosted-release-evidence.mjs",
       },
     }),
   );

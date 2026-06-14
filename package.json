@@ -1,6 +1,6 @@
 {
   "name": "fieldtheory",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "Field Theory CLI. Self-custody for your X/Twitter bookmarks. Local sync, full-text search, classification, and terminal dashboards.",
   "type": "module",
   "bin": {
@@ -21,7 +21,8 @@
     "verify:hosted": "npm run portal:test && npm run portal:typecheck && npm run portal:build",
     "hosted:setup-github-env": "node scripts/setup-github-production-env.mjs",
     "hosted:check-readiness": "node scripts/check-hosted-deploy-readiness.mjs",
-    "hosted:smoke": "node scripts/smoke-hosted-deployment.mjs"
+    "hosted:smoke": "node scripts/smoke-hosted-deployment.mjs",
+    "hosted:collect-evidence": "node scripts/collect-hosted-release-evidence.mjs"
   },
   "files": [
     "apps/operator-suite/",

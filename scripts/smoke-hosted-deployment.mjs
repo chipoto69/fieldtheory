@@ -232,6 +232,7 @@ function validateHealth(result) {
   const ok = result.statusCode === 200
     && result.json?.status === "configuration_ready"
     && readiness.authConfigured === true
+    && readiness.privyAppIdsMatch === true
     && readiness.durableStoreConfigured === true
     && readiness.mutableRoutesReady === true
     && readiness.walletLinking === "required"
@@ -244,8 +245,8 @@ function validateHealth(result) {
     title: "Production health is configuration-ready",
     status: ok ? "pass" : "block",
     detail: ok
-      ? "Health reports auth, durable store, linked identities, and disabled x402 ready."
-      : `Expected configuration_ready health with auth/store/linked-identity/x402 gates; got ${result.statusCode}.`,
+      ? "Health reports matching Privy app ids, durable store, linked identities, and disabled x402 ready."
+      : `Expected configuration_ready health with matching Privy app ids, auth/store/linked-identity/x402 gates; got ${result.statusCode}.`,
     statusCode: result.statusCode,
   };
 }

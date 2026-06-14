@@ -13,6 +13,7 @@ export const REQUIRED_GITHUB_SECRETS = [
   "PRIVY_APP_ID",
   "NEXT_PUBLIC_PRIVY_APP_ID",
   "PRIVY_APP_SECRET",
+  "FIELD_THEORY_PRODUCTION_SMOKE_BEARER_TOKEN",
 ];
 
 export const OPTIONAL_GITHUB_SECRETS = ["PRIVY_JWT_VERIFICATION_KEY"];
@@ -29,6 +30,7 @@ export const REQUIRED_PACKAGE_SCRIPTS = [
   "hosted:setup-github-env",
   "hosted:check-readiness",
   "hosted:smoke",
+  "hosted:collect-evidence",
 ];
 
 export const REQUIRED_LOCAL_FILES = [
@@ -41,6 +43,7 @@ export const REQUIRED_LOCAL_FILES = [
   "apps/portal/tests/fixtures/x402-discovery.v1.json",
   "apps/portal/tests/fixtures/x402-audit-events.v1.json",
   "scripts/smoke-hosted-deployment.mjs",
+  "scripts/collect-hosted-release-evidence.mjs",
   "docs/handoff/x402-milestone-3.md",
   "docs/release/milestone-2-hosted-readiness.md",
   "docs/deploy/vercel-github-actions.md",
@@ -109,7 +112,7 @@ export async function evaluateHostedDeployReadiness(options = {}) {
     id: "package_scripts",
     title: "Required hosted package scripts exist",
     status: missingScripts.length === 0 ? "pass" : "block",
-    detail: missingScripts.length === 0 ? "Release, hosted verify, environment setup, readiness, and smoke scripts are present." : `Missing scripts: ${missingScripts.join(", ")}`,
+    detail: missingScripts.length === 0 ? "Release, hosted verify, environment setup, readiness, smoke, and evidence scripts are present." : `Missing scripts: ${missingScripts.join(", ")}`,
   });
 
   const vercelProject = await readVercelProject(repoRoot);
@@ -213,6 +216,19 @@ export async function evaluateHostedDeployReadiness(options = {}) {
       identityPolicy.issues.length === 0
         ? "Linked identity policy requires GitHub, Base EVM chain 8453, and Solana mainnet-beta."
         : `Invalid linked identity production policy: ${identityPolicy.issues.join("; ")}`,
+  });
+
+  const rollbackPosture = resolveRollbackPosture(github.variables, env);
+  addCheck(checks, {
+    id: "rollback_posture",
+    title: "Rollback posture is explicit",
+    status: rollbackPosture.issues.length === 0 ? "pass" : "block",
+    detail:
+      rollbackPosture.issues.length === 0
+        ? rollbackPosture.firstProductionRelease
+          ? "Initial production launch is explicitly marked as first release."
+          : "Previous known-good rollback deployment reference is configured."
+        : `Invalid rollback posture: ${rollbackPosture.issues.join("; ")}`,
   });
 
   const blockers = checks
@@ -357,6 +373,13 @@ function operatorActionForCheck(check, context) {
         command: linkedIdentityPolicyCommand(context),
         docs: "docs/setup/hosted-suite-environment.md",
       };
+    case "rollback_posture":
+      return {
+        ...base,
+        action: "Set an explicit production rollback posture before promotion: first-release for launch zero, rollback ref for every later release.",
+        command: rollbackPostureCommand(context),
+        docs: "docs/release/milestone-2-hosted-readiness.md",
+      };
     default:
       return {
         ...base,
@@ -418,6 +441,10 @@ function linkedIdentityPolicyCommand(context) {
     variableSetCommand("FIELD_THEORY_SOLANA_CLUSTER", PRODUCTION_IDENTITY_POLICY.solanaCluster, context),
     variableSetCommand("NEXT_PUBLIC_SOLANA_CLUSTER", PRODUCTION_IDENTITY_POLICY.solanaCluster, context),
   ].join(" && ");
+}
+
+function rollbackPostureCommand(context) {
+  return `${variableSetCommand("FIELD_THEORY_FIRST_PRODUCTION_RELEASE", "true", context)} # first launch only; later set FIELD_THEORY_ROLLBACK_REF to the previous known-good deployment`;
 }
 
 function variableSetCommand(name, value, context) {
@@ -535,6 +562,19 @@ function resolveLinkedIdentityPolicy(variables, env) {
   }
 
   return { issues };
+}
+
+function resolveRollbackPosture(variables, env) {
+  const firstProductionRelease = variableValue(variables, env, "FIELD_THEORY_FIRST_PRODUCTION_RELEASE") === "true";
+  const rollbackRef = variableValue(variables, env, "FIELD_THEORY_ROLLBACK_REF");
+  const issues = [];
+  if (firstProductionRelease && rollbackRef) {
+    issues.push("set either FIELD_THEORY_FIRST_PRODUCTION_RELEASE or FIELD_THEORY_ROLLBACK_REF, not both");
+  }
+  if (!firstProductionRelease && !rollbackRef) {
+    issues.push("set FIELD_THEORY_FIRST_PRODUCTION_RELEASE=true for initial launch or FIELD_THEORY_ROLLBACK_REF for later launches");
+  }
+  return { issues, firstProductionRelease, rollbackRef };
 }
 
 function variableValue(variables, env, name) {

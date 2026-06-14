@@ -4,8 +4,12 @@ export const runtime = "nodejs";
 
 export async function GET(): Promise<Response> {
   const identityPolicy = identityPolicyConfigFromEnv();
-  const authConfigured = hasValue(process.env.PRIVY_APP_ID || process.env.NEXT_PUBLIC_PRIVY_APP_ID)
-    && hasValue(process.env.PRIVY_APP_SECRET);
+  const serverPrivyAppId = process.env.PRIVY_APP_ID;
+  const browserPrivyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
+  const privyAppIdsMatch = hasValue(serverPrivyAppId)
+    && hasValue(browserPrivyAppId)
+    && serverPrivyAppId === browserPrivyAppId;
+  const authConfigured = privyAppIdsMatch && hasValue(process.env.PRIVY_APP_SECRET);
   const durableStoreConfigured = hasValue(process.env.DATABASE_URL);
   const production = process.env.NODE_ENV === "production";
   const mutableStoreReady = production ? durableStoreConfigured : true;
@@ -19,6 +23,7 @@ export async function GET(): Promise<Response> {
     readiness: {
       production,
       authConfigured,
+      privyAppIdsMatch,
       durableStoreConfigured,
       mutableStoreReady,
       mutableRoutesReady,

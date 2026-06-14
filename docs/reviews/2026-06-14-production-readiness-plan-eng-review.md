@@ -10,6 +10,13 @@ tags: [engineering-review, production-readiness, privy, vercel, agents, x402]
 
 ## Verdict
 
+Update, later on 2026-06-14: this review is superseded by the production-proof
+hardening slice. The protected production workflow now stages with
+`vercel deploy --prebuilt --prod --skip-domain`, requires the authenticated
+smoke bearer token, checks Vercel runtime env names, proves DB schema version
+readback, writes a sanitized `fieldtheory.hosted-release-evidence.v1`
+manifest, and only then runs `vercel promote`.
+
 The repository now has a stronger M2 scaffold gate, not a finished production
 product. The local CLI/Raycast capture contracts and the hosted dry-run portal
 remain valid, but production promotion is blocked until operator-owned secrets,
@@ -30,8 +37,10 @@ M2 scaffold proven
 production still blocked
   |
   +-- Vercel / Privy / DATABASE_URL secrets
+  +-- authenticated smoke bearer token
   +-- linked identity variables
   +-- target DB schema proof
+  +-- staged smoke + release evidence manifest
   +-- authenticated write + readback
   +-- rollback / retention / backup evidence
 ```
@@ -72,7 +81,11 @@ Checked on 2026-06-14 after the new gate:
   check, and `X402_ENABLED=false` pass.
 - Blocked on missing production secret names:
   `VERCEL_TOKEN`, `DATABASE_URL`, `PRIVY_APP_ID`,
-  `NEXT_PUBLIC_PRIVY_APP_ID`, `PRIVY_APP_SECRET`.
+  `NEXT_PUBLIC_PRIVY_APP_ID`, `PRIVY_APP_SECRET`,
+  `FIELD_THEORY_PRODUCTION_SMOKE_BEARER_TOKEN`.
+- Blocked on missing rollback posture:
+  `FIELD_THEORY_FIRST_PRODUCTION_RELEASE=true` for launch zero or
+  `FIELD_THEORY_ROLLBACK_REF` for later launches.
 - Warns on missing optional `PRIVY_JWT_VERIFICATION_KEY`.
 - Blocked on missing linked-identity production variables:
   `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true`,
@@ -81,21 +94,24 @@ Checked on 2026-06-14 after the new gate:
 
 ## Next Engineering Order
 
-1. Add idempotent dry-run run creation to the hosted portal so retries with the
-   same idempotency key return the same run and do not duplicate audit events.
-2. Align local and hosted secret detectors so local captures/exports cannot
+1. Align local and hosted secret detectors so local captures/exports cannot
    admit standalone provider or Slack tokens that hosted validation later
    rejects.
-3. Harden local export run ids beyond second precision and add same-second
+2. Harden local export run ids beyond second precision and add same-second
    collision coverage.
-4. After operator secrets are present, run a target DB migration proof, deploy
-   production from protected `main`, and record authenticated mutation/readback
-   evidence in the release ledger.
+3. Tighten `agent-brief-pack.v1` runtime schema for source packets and result
+   envelopes, then mirror the stricter shape between CLI and portal.
+4. After operator secrets are present, run the protected staged production
+   workflow and record the uploaded hosted production release evidence artifact.
 
 ## Stop Conditions
 
 - Readiness is not `ready`.
 - Production deploy runs without `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true`.
+- Production deploy promotes before public/authenticated smoke and evidence
+  collection pass.
+- Production deploy has neither explicit first-release posture nor previous
+  known-good rollback reference.
 - `/api/health` reports wallet linking as `deferred` in production.
 - Protected routes mutate without Privy auth and the selected linked identity
   policy.

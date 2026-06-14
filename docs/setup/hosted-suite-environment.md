@@ -48,7 +48,7 @@ pass in CI and the Vercel project is explicitly linked.
 | Variable | Required | Purpose |
 |---|---|---|
 | `PRIVY_APP_ID` | M2 server | Server Privy app id for bearer-token verification. |
-| `NEXT_PUBLIC_PRIVY_APP_ID` | M2 scaffold | Public Privy app id for browser auth. |
+| `NEXT_PUBLIC_PRIVY_APP_ID` | M2 scaffold | Public Privy app id for browser auth. Production health requires this to match `PRIVY_APP_ID`. |
 | `PRIVY_APP_SECRET` | M2 server | Server-side Privy verification where needed. |
 | `PRIVY_JWT_VERIFICATION_KEY` | M2 server optional | Dashboard verification key; avoids a runtime key fetch when set. |
 | `DATABASE_URL` | M2 production | Postgres connection string for hosted imports, runs, and audit events. Required for production mutations. |
@@ -80,6 +80,7 @@ pass in CI and the Vercel project is explicitly linked.
 | `PRIVY_APP_SECRET` | after auth scaffold | Server-only; never expose to browser. |
 | `PRIVY_JWT_VERIFICATION_KEY` | optional | Server-only verification key from the Privy dashboard. |
 | `DATABASE_URL` | before production mutations | Vercel Postgres/Neon/Supabase connection string; run schema migration before deploy. |
+| `FIELD_THEORY_PRODUCTION_SMOKE_BEARER_TOKEN` | before production promotion | Real Privy bearer token for a smoke operator with linked GitHub, Base EVM, and Solana identities. Required for authenticated import/run/readback smoke. |
 | `X402_ENABLED` | production variable | GitHub production environment variable, not a secret. Keep explicitly `false` until the x402 handoff passes. |
 
 | Variable | Production value | Notes |
@@ -89,6 +90,8 @@ pass in CI and the Vercel project is explicitly linked.
 | `NEXT_PUBLIC_BASE_CHAIN_ID` | `8453` | Browser mirror; must match the server-side value. |
 | `FIELD_THEORY_SOLANA_CLUSTER` | `mainnet-beta` | Server-side Solana policy label. |
 | `NEXT_PUBLIC_SOLANA_CLUSTER` | `mainnet-beta` | Browser mirror; must match the server-side value. |
+| `FIELD_THEORY_FIRST_PRODUCTION_RELEASE` | `true` for initial launch only | Explicit first-release posture when no prior production deployment exists; remove after the first promotion. |
+| `FIELD_THEORY_ROLLBACK_REF` | previous known-good deployment | Required for later launches so the evidence manifest records a real rollback target. |
 
 Bootstrap the non-secret GitHub environment state before adding secrets:
 
@@ -210,9 +213,10 @@ npm run hosted:smoke -- --json
 
 Public smoke requires:
 
-- `/api/health` reports `configuration_ready`, configured auth, configured
-  durable store, mutable routes ready, wallet linking required, Base chain
-  `8453`, Solana cluster `mainnet-beta`, and `x402Enabled=false`
+- `/api/health` reports `configuration_ready`, matching server/browser Privy
+  app IDs, configured auth, configured durable store, mutable routes ready,
+  wallet linking required, Base chain `8453`, Solana cluster `mainnet-beta`,
+  and `x402Enabled=false`
 - `/api/contracts` remains apply-disabled
 - `/api/x402/discovery` remains non-enforcing
 - unauthenticated `/api/agents` returns `401`
@@ -231,6 +235,28 @@ creates one dry-run run with an idempotency key, and reads the run back from the
 durable store. The smoke report contains endpoint names, status codes, and
 sanitized pass/fail reasons only; it must not print bearer tokens, wallet
 addresses, linked-account subjects, request bodies, or database URLs.
+
+After collecting the deploy URL, Vercel inspect output, public smoke JSON,
+authenticated smoke JSON, database schema readback, Privy linked-identity proof,
+and rollback posture, write the release proof bundle:
+
+```bash
+npm run hosted:collect-evidence -- \
+  --deployment-url "$FIELD_THEORY_DEPLOYMENT_URL" \
+  --rollback-ref "$FIELD_THEORY_ROLLBACK_REF" \
+  --vercel-inspect /path/to/vercel-inspect.txt \
+  --public-smoke /path/to/production-smoke-public.json \
+  --authenticated-smoke /path/to/production-smoke-authenticated.json \
+  --db-schema /path/to/production-db-schema.txt \
+  --privy-identity /path/to/production-privy-identity.json \
+  --out docs/release/evidence/hosted-production
+```
+
+The collector writes `manifest.json` and `README.md`; it exits non-zero until
+every required artifact is present and passes the release contract.
+For the initial launch only, use `--first-production-release` instead of
+`--rollback-ref`. Later launches must use `--rollback-ref` with the previous
+known-good production deployment URL/id.
 
 ## Postgres Durable Store Smoke
 
@@ -294,6 +320,7 @@ set for a controlled break-glass recovery. Normal production deploys must run
 | Portal DB route smoke | `DATABASE_URL=postgres://... npm run portal:test:db` |
 | Hosted deploy readiness | `npm run hosted:check-readiness -- --remote --strict` |
 | Hosted deployment smoke | `FIELD_THEORY_DEPLOYMENT_URL=https://... npm run hosted:smoke -- --json` |
+| Hosted release evidence | `npm run hosted:collect-evidence -- --deployment-url https://... --rollback-ref ... --vercel-inspect ... --public-smoke ... --authenticated-smoke ... --db-schema ... --privy-identity ...` or initial launch variant with `--first-production-release` |
 | Vercel preview | `vercel build && vercel deploy --prebuilt` from GitHub Actions |
 | Vercel production | same as preview, but only from protected `main` |
 
@@ -301,8 +328,9 @@ Portal gates now execute against `apps/portal`. Production deploy remains blocke
 until those gates pass in CI and real Vercel/Privy secrets are configured.
 The CI Postgres migration and DB route smoke are throwaway proofs only.
 Production readiness also requires the protected production workflow to migrate
-the target `DATABASE_URL` and pass `npm run hosted:smoke` against the deployed
-URL.
+the target `DATABASE_URL`, pass `npm run hosted:smoke` against the deployed URL,
+and write a ready `fieldtheory.hosted-release-evidence.v1` manifest with
+`npm run hosted:collect-evidence`.
 
 `npm run hosted:check-readiness -- --remote --strict --json` is the local
 auditor for that final preflight. It reports machine-readable `status`,

@@ -228,6 +228,7 @@ function validHealthBody(): Record<string, unknown> {
     status: "configuration_ready",
     readiness: {
       authConfigured: true,
+      privyAppIdsMatch: true,
       durableStoreConfigured: true,
       mutableRoutesReady: true,
       walletLinking: "required",

@@ -1,6 +1,6 @@
 {
   "name": "@fieldtheory/portal",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,7 +11,8 @@
     "test:db": "tsx --test tests/postgres-routes.test.ts",
     "test:e2e": "tsx --test tests/routes.test.ts",
     "typecheck": "tsc --noEmit",
-    "db:migrate": "tsx scripts/migrate-postgres.ts"
+    "db:migrate": "tsx scripts/migrate-postgres.ts",
+    "db:schema-version": "tsx scripts/read-postgres-schema.ts"
   },
   "dependencies": {
     "@privy-io/node": "^0.19.0",

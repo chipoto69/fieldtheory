@@ -112,7 +112,7 @@ operator secrets
   -> public smoke JSON
   -> target DB migration + readback proof
   -> Privy linked identity proof
-  -> rollback deployment reference
+  -> rollback posture
   -> release ledger update
 ```
 
@@ -126,7 +126,9 @@ Do not declare Milestone 2 complete until the release checklist contains:
 - one authenticated import/run/readback smoke against the durable store
 - sanitized `/api/agents` identity-policy evidence showing linked GitHub, Base
   EVM, and Solana requirements are satisfied for a real Privy user
-- rollback deployment URL/id and the dashboard or CLI action that restores it
+- rollback posture: either `FIELD_THEORY_FIRST_PRODUCTION_RELEASE=true` for
+  the initial launch, or previous known-good production deployment URL/id and
+  the dashboard or CLI action that restores it
 
 Public smoke must prove the hosted contract shape, not only route reachability:
 `/api/health` needs `status: "configuration_ready"`, configured auth, durable
@@ -299,7 +301,8 @@ Milestone 3 now has a non-enforcing fixture-backed handoff:
    plus readback smoke, and save redacted proof artifacts.
 6. Prove Privy linked identity gating with a real user linked to GitHub, Base
    EVM, and Solana; store only sanitized policy status in the release evidence.
-7. Record the rollback deployment reference before promotion.
+7. Record rollback posture before promotion: first-release baseline for the
+   initial launch, previous known-good deployment for every later release.
 8. Add backup/restore and migration rollback gates before declaring the durable
    store production-complete.
 9. Use the x402 Milestone 3 handoff fixtures before writing payment enforcement
