@@ -36,9 +36,9 @@ tags: [release, readiness, vercel, privy, agents]
 1. Add `apps/portal` as a Next.js App Router app with health/contracts routes. Done.
 2. Add shared contract validators for brief/export inputs. Done in portal scaffold.
 3. Add local fixture smoke for M1 generated artifacts. Done with portal route fixtures; generated CLI smoke fixtures still pending.
-4. Add read-only dashboard and import validation UI. Done with an authenticated workbench, built-in valid example payloads, live readiness/identity status, dry-run create action, recent run history, selected run detail, and dev-only local operator mode for no-secret browser smoke.
+4. Add read-only dashboard and import validation UI. Done with an authenticated workbench, built-in valid example payloads, live readiness/identity status, sanitized import readback, dry-run create action, recent run history, selected run detail, and dev-only local operator mode for no-secret browser smoke.
 5. Add Privy auth boundary and fail-closed authenticated route checks. Server access-token verification, browser Privy provider/login controls, dev-only local browser operator mode, and env-gated linked GitHub/Base/Solana policy checks are scaffolded; production policy ownership remains incomplete.
-6. Add dry-run agent run creation, owner-scoped run index/detail audit readback, and audit records. Done with local memory adapter and `DATABASE_URL` Postgres adapter using sanitized export metadata.
+6. Add dry-run agent run creation, owner-scoped import/run audit readback, and audit records. Done with local memory adapter and `DATABASE_URL` Postgres adapter using sanitized export metadata.
 7. Add Gordo/Aeon import-plan adapter. Done as dry-run plan with target/file checks.
 8. Add Hermes import-plan adapter. Done as dry-run plan with target/file checks.
 9. Add preview GitHub Action. Done; deploy step skips without secrets and emits an explicit skipped-deploy notice.

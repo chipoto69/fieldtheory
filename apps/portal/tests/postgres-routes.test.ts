@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import postgres from "postgres";
 import { POST as exportValidatePost } from "../app/api/exports/validate/route";
+import { GET as importGet } from "../app/api/artifacts/imports/[id]/route";
 import { POST as runsPost } from "../app/api/agents/runs/route";
 import { GET as runGet } from "../app/api/agents/runs/[id]/route";
 import { setPrivyVerifierForTests } from "../src/lib/auth";
@@ -40,6 +41,14 @@ test("postgres-backed route smoke persists imports, runs, and audit events", {
     const validateBody = await validate.json();
     assert.equal(validate.status, 200);
     assert.equal(validateBody.import.ownerUserId, "postgres-operator");
+
+    const readImport = await importGet(authRequest(`http://localhost/api/artifacts/imports/${validateBody.import.id}`), {
+      params: Promise.resolve({ id: validateBody.import.id }),
+    });
+    const readImportBody = await readImport.json();
+    assert.equal(readImport.status, 200);
+    assert.equal(readImportBody.import.id, validateBody.import.id);
+    assert.equal(readImportBody.auditEvents[0].targetId, validateBody.import.id);
 
     const createRun = await runsPost(authJsonRequest("/api/agents/runs", {
       target: "aeon",

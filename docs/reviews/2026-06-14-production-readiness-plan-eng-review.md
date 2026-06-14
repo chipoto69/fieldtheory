@@ -42,7 +42,7 @@ production still blocked
 |---|---|---|
 | Deploy/auth readiness | Readiness could previously go green without requiring production linked identities. | Added a `linked_identity_policy` readiness check and production workflow health assertions. |
 | Release/x402/docs | Green PR checks are mergeable scaffold evidence, not production deployment evidence. | Updated release/deploy/setup docs so preview pass is not overclaimed and x402 stays non-enforcing. |
-| Hosted portal/API | Dry-run run creation works, but production control plane lacks idempotency, lifecycle transitions, artifact retrieval, and scoped agent tokens. | Next product behavior patch should make `POST /api/agents/runs` idempotent with a durable audit invariant. |
+| Hosted portal/API | Dry-run run creation works; idempotent retries and artifact import readback are now covered, while lifecycle transitions and scoped agent tokens remain open. | Next product behavior patch should add lifecycle/status transitions or scoped agent-token access after production secrets are available. |
 | Capture/Raycast/export | Local contracts are strong, but local/hosted secret detection differs and export run IDs can collide at second precision. | Next local contract patch should unify secret detectors and harden export run ids. |
 
 ## New Readiness Gate

@@ -16,8 +16,31 @@ type ValidationResponse = {
     id: string;
     kind: string;
     validationStatus: string;
-    exportSummary?: { target?: string };
+    ownerUserId?: string;
+    contractVersion?: string;
+    sha256?: string;
+    createdAt?: string;
+    exportSummary?: {
+      target?: string;
+      runId?: string;
+      fileRelPaths?: string[];
+    };
   };
+  error?: { code: string; message: string };
+};
+
+type AuditEventView = {
+  id: string;
+  action: string;
+  targetType?: string;
+  targetId: string;
+  outcome: string;
+  createdAt: string;
+};
+
+type ImportReadResponse = {
+  import?: NonNullable<ValidationResponse["import"]>;
+  auditEvents?: AuditEventView[];
   error?: { code: string; message: string };
 };
 
@@ -28,13 +51,7 @@ type RunResponse = {
     status: string;
     resultEnvelope?: Record<string, unknown>;
   };
-  auditEvents?: Array<{
-    id: string;
-    action: string;
-    targetId: string;
-    outcome: string;
-    createdAt: string;
-  }>;
+  auditEvents?: AuditEventView[];
   error?: { code: string; message: string };
 };
 
@@ -156,9 +173,10 @@ function WorkbenchCore({
   const [runHistory, setRunHistory] = useState<RunHistoryResponse | undefined>();
   const [health, setHealth] = useState<HealthResponse | undefined>();
   const [agents, setAgents] = useState<AgentsResponse | undefined>();
+  const [selectedImport, setSelectedImport] = useState<ImportReadResponse | undefined>();
   const [selectedRun, setSelectedRun] = useState<RunResponse | undefined>();
   const [error, setError] = useState<string | undefined>();
-  const [busy, setBusy] = useState<"validate" | "run" | "history" | "status" | "detail" | undefined>();
+  const [busy, setBusy] = useState<"validate" | "run" | "history" | "status" | "import" | "detail" | undefined>();
 
   const detected = useMemo(() => detectPayload(input), [input]);
   const runTarget = validation?.import ? targetForImport(validation.import) : "content-os";
@@ -172,6 +190,7 @@ function WorkbenchCore({
     setInput(JSON.stringify(fixture.payload, null, 2));
     setValidation(undefined);
     setRun(undefined);
+    setSelectedImport(undefined);
     setError(undefined);
   }
 
@@ -203,9 +222,25 @@ function WorkbenchCore({
       const route = routeForPayload(parsed);
       const body = await authenticatedJson<ValidationResponse>(route, parsed, getAuthorization);
       setValidation(body);
+      setSelectedImport(undefined);
       if (body.error) setError(`${body.error.code}: ${body.error.message}`);
     } catch (cause) {
       setValidation(undefined);
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(undefined);
+    }
+  }
+
+  async function inspectImport(importId: string) {
+    setBusy("import");
+    setError(undefined);
+    try {
+      const body = await authenticatedGet<ImportReadResponse>(`/api/artifacts/imports/${encodeURIComponent(importId)}`, getAuthorization);
+      setSelectedImport(body);
+      if (body.error) setError(`${body.error.code}: ${body.error.message}`);
+    } catch (cause) {
+      setSelectedImport(undefined);
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setBusy(undefined);
@@ -354,6 +389,11 @@ function WorkbenchCore({
             <strong>Validation</strong>
             <span>{validation.report?.valid ? "valid" : "rejected"}</span>
             <span>{validation.import?.id ?? "no import id"}</span>
+            {validation.import?.id && (
+              <button className="link-button" type="button" disabled={Boolean(busy)} onClick={() => inspectImport(validation.import?.id ?? "")}>
+                {busy === "import" ? "inspecting" : "inspect import"}
+              </button>
+            )}
           </div>
           <div className="result-box">
             <strong>Issues</strong>
@@ -367,6 +407,15 @@ function WorkbenchCore({
               </ul>
             )}
           </div>
+        </div>
+      )}
+
+      {selectedImport?.import && (
+        <div className="result-box">
+          <strong>Selected import detail</strong>
+          <span>{selectedImport.import.kind} / {selectedImport.import.validationStatus} / {selectedImport.import.id}</span>
+          <span>{selectedImport.import.exportSummary?.target ?? "brief"} / {selectedImport.import.exportSummary?.runId ?? "no run id"}</span>
+          <pre className="code">{JSON.stringify({ import: selectedImport.import, auditEvents: selectedImport.auditEvents ?? [] }, null, 2)}</pre>
         </div>
       )}
 

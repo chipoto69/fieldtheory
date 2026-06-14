@@ -27,6 +27,7 @@ requests are accepted.
 | `/api/contracts` | `GET` | none | none | supported contract versions | none |
 | `/api/briefs/validate` | `POST` | Privy | `AgentBriefPack` | validation report | audit event |
 | `/api/exports/validate` | `POST` | Privy | export manifest plus optional file list | validation report | audit event |
+| `/api/artifacts/imports/[id]` | `GET` | Privy owner | none | sanitized import metadata plus owner-scoped `auditEvents[]` | none |
 | `/api/agents` | `GET` | Privy | none | target registry | none |
 | `/api/agents/runs` | `GET` | Privy | none | owner-scoped recent runs plus `auditEvents[]` per run | none |
 | `/api/agents/runs` | `POST` | Privy | `{target, importId, mode, idempotencyKey?}` | dry-run record plus `auditEvents[]` and `idempotentReplay` | audit event, run record unless replayed |
@@ -88,6 +89,11 @@ Run creation, run index, and run detail responses include the audit envelope
 associated with each run target so operators can review who requested the
 handoff, which action was accepted, and which hosted run id was affected before
 any later apply gate exists.
+
+`GET /api/artifacts/imports/[id]` returns the sanitized `ArtifactImport`
+record and its owner-scoped validation audit events. It does not return the
+uploaded manifest body, absolute source paths, raw brief contents, local file
+contents, or operator-local store data.
 
 `POST /api/agents/runs` accepts an optional `idempotencyKey` made from
 letters, numbers, `_`, `.`, `/`, `:`, `@`, `=`, or `-`, up to 160 characters.

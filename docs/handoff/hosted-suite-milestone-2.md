@@ -77,6 +77,9 @@ The first Milestone 2 scaffold now exists under `apps/portal`:
 - Sanitized export import summaries that preserve target, run id, run-scoped
   relative paths, hashes, forbidden writes, and result-envelope status/counts
   without storing absolute source paths, warning text, or raw details.
+- Owner-scoped import readback through `/api/artifacts/imports/[id]` returns
+  sanitized import metadata and validation audit events without rehydrating raw
+  uploaded manifests or local files.
 - Owner-scoped `idempotencyKey` support on dry-run agent creation so safe
   retries return the original run and audit envelope instead of duplicating
   handoff records.

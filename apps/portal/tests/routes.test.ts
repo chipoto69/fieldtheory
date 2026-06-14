@@ -4,6 +4,7 @@ import { GET as healthGet } from "../app/api/health/route";
 import { GET as contractsGet } from "../app/api/contracts/route";
 import { POST as briefValidatePost } from "../app/api/briefs/validate/route";
 import { POST as exportValidatePost } from "../app/api/exports/validate/route";
+import { GET as importGet } from "../app/api/artifacts/imports/[id]/route";
 import { GET as agentsGet } from "../app/api/agents/route";
 import { GET as runsGet, POST as runsPost } from "../app/api/agents/runs/route";
 import { GET as runGet } from "../app/api/agents/runs/[id]/route";
@@ -323,6 +324,34 @@ test("export validation plus dry-run creation returns a run envelope", async () 
 
   const userBRead = await runGet(authRequest(`http://localhost/api/agents/runs/${runBody.run.id}`, {}, "dev:other"), {
     params: Promise.resolve({ id: runBody.run.id }),
+  });
+  assert.equal(userBRead.status, 404);
+});
+
+test("artifact import detail returns a sanitized owner-scoped import and audit envelope", async () => {
+  enableDevAuth();
+  const validate = await exportValidatePost(authJsonRequest("/api/exports/validate", validAeonManifest(), "dev:user-a"));
+  const validateBody = await validate.json();
+  assert.equal(validate.status, 200);
+
+  const readImport = await importGet(authRequest(`http://localhost/api/artifacts/imports/${validateBody.import.id}`, {}, "dev:user-a"), {
+    params: Promise.resolve({ id: validateBody.import.id }),
+  });
+  const body = await readImport.json();
+  assert.equal(readImport.status, 200);
+  assert.equal(body.import.id, validateBody.import.id);
+  assert.equal(body.import.ownerUserId, "user-a");
+  assert.equal(body.import.exportSummary.target, "aeon");
+  assert.equal(body.import.exportSummary.runId, "aeon-20260531T130000Z");
+  assert.equal(JSON.stringify(body.import).includes("/tmp/out"), false);
+  assert.equal(JSON.stringify(body.import).includes("\"path\""), false);
+  assert.equal(body.auditEvents.length, 1);
+  assert.equal(body.auditEvents[0].action, "export.validate");
+  assert.equal(body.auditEvents[0].targetType, "artifact_import");
+  assert.equal(body.auditEvents[0].targetId, validateBody.import.id);
+
+  const userBRead = await importGet(authRequest(`http://localhost/api/artifacts/imports/${validateBody.import.id}`, {}, "dev:user-b"), {
+    params: Promise.resolve({ id: validateBody.import.id }),
   });
   assert.equal(userBRead.status, 404);
 });

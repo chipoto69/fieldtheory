@@ -96,6 +96,7 @@ methods.
 | `/api/contracts` | `GET` | none | none | Supported contract versions and schema links. |
 | `/api/briefs/validate` | `POST` | Privy | none | Validate an uploaded or generated `AgentBriefPack`. |
 | `/api/exports/validate` | `POST` | Privy | none | Validate export manifest shape and forbidden writes. |
+| `/api/artifacts/imports/:id` | `GET` | Privy | deferred | Read sanitized import metadata and validation audit envelope. |
 | `/api/agents` | `GET` | Privy | none | List configured local/remote agent targets. |
 | `/api/agents/runs` | `GET` | Privy | deferred | List owner-scoped dry-run handoffs and audit envelopes. |
 | `/api/agents/runs` | `POST` | Privy | deferred | Create a dry-run agent handoff from a validated export. |

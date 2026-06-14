@@ -235,9 +235,10 @@ What is shipped now:
   recall, packets, soul drafts, and dry-run Aeon/Hermes export bundles.
 - The M2 hosted portal is a validated control-plane scaffold with server-side
   auth checks, browser Privy login controls, an example-backed operator
-  workbench with live readiness/identity status, recent run history, selected
-  run detail, dry-run agent APIs, health/contracts/x402 discovery routes,
-  Postgres metadata persistence, and protected Vercel production workflow gates.
+  workbench with live readiness/identity status, sanitized import readback,
+  recent run history, selected run detail, dry-run agent APIs,
+  health/contracts/x402 discovery routes, Postgres metadata persistence, and
+  protected Vercel production workflow gates.
 - The hosted portal is not production-live until the Vercel project, production
   environment secrets, server-side linked GitHub/Base/Solana identity policy,
   target database migration proof, and post-deploy smoke evidence are recorded.

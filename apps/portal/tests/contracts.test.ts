@@ -125,13 +125,19 @@ test("export manifest summaries retain only result envelope counters", () => {
   assert.equal(JSON.stringify(summary).includes("raw local context"), false);
 });
 
-test("endpoint inventory and docs include owner-scoped run history", () => {
+test("endpoint inventory and docs include owner-scoped readbacks", () => {
   assert.ok(endpointInventory.some((endpoint) => (
     endpoint.route === "/api/agents/runs"
     && endpoint.method === "GET"
     && endpoint.auth === "privy-user"
   )));
+  assert.ok(endpointInventory.some((endpoint) => (
+    endpoint.route === "/api/artifacts/imports/[id]"
+    && endpoint.method === "GET"
+    && endpoint.auth === "artifact-owner"
+  )));
 
   const docs = readFileSync(new URL("../../../docs/api/hosted-suite-endpoints.md", import.meta.url), "utf8");
   assert.match(docs, /\| `\/api\/agents\/runs` \| `GET` \| Privy \| none \| owner-scoped recent runs plus `auditEvents\[\]` per run \| none \|/);
+  assert.match(docs, /\| `\/api\/artifacts\/imports\/\[id\]` \| `GET` \| Privy owner \| none \| sanitized import metadata plus owner-scoped `auditEvents\[\]` \| none \|/);
 });

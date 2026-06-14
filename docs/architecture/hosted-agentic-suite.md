@@ -85,6 +85,8 @@ sequenceDiagram
   Web->>API: POST /api/exports/validate
   API->>API: validate linked identity policy, contract, and forbidden writes
   API->>Store: insert import + audit event
+  Web->>API: GET /api/artifacts/imports/[id]
+  API-->>Web: sanitized import metadata + audit envelope
   Web->>API: POST /api/agents/runs
   API->>Agent: build dry-run import plan
   Agent-->>API: staged plan, no writeback
@@ -108,7 +110,7 @@ sequenceDiagram
 
 | Actor | Allowed in M2 | Forbidden in M2 |
 |---|---|---|
-| Portal UI | Upload/import manifests, show live readiness and identity policy, show plans, create dry-run runs, inspect owner-scoped run history | Direct filesystem access to operator stores. |
+| Portal UI | Upload/import manifests, show live readiness and identity policy, show sanitized imports, show plans, create dry-run runs, inspect owner-scoped run history | Direct filesystem access to operator stores. |
 | Route handlers | Validate contracts, write audit log, store run metadata through `HostedStore` | Git pushes, Vercel deploy calls, GitHub secret writes, Hermes writeback. |
 | Gordo adapter | Generate apply plan from export bundle | Create repos, write workflows, dispatch GitHub Actions. |
 | Hermes adapter | Generate staged task payload preview | Mutate Hermes Kanban/profile state. |
@@ -122,6 +124,7 @@ sequenceDiagram
 | `app/api/contracts/route.ts` | nodejs | Returns contract versions and schema fingerprints. |
 | `app/api/briefs/validate/route.ts` | nodejs | Calls shared validator package. |
 | `app/api/exports/validate/route.ts` | nodejs | Checks manifest paths and forbidden writes. |
+| `app/api/artifacts/imports/[id]/route.ts` | nodejs | Reads sanitized import metadata and validation audit envelope for the owner. |
 | `app/api/agents/route.ts` | nodejs | Lists configured targets and disabled apply status. |
 | `app/api/agents/runs/route.ts` | nodejs | Lists owner-scoped run history and creates dry-run plans only; optional `idempotencyKey` replays return the original run. |
 | `app/api/agents/runs/[id]/route.ts` | nodejs | Reads run status and audit envelope. |

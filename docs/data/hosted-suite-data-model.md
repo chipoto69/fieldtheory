@@ -98,9 +98,11 @@ transaction.
 Schema v2 adds `fieldtheory_agent_runs.idempotency_key` plus a unique partial
 index on `(owner_user_id, idempotency_key)` where the key is present.
 
-Run readback uses the same owner id as the authenticated Privy subject and
-returns only audit events whose `actor_user_id`, `target_type`, and `target_id`
-match that owner-scoped run. The read path is intentionally non-mutating.
+Import and run readback use the same owner id as the authenticated Privy
+subject and return only audit events whose `actor_user_id`, `target_type`, and
+`target_id` match that owner-scoped record. Import readback returns sanitized
+`ArtifactImport` metadata only; it does not rehydrate the uploaded manifest body
+or local file contents. The read paths are intentionally non-mutating.
 
 ## Retention Rules
 
