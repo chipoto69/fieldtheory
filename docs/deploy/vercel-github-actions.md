@@ -46,6 +46,11 @@ required secret keys but never include secret values.
 | Variable | Purpose |
 |---|---|
 | `X402_ENABLED` | GitHub environment variable. Must be explicitly `false` until x402 enforcement is implemented. |
+| `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES` | GitHub environment variable. Must be `true` for production so protected writes require linked GitHub, Base EVM, and Solana identities. |
+| `FIELD_THEORY_BASE_CHAIN_ID` | GitHub environment variable. Must be `8453` for production Base mainnet policy. |
+| `NEXT_PUBLIC_BASE_CHAIN_ID` | GitHub environment variable. Browser mirror; must match `FIELD_THEORY_BASE_CHAIN_ID`. |
+| `FIELD_THEORY_SOLANA_CLUSTER` | GitHub environment variable. Must be `mainnet-beta` for production Solana policy. |
+| `NEXT_PUBLIC_SOLANA_CLUSTER` | GitHub environment variable. Browser mirror; must match `FIELD_THEORY_SOLANA_CLUSTER`. |
 
 ## Preview Workflow Shape
 
@@ -121,7 +126,8 @@ Production is the preview workflow plus:
 - trigger only on protected `main`
 - job-level branch guard for manual dispatch
 - GitHub `production` environment
-- required Vercel, Privy, `DATABASE_URL`, and `X402_ENABLED=false` preflight
+- required Vercel, Privy, `DATABASE_URL`, linked-identity policy variables,
+  and `X402_ENABLED=false` preflight
 - Postgres schema migration gate against the target production `DATABASE_URL`
   before Vercel build
 - `vercel pull --environment=production`
@@ -129,7 +135,8 @@ Production is the preview workflow plus:
 - post-deploy public smoke against `/api/health`, `/api/contracts`, and
   `/api/x402/discovery`
 - health JSON must report `status: "configuration_ready"`, configured auth,
-  configured durable store, mutable routes ready, and `x402Enabled: false`
+  configured durable store, mutable routes ready, required wallet linking,
+  Base mainnet / Solana mainnet-beta policy, and `x402Enabled: false`
 - unauthenticated `/api/agents` must return `401`, proving protected routes are
   auth-gated rather than missing Privy runtime config
 
@@ -148,6 +155,11 @@ Production is the preview workflow plus:
   `PRIVY_APP_SECRET` are set as GitHub production environment secrets so the
   workflow can fail fast and migrate the target database.
 - Explicit `X402_ENABLED=false` in production until x402 review passes.
+- Explicit `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true`,
+  `FIELD_THEORY_BASE_CHAIN_ID=8453`, `NEXT_PUBLIC_BASE_CHAIN_ID=8453`,
+  `FIELD_THEORY_SOLANA_CLUSTER=mainnet-beta`, and
+  `NEXT_PUBLIC_SOLANA_CLUSTER=mainnet-beta` in GitHub and Vercel production
+  environments before production promotion.
 - Rollback instructions exist in the release checklist.
 - `npm run hosted:check-readiness -- --remote --strict` reports `ready`.
 
@@ -160,11 +172,12 @@ Current scaffold status:
   notice so a green preview check is not mistaken for a deployed preview.
 - `.github/workflows/vercel-production.yml` runs the same gates plus release,
   Raycast, diff checks, a throwaway Postgres schema migration, the DB route
-  smoke, production secret preflight, and the target production `DATABASE_URL`
-  migration on protected `main`; it captures the production deployment URL and
-  smokes public health/contracts/x402-discovery routes plus unauthenticated
-  protected-route behavior. Production deploy fails fast when required Vercel,
-  Privy, database, or x402-disable settings are missing.
+  smoke, production secret and linked-identity policy preflight, and the target
+  production `DATABASE_URL` migration on protected `main`; it captures the
+  production deployment URL and smokes public health/contracts/x402-discovery
+  routes plus unauthenticated protected-route behavior. Production deploy fails
+  fast when required Vercel, Privy, database, linked-identity, or x402-disable
+  settings are missing.
 - `apps/portal/vercel.json` keeps the Vercel project rooted in the portal app.
 
 The throwaway CI migration only proves the migration script. Production release

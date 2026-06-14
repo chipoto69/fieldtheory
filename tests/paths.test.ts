@@ -52,13 +52,19 @@ test('paths: FT_DATA_DIR keeps the legacy md child unless FT_LIBRARY_DIR is set'
 });
 
 test('paths: default command root is under the Field Theory Library', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ft-paths-home-'));
+  const home = path.join(tmp, 'home');
+
   withEnv({
+    HOME: home,
     FT_LIBRARY_DIR: undefined,
     FT_COMMANDS_DIR: undefined,
   }, () => {
-    assert.equal(commandsDir(), path.join(os.homedir(), '.fieldtheory', 'library', 'Commands'));
-    assert.equal(canonicalCommandsDir(), path.join(os.homedir(), '.fieldtheory', 'library', 'Commands'));
+    assert.equal(commandsDir(), path.join(home, '.fieldtheory', 'library', 'Commands'));
+    assert.equal(canonicalCommandsDir(), path.join(home, '.fieldtheory', 'library', 'Commands'));
   });
+
+  fs.rmSync(tmp, { recursive: true, force: true });
 });
 
 test('paths: default command root follows FT_LIBRARY_DIR', () => {

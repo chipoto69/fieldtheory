@@ -58,10 +58,10 @@ pass in CI and the Vercel project is explicitly linked.
 | `FIELD_THEORY_PORTAL_AUTO_CREATE_SCHEMA` | local or break-glass only | Optional local bootstrap convenience. Keep `false` in normal production and run `db:migrate`. |
 | `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES` | M2 wallet scaffold | Set `true` to require linked GitHub, Base EVM, and Solana identities before protected write routes. Defaults to `false`. |
 | `FIELD_THEORY_LOAD_PRIVY_USER` | M2 wallet scaffold | Optional `true` to resolve Privy linked accounts for status display even when the policy is not required. |
-| `FIELD_THEORY_BASE_CHAIN_ID` | M2 wallet scaffold | Server-side Base chain id required by the linked identity policy. Defaults to `NEXT_PUBLIC_BASE_CHAIN_ID` or `84532`. |
-| `FIELD_THEORY_SOLANA_CLUSTER` | M2 wallet scaffold | Server-side Solana cluster label required by the linked identity policy. Defaults to `NEXT_PUBLIC_SOLANA_CLUSTER` or `devnet`. |
-| `NEXT_PUBLIC_BASE_CHAIN_ID` | M2 scaffold | Base network selection; default is Base Sepolia (`84532`) until configured. |
-| `NEXT_PUBLIC_SOLANA_CLUSTER` | M2 scaffold | Solana cluster selection; default is `devnet` until configured. |
+| `FIELD_THEORY_BASE_CHAIN_ID` | M2 wallet scaffold | Server-side Base chain id required by the linked identity policy. Defaults to `NEXT_PUBLIC_BASE_CHAIN_ID` or `84532`; production readiness requires explicit Base mainnet `8453`. |
+| `FIELD_THEORY_SOLANA_CLUSTER` | M2 wallet scaffold | Server-side Solana cluster label required by the linked identity policy. Defaults to `NEXT_PUBLIC_SOLANA_CLUSTER` or `devnet`; production readiness requires explicit `mainnet-beta`. |
+| `NEXT_PUBLIC_BASE_CHAIN_ID` | M2 scaffold | Browser Base network selection. Must match `FIELD_THEORY_BASE_CHAIN_ID` for production readiness. |
+| `NEXT_PUBLIC_SOLANA_CLUSTER` | M2 scaffold | Browser Solana cluster selection. Must match `FIELD_THEORY_SOLANA_CLUSTER` for production readiness. |
 | `NEXT_PUBLIC_FIELD_THEORY_LOCAL_OPERATOR` | local smoke only | Set `true` outside production to let the browser workbench send `Bearer dev:<operator>` for no-secret route smoke. Requires server-side dev auth and is ignored in production. |
 | `NEXT_PUBLIC_FIELD_THEORY_LOCAL_OPERATOR_ID` | local smoke only | Optional local operator id for the dev bearer token. Must be 1-80 characters from letters, numbers, `.`, `_`, `:`, or `-`. Defaults to `operator`. |
 | `X402_ENABLED` | M3 only | Must default false. |
@@ -81,6 +81,14 @@ pass in CI and the Vercel project is explicitly linked.
 | `PRIVY_JWT_VERIFICATION_KEY` | optional | Server-only verification key from the Privy dashboard. |
 | `DATABASE_URL` | before production mutations | Vercel Postgres/Neon/Supabase connection string; run schema migration before deploy. |
 | `X402_ENABLED` | production variable | GitHub production environment variable, not a secret. Keep explicitly `false` until the x402 handoff passes. |
+
+| Variable | Production value | Notes |
+|---|---|---|
+| `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES` | `true` | Required so protected hosted writes require linked GitHub, Base EVM, and Solana identities. |
+| `FIELD_THEORY_BASE_CHAIN_ID` | `8453` | Server-side Base mainnet policy. |
+| `NEXT_PUBLIC_BASE_CHAIN_ID` | `8453` | Browser mirror; must match the server-side value. |
+| `FIELD_THEORY_SOLANA_CLUSTER` | `mainnet-beta` | Server-side Solana policy label. |
+| `NEXT_PUBLIC_SOLANA_CLUSTER` | `mainnet-beta` | Browser mirror; must match the server-side value. |
 
 Bootstrap the non-secret GitHub environment state before adding secrets:
 
@@ -298,5 +306,10 @@ Production deploy is allowed only when:
 - `PRIVY_APP_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`, and `PRIVY_APP_SECRET` are set in
   both Vercel and the GitHub production environment.
 - Privy redirect URLs include the production domain.
+- GitHub and Vercel production variables set
+  `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true`,
+  `FIELD_THEORY_BASE_CHAIN_ID=8453`, `NEXT_PUBLIC_BASE_CHAIN_ID=8453`,
+  `FIELD_THEORY_SOLANA_CLUSTER=mainnet-beta`, and
+  `NEXT_PUBLIC_SOLANA_CLUSTER=mainnet-beta`.
 - `X402_ENABLED=false` unless the x402 handoff has passed.
 - The deployment workflow uses `vercel deploy --prebuilt --prod`.

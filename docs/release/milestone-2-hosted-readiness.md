@@ -107,11 +107,11 @@ Fill this ledger before undrafting or promoting a production deployment:
 | Main branch protection | verified 2026-06-14 with readiness auditor: main is protected and required status checks include `preview` |
 | Required GitHub production secrets present | missing 2026-06-14: `VERCEL_TOKEN`, `DATABASE_URL`, `PRIVY_APP_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`, `PRIVY_APP_SECRET`; optional `PRIVY_JWT_VERIFICATION_KEY` missing |
 | Privy app id and redirect URLs | blocked 2026-06-01: production Privy app and redirect URL evidence are not populated |
-| Linked identity policy mode | scaffolded 2026-06-01: `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true` requires GitHub OAuth, configured Base EVM chain id, and Solana identity before protected write routes; production env var not set yet |
-| Base EVM policy owner | missing 2026-06-01: owner must choose `FIELD_THEORY_BASE_CHAIN_ID` / `NEXT_PUBLIC_BASE_CHAIN_ID` before production |
-| Solana policy owner | missing 2026-06-01: owner must choose `FIELD_THEORY_SOLANA_CLUSTER` / `NEXT_PUBLIC_SOLANA_CLUSTER` before production |
+| Linked identity policy mode | blocked 2026-06-14: readiness now requires `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true` so protected hosted writes require linked GitHub, Base EVM, and Solana identities |
+| Base EVM policy owner | blocked 2026-06-14: readiness now requires `FIELD_THEORY_BASE_CHAIN_ID=8453` and `NEXT_PUBLIC_BASE_CHAIN_ID=8453` for production Base mainnet policy |
+| Solana policy owner | blocked 2026-06-14: readiness now requires `FIELD_THEORY_SOLANA_CLUSTER=mainnet-beta` and `NEXT_PUBLIC_SOLANA_CLUSTER=mainnet-beta` for production Solana policy |
 | x402 handoff fixtures | recorded 2026-06-01: non-enforcing discovery and audit fixtures added; `/api/x402/discovery` mirrors the fixture and `X402_ENABLED=false` remains required |
-| Hosted deploy readiness auditor | checked 2026-06-14: local artifacts/scripts, Vercel project metadata, GitHub production environment, main deployment branch policy, branch protection, required `preview` check, and `X402_ENABLED=false` pass; blocked only on missing required production secret names `VERCEL_TOKEN`, `DATABASE_URL`, `PRIVY_APP_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`, and `PRIVY_APP_SECRET` |
+| Hosted deploy readiness auditor | checked 2026-06-14: local artifacts/scripts, Vercel project metadata, GitHub production environment, main deployment branch policy, branch protection, required `preview` check, and `X402_ENABLED=false` pass; blocked on missing required production secret names `VERCEL_TOKEN`, `DATABASE_URL`, `PRIVY_APP_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`, and `PRIVY_APP_SECRET`, plus missing linked-identity production variables |
 | Target database provider and owner | blocked 2026-06-01: provider not selected and `DATABASE_URL` secret absent |
 | `fieldtheory_schema_version` output | blocked 2026-06-01: target production database not configured |
 | Post-deploy `/api/health` output | blocked 2026-06-01: no production deployment URL |
@@ -135,9 +135,11 @@ The readiness auditor output contract is
 `blockers`, `warnings`, and `operatorActions` and must list secret names only,
 never secret values. `operatorActions[]` is the operator handoff plan for the
 next authenticated run: link Vercel, apply non-secret GitHub environment state,
-set missing GitHub production secrets, restore required status checks, and set
-`X402_ENABLED=false`. It treats missing or true `X402_ENABLED` as blocked;
-production readiness requires the explicit `false` policy.
+set missing GitHub production secrets, restore required status checks, set
+`X402_ENABLED=false`, and set the linked GitHub/Base/Solana identity policy
+variables. It treats missing or true `X402_ENABLED` as blocked; production
+readiness requires the explicit `false` policy. It also treats missing,
+deferred, or mismatched linked-identity policy variables as blocked.
 
 ## Stop Conditions
 

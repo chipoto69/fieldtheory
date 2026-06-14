@@ -17,6 +17,12 @@ export const REQUIRED_GITHUB_SECRETS = [
 
 export const OPTIONAL_GITHUB_SECRETS = ["PRIVY_JWT_VERIFICATION_KEY"];
 
+const PRODUCTION_IDENTITY_POLICY = {
+  required: "true",
+  baseChainId: "8453",
+  solanaCluster: "mainnet-beta",
+};
+
 export const REQUIRED_PACKAGE_SCRIPTS = [
   "release:check",
   "verify:hosted",
@@ -196,6 +202,17 @@ export async function evaluateHostedDeployReadiness(options = {}) {
           : "X402_ENABLED is unset; production readiness requires an explicit false policy.",
   });
 
+  const identityPolicy = resolveLinkedIdentityPolicy(github.variables, env);
+  addCheck(checks, {
+    id: "linked_identity_policy",
+    title: "Linked GitHub/Base/Solana identity policy is required",
+    status: identityPolicy.issues.length === 0 ? "pass" : "block",
+    detail:
+      identityPolicy.issues.length === 0
+        ? "Linked identity policy requires GitHub, Base EVM chain 8453, and Solana mainnet-beta."
+        : `Invalid linked identity production policy: ${identityPolicy.issues.join("; ")}`,
+  });
+
   const blockers = checks
     .filter((check) => check.status === "block")
     .map((check) => ({ id: check.id, title: check.title, detail: check.detail }));
@@ -331,6 +348,13 @@ function operatorActionForCheck(check, context) {
         command: `gh variable set X402_ENABLED --repo ${shellToken(context.repo)} --env ${shellToken(context.environment)} --body false`,
         docs: "docs/handoff/x402-milestone-3.md",
       };
+    case "linked_identity_policy":
+      return {
+        ...base,
+        action: "Set the non-secret GitHub production variables for required GitHub/Base/Solana linked identities, and mirror the same values in Vercel.",
+        command: linkedIdentityPolicyCommand(context),
+        docs: "docs/setup/hosted-suite-environment.md",
+      };
     default:
       return {
         ...base,
@@ -382,6 +406,20 @@ function missingSecretNamesFromDetail(detail, fallbackNames) {
     .map((name) => name.trim())
     .filter(Boolean);
   return names.length > 0 ? names : fallbackNames;
+}
+
+function linkedIdentityPolicyCommand(context) {
+  return [
+    variableSetCommand("FIELD_THEORY_REQUIRE_LINKED_IDENTITIES", PRODUCTION_IDENTITY_POLICY.required, context),
+    variableSetCommand("FIELD_THEORY_BASE_CHAIN_ID", PRODUCTION_IDENTITY_POLICY.baseChainId, context),
+    variableSetCommand("NEXT_PUBLIC_BASE_CHAIN_ID", PRODUCTION_IDENTITY_POLICY.baseChainId, context),
+    variableSetCommand("FIELD_THEORY_SOLANA_CLUSTER", PRODUCTION_IDENTITY_POLICY.solanaCluster, context),
+    variableSetCommand("NEXT_PUBLIC_SOLANA_CLUSTER", PRODUCTION_IDENTITY_POLICY.solanaCluster, context),
+  ].join(" && ");
+}
+
+function variableSetCommand(name, value, context) {
+  return `gh variable set ${shellToken(name)} --repo ${shellToken(context.repo)} --env ${shellToken(context.environment)} --body ${shellToken(value)}`;
 }
 
 function parseArgs(args) {
@@ -468,6 +506,39 @@ function resolveX402Value(variables, env) {
   if (value === "true") return "true";
   if (value === "false") return "false";
   return "unset";
+}
+
+function resolveLinkedIdentityPolicy(variables, env) {
+  const required = variableValue(variables, env, "FIELD_THEORY_REQUIRE_LINKED_IDENTITIES");
+  const baseChainId = variableValue(variables, env, "FIELD_THEORY_BASE_CHAIN_ID");
+  const publicBaseChainId = variableValue(variables, env, "NEXT_PUBLIC_BASE_CHAIN_ID");
+  const solanaCluster = variableValue(variables, env, "FIELD_THEORY_SOLANA_CLUSTER");
+  const publicSolanaCluster = variableValue(variables, env, "NEXT_PUBLIC_SOLANA_CLUSTER");
+  const issues = [];
+
+  if (required !== PRODUCTION_IDENTITY_POLICY.required) {
+    issues.push("FIELD_THEORY_REQUIRE_LINKED_IDENTITIES must be true");
+  }
+  if (baseChainId !== PRODUCTION_IDENTITY_POLICY.baseChainId) {
+    issues.push(`FIELD_THEORY_BASE_CHAIN_ID must be ${PRODUCTION_IDENTITY_POLICY.baseChainId}`);
+  }
+  if (publicBaseChainId !== baseChainId) {
+    issues.push("NEXT_PUBLIC_BASE_CHAIN_ID must match FIELD_THEORY_BASE_CHAIN_ID");
+  }
+  if (solanaCluster !== PRODUCTION_IDENTITY_POLICY.solanaCluster) {
+    issues.push(`FIELD_THEORY_SOLANA_CLUSTER must be ${PRODUCTION_IDENTITY_POLICY.solanaCluster}`);
+  }
+  if (publicSolanaCluster !== solanaCluster) {
+    issues.push("NEXT_PUBLIC_SOLANA_CLUSTER must match FIELD_THEORY_SOLANA_CLUSTER");
+  }
+
+  return { issues };
+}
+
+function variableValue(variables, env, name) {
+  const remote = variables.find((variable) => variable.name === name)?.value;
+  const value = remote ?? env?.[name];
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
 function addCheck(checks, check) {

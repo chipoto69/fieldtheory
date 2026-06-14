@@ -34,6 +34,11 @@ jobs:
       PRODUCTION_PRIVY_APP_SECRET: ${{ secrets.PRIVY_APP_SECRET }}
       PRODUCTION_PRIVY_JWT_VERIFICATION_KEY: ${{ secrets.PRIVY_JWT_VERIFICATION_KEY }}
       X402_ENABLED: ${{ vars.X402_ENABLED }}
+      FIELD_THEORY_REQUIRE_LINKED_IDENTITIES: ${{ vars.FIELD_THEORY_REQUIRE_LINKED_IDENTITIES }}
+      FIELD_THEORY_BASE_CHAIN_ID: ${{ vars.FIELD_THEORY_BASE_CHAIN_ID }}
+      NEXT_PUBLIC_BASE_CHAIN_ID: ${{ vars.NEXT_PUBLIC_BASE_CHAIN_ID }}
+      FIELD_THEORY_SOLANA_CLUSTER: ${{ vars.FIELD_THEORY_SOLANA_CLUSTER }}
+      NEXT_PUBLIC_SOLANA_CLUSTER: ${{ vars.NEXT_PUBLIC_SOLANA_CLUSTER }}
       VERCEL_CLI_VERSION: 54.6.1
     steps:
       - uses: actions/checkout@v4
@@ -56,6 +61,26 @@ jobs:
           done
           if [ "${X402_ENABLED:-}" != "false" ]; then
             echo "::error::Production deploy requires an explicit X402_ENABLED=false variable until the x402 handoff is implemented."
+            missing=1
+          fi
+          if [ "${FIELD_THEORY_REQUIRE_LINKED_IDENTITIES:-}" != "true" ]; then
+            echo "::error::Production deploy requires FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true."
+            missing=1
+          fi
+          if [ "${FIELD_THEORY_BASE_CHAIN_ID:-}" != "8453" ]; then
+            echo "::error::Production deploy requires FIELD_THEORY_BASE_CHAIN_ID=8453 for Base mainnet."
+            missing=1
+          fi
+          if [ "${NEXT_PUBLIC_BASE_CHAIN_ID:-}" != "${FIELD_THEORY_BASE_CHAIN_ID:-}" ]; then
+            echo "::error::Production deploy requires NEXT_PUBLIC_BASE_CHAIN_ID to match FIELD_THEORY_BASE_CHAIN_ID."
+            missing=1
+          fi
+          if [ "${FIELD_THEORY_SOLANA_CLUSTER:-}" != "mainnet-beta" ]; then
+            echo "::error::Production deploy requires FIELD_THEORY_SOLANA_CLUSTER=mainnet-beta."
+            missing=1
+          fi
+          if [ "${NEXT_PUBLIC_SOLANA_CLUSTER:-}" != "${FIELD_THEORY_SOLANA_CLUSTER:-}" ]; then
+            echo "::error::Production deploy requires NEXT_PUBLIC_SOLANA_CLUSTER to match FIELD_THEORY_SOLANA_CLUSTER."
             missing=1
           fi
           exit "$missing"
@@ -108,9 +133,13 @@ jobs:
               && readiness.authConfigured === true
               && readiness.durableStoreConfigured === true
               && readiness.mutableRoutesReady === true
+              && readiness.walletLinking === "required"
+              && readiness.identityPolicy?.required === true
+              && readiness.identityPolicy?.baseChainId === "8453"
+              && readiness.identityPolicy?.solanaCluster === "mainnet-beta"
               && body.x402Enabled === false;
             if (!ok) {
-              console.error("Production health is not configuration_ready with auth/store/x402 gates satisfied.");
+              console.error("Production health is not configuration_ready with auth/store/linked-identity/x402 gates satisfied.");
               console.error(JSON.stringify(body, null, 2));
               process.exit(1);
             }

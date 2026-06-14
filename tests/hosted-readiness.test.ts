@@ -23,13 +23,73 @@ test("hosted deploy readiness passes only with local artifacts, Vercel link, Git
       branchProtected: true,
       requiredStatusChecks: ["preview"],
       secrets: [...REQUIRED_GITHUB_SECRETS],
-      variables: [{ name: "X402_ENABLED", value: "false" }],
+      variables: [
+        { name: "X402_ENABLED", value: "false" },
+        { name: "FIELD_THEORY_REQUIRE_LINKED_IDENTITIES", value: "true" },
+        { name: "FIELD_THEORY_BASE_CHAIN_ID", value: "8453" },
+        { name: "NEXT_PUBLIC_BASE_CHAIN_ID", value: "8453" },
+        { name: "FIELD_THEORY_SOLANA_CLUSTER", value: "mainnet-beta" },
+        { name: "NEXT_PUBLIC_SOLANA_CLUSTER", value: "mainnet-beta" },
+      ],
     },
   });
 
   assert.equal(report.status, "ready");
   assert.equal(report.blockers.length, 0);
   assert.ok(report.checks.every((check) => check.status === "pass" || check.status === "warn"));
+});
+
+test("hosted deploy readiness blocks missing linked identity production policy", async () => {
+  const root = await makeReadyRepo();
+  const report = await evaluateHostedDeployReadiness({
+    repoRoot: root,
+    github: {
+      checked: true,
+      environmentExists: true,
+      deploymentBranchPolicy: "main",
+      branchProtected: true,
+      requiredStatusChecks: ["preview"],
+      secrets: [...REQUIRED_GITHUB_SECRETS],
+      variables: [{ name: "X402_ENABLED", value: "false" }],
+    },
+  });
+
+  assert.equal(report.status, "blocked");
+  assert.ok(report.blockers.some((blocker) => blocker.id === "linked_identity_policy"));
+  const action = report.operatorActions.find((item) => item.id === "linked_identity_policy");
+  assert.ok(action);
+  assert.match(action.command ?? "", /FIELD_THEORY_REQUIRE_LINKED_IDENTITIES/);
+  assert.match(action.command ?? "", /FIELD_THEORY_BASE_CHAIN_ID/);
+  assert.match(action.command ?? "", /FIELD_THEORY_SOLANA_CLUSTER/);
+});
+
+test("hosted deploy readiness blocks mismatched linked identity public mirrors", async () => {
+  const root = await makeReadyRepo();
+  const report = await evaluateHostedDeployReadiness({
+    repoRoot: root,
+    github: {
+      checked: true,
+      environmentExists: true,
+      deploymentBranchPolicy: "main",
+      branchProtected: true,
+      requiredStatusChecks: ["preview"],
+      secrets: [...REQUIRED_GITHUB_SECRETS],
+      variables: [
+        { name: "X402_ENABLED", value: "false" },
+        { name: "FIELD_THEORY_REQUIRE_LINKED_IDENTITIES", value: "true" },
+        { name: "FIELD_THEORY_BASE_CHAIN_ID", value: "8453" },
+        { name: "NEXT_PUBLIC_BASE_CHAIN_ID", value: "84532" },
+        { name: "FIELD_THEORY_SOLANA_CLUSTER", value: "mainnet-beta" },
+        { name: "NEXT_PUBLIC_SOLANA_CLUSTER", value: "devnet" },
+      ],
+    },
+  });
+
+  assert.equal(report.status, "blocked");
+  const blocker = report.blockers.find((item) => item.id === "linked_identity_policy");
+  assert.ok(blocker);
+  assert.match(blocker.detail, /NEXT_PUBLIC_BASE_CHAIN_ID must match FIELD_THEORY_BASE_CHAIN_ID/);
+  assert.match(blocker.detail, /NEXT_PUBLIC_SOLANA_CLUSTER must match FIELD_THEORY_SOLANA_CLUSTER/);
 });
 
 test("hosted deploy readiness blocks missing secrets, missing Vercel link, and enabled x402 without leaking values", async () => {

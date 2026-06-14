@@ -222,7 +222,10 @@ local-first control plane instead of separate tool surfaces.
 - **Hosted deploy readiness auditor**: `npm run hosted:check-readiness -- --remote --strict`
   checks local release artifacts, package scripts, Vercel project metadata,
   GitHub production environment policy, required secret names, and
-  `X402_ENABLED=false` without printing secret values.
+  `X402_ENABLED=false` without printing secret values. Production readiness also
+  requires explicit linked GitHub/Base/Solana policy variables:
+  `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true`, Base mainnet `8453`, and Solana
+  `mainnet-beta` with matching public mirrors.
 - **Next feature plan**: `docs/features/agent-brief-packs.md` specifies the
   proposed recall/source-packet/dispatch bridge from bookmarks to agent work.
 
@@ -250,8 +253,8 @@ npm run hosted:check-readiness -- --remote --strict
 
 This creates or verifies the GitHub `production` environment, the `main`
 deployment branch policy, `main` branch protection requiring the `preview`
-check, and `X402_ENABLED=false`; it reports missing secrets without storing
-secret values.
+check, and `X402_ENABLED=false`; it reports missing secrets and linked-identity
+policy variables without storing secret values.
 
 Raycast development:
 
