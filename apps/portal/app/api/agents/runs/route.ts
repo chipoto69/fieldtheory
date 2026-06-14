@@ -1,6 +1,6 @@
 import { requirePrivyUser } from "@/lib/auth";
 import { buildImportPlan } from "@/lib/import-plans";
-import { linkedIdentityPolicyErrorResponse } from "@/lib/identity-policy";
+import { linkedIdentityPolicyAuditErrorResponse } from "@/lib/policy-audit";
 import { jsonError, jsonErrorFrom, jsonOk, readJson } from "@/lib/http";
 import { getHostedStore, type AgentTarget, type RunMode } from "@/lib/store";
 import { requireMutableStore } from "@/lib/store-guard";
@@ -30,12 +30,15 @@ export async function GET(request: Request): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   const auth = await requirePrivyUser(request);
   if (!auth.ok) return auth.response;
-  const identityPolicyError = linkedIdentityPolicyErrorResponse(auth.user, "Linked GitHub, Base EVM, and Solana identities are required for agent runs.");
-  if (identityPolicyError) return identityPolicyError;
   const storeGuard = requireMutableStore();
   if (storeGuard) return storeGuard;
 
   try {
+    const identityPolicyError = await linkedIdentityPolicyAuditErrorResponse(auth.user, {
+      action: "agent.run.create",
+      message: "Linked GitHub, Base EVM, and Solana identities are required for agent runs.",
+    });
+    if (identityPolicyError) return identityPolicyError;
     const body = await readJson(request);
     if (!isRecord(body)) return jsonError("invalid_body", "Run request must be an object.", 400);
     const target = body.target;

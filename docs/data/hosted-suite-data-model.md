@@ -48,6 +48,10 @@ imports a brief/export artifact.
 - Linked identities are resolved from Privy at request time for the M2 scaffold;
   they are not persisted in the current Postgres schema. Linked wallets prove
   identity state; they do not automatically grant payment or apply authority.
+- Authenticated protected write attempts that fail the linked identity policy
+  append an `AuditEvent` with `outcome: "blocked"`, `targetType:
+  "identity_policy"`, and the route action as `targetId`. They do not create
+  artifact imports, agent runs, import plans, or store rejected request payloads.
 - Audit events must be immutable from the application layer.
 
 ## Sanitized Export Summary
@@ -103,6 +107,8 @@ subject and return only audit events whose `actor_user_id`, `target_type`, and
 `target_id` match that owner-scoped record. Import readback returns sanitized
 `ArtifactImport` metadata only; it does not rehydrate the uploaded manifest body
 or local file contents. The read paths are intentionally non-mutating.
+Linked identity denials are returned in the denial response because their audit
+target is the policy gate, not a later artifact or run record.
 
 ## Retention Rules
 

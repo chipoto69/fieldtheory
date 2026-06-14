@@ -105,6 +105,7 @@ sequenceDiagram
 | Agent endpoints | Require scoped token or Privy-backed session mapped to the run owner. |
 | Apply endpoints | Must remain unimplemented or disabled until a separate apply-gate PR. |
 | x402 endpoints | Must return discovery/challenge fixtures only until payment replay and audit are approved. |
+| Denied writes | Authenticated linked-identity failures append a blocked policy audit event without storing the rejected payload or creating imports/runs. |
 
 ## Write Authority
 
@@ -131,6 +132,11 @@ sequenceDiagram
 | `app/api/gordo/import-plan/route.ts` | nodejs | Builds Aeon/Gordo import plan from manifest. |
 | `app/api/hermes/import-plan/route.ts` | nodejs | Builds Hermes import plan from task payload. |
 | `app/api/x402/discovery/route.ts` | nodejs | Lists planned paid endpoints and policy status. |
+
+Protected write routes check mutable-store readiness before writing denial
+audits. In production this keeps missing `DATABASE_URL` or missing schema proof
+as a `503` blocker instead of silently writing policy denials to the local test
+adapter.
 
 ## Storage Model
 

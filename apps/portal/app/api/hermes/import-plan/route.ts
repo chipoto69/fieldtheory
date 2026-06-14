@@ -2,7 +2,7 @@ import { requirePrivyUser } from "@/lib/auth";
 import { summarizeExportManifest, validateExportManifest } from "@/lib/contracts";
 import { buildImportPlan } from "@/lib/import-plans";
 import { jsonError, jsonErrorFrom, jsonOk, readJson, stableHash } from "@/lib/http";
-import { linkedIdentityPolicyErrorResponse } from "@/lib/identity-policy";
+import { linkedIdentityPolicyAuditErrorResponse } from "@/lib/policy-audit";
 import { getHostedStore } from "@/lib/store";
 import { requireMutableStore } from "@/lib/store-guard";
 
@@ -11,12 +11,12 @@ export const runtime = "nodejs";
 export async function POST(request: Request): Promise<Response> {
   const auth = await requirePrivyUser(request);
   if (!auth.ok) return auth.response;
-  const identityPolicyError = linkedIdentityPolicyErrorResponse(auth.user);
-  if (identityPolicyError) return identityPolicyError;
   const storeGuard = requireMutableStore();
   if (storeGuard) return storeGuard;
 
   try {
+    const identityPolicyError = await linkedIdentityPolicyAuditErrorResponse(auth.user, { action: "hermes.import_plan" });
+    if (identityPolicyError) return identityPolicyError;
     const manifest = await readJson(request);
     const report = validateExportManifest(manifest);
     if (!report.valid) return Response.json({ ok: false, report }, { status: 422 });

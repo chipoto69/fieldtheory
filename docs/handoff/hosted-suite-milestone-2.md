@@ -85,6 +85,9 @@ The first Milestone 2 scaffold now exists under `apps/portal`:
   handoff records.
 - Owner-scoped artifact import IDs prevent two users importing the same contract
   payload from overwriting each other's ownership.
+- Authenticated protected writes that fail the linked GitHub/Base/Solana policy
+  return a blocked audit envelope with `targetType: "identity_policy"` and do
+  not create imports, runs, plans, or persist rejected payloads.
 
 The scaffold includes an env-gated linked GitHub/Base/Solana identity policy.
 Production policy ownership is still deferred: the operator must choose the

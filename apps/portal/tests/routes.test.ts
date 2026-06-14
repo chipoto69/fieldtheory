@@ -160,10 +160,15 @@ test("agent run creation rejects unsatisfied linked identity policy before store
   assert.equal(response.status, 403);
   assert.equal(body.error.code, "identity_policy_unsatisfied");
   assert.deepEqual(body.identityPolicy.missing, ["base_evm:8453", "solana:mainnet-beta"]);
-  assert.equal(hostedStore.listAuditEvents().length, 0);
+  assert.equal(body.auditEvents.length, 1);
+  assert.equal(body.auditEvents[0].action, "agent.run.create");
+  assert.equal(body.auditEvents[0].targetType, "identity_policy");
+  assert.equal(body.auditEvents[0].targetId, "agent.run.create");
+  assert.equal(body.auditEvents[0].outcome, "blocked");
+  assert.equal(hostedStore.listAuditEvents().length, 1);
 });
 
-test("required linked identity policy rejects protected write routes before audit writes", async () => {
+test("required linked identity policy records blocked audit events without write payloads", async () => {
   enableMockPrivyAuth("privy-user-a");
   enableLinkedIdentityPolicy();
   setPrivyUserResolverForTests(async () => ({
@@ -173,11 +178,11 @@ test("required linked identity policy rejects protected write routes before audi
     ],
   }));
 
-  const cases: Array<{ name: string; request: () => Promise<Response> }> = [
-    { name: "brief validate", request: () => briefValidatePost(authJsonRequest("/api/briefs/validate", validBriefPack(), "privy.valid")) },
-    { name: "export validate", request: () => exportValidatePost(authJsonRequest("/api/exports/validate", validAeonManifest(), "privy.valid")) },
-    { name: "gordo import plan", request: () => gordoPlanPost(authJsonRequest("/api/gordo/import-plan", validAeonManifest(), "privy.valid")) },
-    { name: "hermes import plan", request: () => hermesPlanPost(authJsonRequest("/api/hermes/import-plan", validHermesManifest(), "privy.valid")) },
+  const cases: Array<{ name: string; action: string; request: () => Promise<Response> }> = [
+    { name: "brief validate", action: "brief.validate", request: () => briefValidatePost(authJsonRequest("/api/briefs/validate", validBriefPack(), "privy.valid")) },
+    { name: "export validate", action: "export.validate", request: () => exportValidatePost(authJsonRequest("/api/exports/validate", validAeonManifest(), "privy.valid")) },
+    { name: "gordo import plan", action: "gordo.import_plan", request: () => gordoPlanPost(authJsonRequest("/api/gordo/import-plan", validAeonManifest(), "privy.valid")) },
+    { name: "hermes import plan", action: "hermes.import_plan", request: () => hermesPlanPost(authJsonRequest("/api/hermes/import-plan", validHermesManifest(), "privy.valid")) },
   ];
 
   for (const item of cases) {
@@ -186,7 +191,14 @@ test("required linked identity policy rejects protected write routes before audi
     const body = await response.json();
     assert.equal(response.status, 403, item.name);
     assert.equal(body.error.code, "identity_policy_unsatisfied", item.name);
-    assert.equal(hostedStore.listAuditEvents().length, 0, item.name);
+    assert.equal(body.import, undefined, item.name);
+    assert.equal(body.plan, undefined, item.name);
+    assert.equal(body.auditEvents.length, 1, item.name);
+    assert.equal(body.auditEvents[0].action, item.action, item.name);
+    assert.equal(body.auditEvents[0].targetType, "identity_policy", item.name);
+    assert.equal(body.auditEvents[0].targetId, item.action, item.name);
+    assert.equal(body.auditEvents[0].outcome, "blocked", item.name);
+    assert.equal(hostedStore.listAuditEvents().length, 1, item.name);
   }
 });
 
