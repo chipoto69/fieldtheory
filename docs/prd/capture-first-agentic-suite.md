@@ -160,7 +160,7 @@ is authoritative; target payloads must not duplicate a nested
 | Diff hygiene | `git diff --check` |
 | CLI smoke | isolated `FT_DATA_DIR` and `FT_LIBRARY_DIR` command run for capture, recall, packet, soul draft, and exports |
 | Release smoke | `npm run release:check` |
-| Version smoke | `package.json` and `package-lock.json` both carry the same `1.5.0` minor version before release. |
+| Version smoke | `package.json` and `package-lock.json` both carry the same `1.7.0` version before release. |
 | Raycast smoke | Checked-in Raycast extension and scaffold output agree; Raycast lint/build pass when Raycast tooling is available. |
 
 ## Deferred Milestone 2

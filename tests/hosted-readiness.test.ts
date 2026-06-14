@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -112,6 +113,41 @@ test("hosted deploy readiness emits secret-safe operator actions for blockers", 
   assert.doesNotMatch(serialized, /vercel_token_secret_value/);
   assert.doesNotMatch(serialized, /postgres:\/\/user:password@example\.com/);
   assert.doesNotMatch(serialized, /privy_secret_value/);
+});
+
+test("hosted deploy readiness scopes secret operator commands to missing names", async () => {
+  const root = await makeReadyRepo();
+  const presentSecrets = REQUIRED_GITHUB_SECRETS.filter((name) => ![
+    "DATABASE_URL",
+    "PRIVY_APP_SECRET",
+  ].includes(name));
+  const report = await evaluateHostedDeployReadiness({
+    repoRoot: root,
+    repo: "chipoto69/fieldtheory",
+    environment: "production",
+    github: {
+      checked: true,
+      environmentExists: true,
+      deploymentBranchPolicy: "main",
+      branchProtected: true,
+      requiredStatusChecks: ["preview"],
+      secrets: presentSecrets,
+      variables: [{ name: "X402_ENABLED", value: "false" }],
+    },
+  });
+
+  const action = report.operatorActions.find((item) => item.id === "github_required_secrets");
+  assert.ok(action);
+  assert.match(action.command ?? "", /DATABASE_URL/);
+  assert.match(action.command ?? "", /PRIVY_APP_SECRET/);
+  assert.doesNotMatch(action.command ?? "", /VERCEL_ORG_ID/);
+  assert.doesNotMatch(action.command ?? "", /VERCEL_PROJECT_ID/);
+});
+
+test("local Vercel and macOS metadata are ignored", () => {
+  const gitignore = readFileSync(new URL("../.gitignore", import.meta.url), "utf8");
+  assert.match(gitignore, /^apps\/portal\/\.vercel\/$/m);
+  assert.match(gitignore, /^\.DS_Store$/m);
 });
 
 test("hosted deploy readiness reports missing required local release artifacts", async () => {

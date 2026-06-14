@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { skillWithFrontmatter, skillBody } from '../src/skill.js';
 
 describe('skill content', () => {
@@ -58,5 +59,10 @@ describe('skill content', () => {
   it('skill content ends with newline', () => {
     assert.ok(skillWithFrontmatter().endsWith('\n'));
     assert.ok(skillBody().endsWith('\n'));
+  });
+
+  it('checked-in Claude command matches generated skill content', () => {
+    const checkedIn = readFileSync(new URL('../.claude/commands/fieldtheory.md', import.meta.url), 'utf8');
+    assert.equal(checkedIn, skillWithFrontmatter());
   });
 });

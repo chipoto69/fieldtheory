@@ -314,14 +314,14 @@ function operatorActionForCheck(check, context) {
       return {
         ...base,
         action: "Set the missing GitHub production secret names with operator-owned values, and mirror matching values in Vercel.",
-        command: secretSetCommand(REQUIRED_GITHUB_SECRETS, context),
+        command: secretSetCommand(missingSecretNamesFromDetail(check.detail, REQUIRED_GITHUB_SECRETS), context),
         docs: "docs/setup/hosted-suite-environment.md",
       };
     case "github_optional_secrets":
       return {
         ...base,
         action: "Set the optional Privy verification key only if the production Privy dashboard policy uses it.",
-        command: secretSetCommand(OPTIONAL_GITHUB_SECRETS, context),
+        command: secretSetCommand(missingSecretNamesFromDetail(check.detail, OPTIONAL_GITHUB_SECRETS), context),
         docs: "docs/setup/hosted-suite-environment.md",
       };
     case "x402_disabled":
@@ -372,6 +372,16 @@ function readinessCommand(context) {
 
 function secretSetCommand(names, context) {
   return `for name in ${names.map(shellToken).join(" ")}; do gh secret set "$name" --repo ${shellToken(context.repo)} --env ${shellToken(context.environment)}; done`;
+}
+
+function missingSecretNamesFromDetail(detail, fallbackNames) {
+  const match = String(detail ?? "").match(/(?:Missing secret names|Optional secret names missing):\s*([^.;]+)/);
+  if (!match) return fallbackNames;
+  const names = match[1]
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean);
+  return names.length > 0 ? names : fallbackNames;
 }
 
 function parseArgs(args) {
