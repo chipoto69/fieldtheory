@@ -124,31 +124,53 @@ jobs:
           echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
           echo "deployment_ref=$deployment_url" >> "$GITHUB_OUTPUT"
       - name: Smoke production public endpoints
+        run: npm run hosted:smoke -- --base-url "${{ steps.deploy.outputs.url }}" --json
+      - name: Smoke authenticated production endpoints
+        env:
+          FIELD_THEORY_SMOKE_BEARER_TOKEN: ${{ secrets.FIELD_THEORY_PRODUCTION_SMOKE_BEARER_TOKEN }}
         run: |
-          health="$(curl -fsS "${{ steps.deploy.outputs.url }}/api/health")"
-          HEALTH="$health" node -e '
-            const body = JSON.parse(process.env.HEALTH || "{}");
-            const readiness = body.readiness || {};
-            const ok = body.status === "configuration_ready"
-              && readiness.authConfigured === true
-              && readiness.durableStoreConfigured === true
-              && readiness.mutableRoutesReady === true
-              && readiness.walletLinking === "required"
-              && readiness.identityPolicy?.required === true
-              && readiness.identityPolicy?.baseChainId === "8453"
-              && readiness.identityPolicy?.solanaCluster === "mainnet-beta"
-              && body.x402Enabled === false;
-            if (!ok) {
-              console.error("Production health is not configuration_ready with auth/store/linked-identity/x402 gates satisfied.");
-              console.error(JSON.stringify(body, null, 2));
-              process.exit(1);
-            }
-          '
-          curl -fsS "${{ steps.deploy.outputs.url }}/api/contracts"
-          curl -fsS "${{ steps.deploy.outputs.url }}/api/x402/discovery"
-          auth_status="$(curl -sS -o /tmp/fieldtheory-auth-smoke.json -w "%{http_code}" "${{ steps.deploy.outputs.url }}/api/agents")"
-          if [ "$auth_status" != "401" ]; then
-            echo "::error::Expected unauthenticated protected route to return 401, got $auth_status."
-            cat /tmp/fieldtheory-auth-smoke.json
-            exit 1
+          if [ -z "${FIELD_THEORY_SMOKE_BEARER_TOKEN:-}" ]; then
+            echo "::notice::Authenticated production smoke skipped because FIELD_THEORY_PRODUCTION_SMOKE_BEARER_TOKEN is not configured."
+            exit 0
           fi
+
+          fixture="$(mktemp)"
+          cat > "$fixture" <<'JSON'
+          {
+            "id": "production-smoke-brief",
+            "version": "agent-brief-pack.v1",
+            "kind": "recall_pack",
+            "generatedAt": "2026-06-14T00:00:00.000Z",
+            "input": { "query": "production smoke" },
+            "limits": { "captures": 1, "library": 1, "commands": 1, "bookmarks": 1 },
+            "storeStatus": [{ "store": "captures", "status": "available" }],
+            "evidence": [{
+              "id": "ev-smoke",
+              "sourceType": "capture",
+              "title": "Production smoke fixture",
+              "locator": "production-smoke",
+              "excerpt": "Fixture proves hosted import and dry-run readback wiring.",
+              "rank": 1,
+              "sourceRank": 1,
+              "score": 1,
+              "scoreReason": "production-smoke",
+              "retrievedAt": "2026-06-14T00:00:00.000Z",
+              "tags": []
+            }],
+            "boundaries": [{
+              "id": "boundary-smoke",
+              "authority": "dry-run",
+              "gate": "production smoke",
+              "rule": "No external writes.",
+              "reason": "Smoke validates hosted contracts only.",
+              "forbiddenActions": ["external_dispatch"],
+              "evidenceIds": ["ev-smoke"]
+            }],
+            "promotionCandidates": [],
+            "summaryClaims": [{ "text": "Hosted smoke fixture is dry-run only.", "evidenceIds": ["ev-smoke"] }],
+            "typedSlots": [],
+            "suggestedCommands": [],
+            "resultEnvelope": { "status": "complete", "resultCount": 1, "warnings": [], "generatedBy": "fieldtheory" }
+          }
+          JSON
+          npm run hosted:smoke -- --base-url "${{ steps.deploy.outputs.url }}" --fixture "$fixture" --json

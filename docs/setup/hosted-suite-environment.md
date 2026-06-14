@@ -198,6 +198,40 @@ run. This proves the browser route wiring only. It does not prove production
 Privy login, linked wallet policy, durable Postgres readiness, payment
 authority, or x402 enforcement.
 
+## Hosted Deployment Smoke
+
+After the production workflow returns a deployment URL, run the shared smoke
+script instead of hand-maintaining curl snippets:
+
+```bash
+export FIELD_THEORY_DEPLOYMENT_URL="https://<vercel-production-url>"
+npm run hosted:smoke -- --json
+```
+
+Public smoke requires:
+
+- `/api/health` reports `configuration_ready`, configured auth, configured
+  durable store, mutable routes ready, wallet linking required, Base chain
+  `8453`, Solana cluster `mainnet-beta`, and `x402Enabled=false`
+- `/api/contracts` remains apply-disabled
+- `/api/x402/discovery` remains non-enforcing
+- unauthenticated `/api/agents` returns `401`
+
+For authenticated production proof, use a real Privy bearer token for a smoke
+operator with linked GitHub, Base EVM, and Solana identities. Keep the token in
+`FIELD_THEORY_SMOKE_BEARER_TOKEN`, never in a command argument:
+
+```bash
+export FIELD_THEORY_SMOKE_BEARER_TOKEN="<operator-owned-token>"
+npm run hosted:smoke -- --base-url "$FIELD_THEORY_DEPLOYMENT_URL" --fixture /path/to/agent-brief-pack.json --json
+```
+
+The authenticated path validates the operator status, persists one valid import,
+creates one dry-run run with an idempotency key, and reads the run back from the
+durable store. The smoke report contains endpoint names, status codes, and
+sanitized pass/fail reasons only; it must not print bearer tokens, wallet
+addresses, linked-account subjects, request bodies, or database URLs.
+
 ## Postgres Durable Store Smoke
 
 Production mutations require `DATABASE_URL` and a migrated schema. Use any
@@ -259,6 +293,7 @@ set for a controlled break-glass recovery. Normal production deploys must run
 | Portal DB schema | `DATABASE_URL=postgres://... npm --prefix apps/portal run db:migrate` |
 | Portal DB route smoke | `DATABASE_URL=postgres://... npm run portal:test:db` |
 | Hosted deploy readiness | `npm run hosted:check-readiness -- --remote --strict` |
+| Hosted deployment smoke | `FIELD_THEORY_DEPLOYMENT_URL=https://... npm run hosted:smoke -- --json` |
 | Vercel preview | `vercel build && vercel deploy --prebuilt` from GitHub Actions |
 | Vercel production | same as preview, but only from protected `main` |
 
@@ -266,7 +301,8 @@ Portal gates now execute against `apps/portal`. Production deploy remains blocke
 until those gates pass in CI and real Vercel/Privy secrets are configured.
 The CI Postgres migration and DB route smoke are throwaway proofs only.
 Production readiness also requires the protected production workflow to migrate
-the target `DATABASE_URL` and pass post-deploy route smoke.
+the target `DATABASE_URL` and pass `npm run hosted:smoke` against the deployed
+URL.
 
 `npm run hosted:check-readiness -- --remote --strict --json` is the local
 auditor for that final preflight. It reports machine-readable `status`,

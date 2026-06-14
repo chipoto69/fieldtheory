@@ -28,6 +28,7 @@ export const REQUIRED_PACKAGE_SCRIPTS = [
   "verify:hosted",
   "hosted:setup-github-env",
   "hosted:check-readiness",
+  "hosted:smoke",
 ];
 
 export const REQUIRED_LOCAL_FILES = [
@@ -39,6 +40,7 @@ export const REQUIRED_LOCAL_FILES = [
   "apps/portal/src/lib/x402-discovery.v1.json",
   "apps/portal/tests/fixtures/x402-discovery.v1.json",
   "apps/portal/tests/fixtures/x402-audit-events.v1.json",
+  "scripts/smoke-hosted-deployment.mjs",
   "docs/handoff/x402-milestone-3.md",
   "docs/release/milestone-2-hosted-readiness.md",
   "docs/deploy/vercel-github-actions.md",
@@ -107,7 +109,7 @@ export async function evaluateHostedDeployReadiness(options = {}) {
     id: "package_scripts",
     title: "Required hosted package scripts exist",
     status: missingScripts.length === 0 ? "pass" : "block",
-    detail: missingScripts.length === 0 ? "Release, hosted verify, environment setup, and readiness scripts are present." : `Missing scripts: ${missingScripts.join(", ")}`,
+    detail: missingScripts.length === 0 ? "Release, hosted verify, environment setup, readiness, and smoke scripts are present." : `Missing scripts: ${missingScripts.join(", ")}`,
   });
 
   const vercelProject = await readVercelProject(repoRoot);
@@ -552,8 +554,13 @@ function addCheck(checks, check) {
 
 function sanitizeDetail(value) {
   return String(value ?? "")
-    .replace(/postgres:\/\/[^@\s]+@/gi, "postgres://<redacted>@")
-    .replace(/(token|secret|password|key)=([^\s,]+)/gi, "$1=<redacted>");
+    .replace(/\bpostgres(?:ql)?:\/\/[^\s"'<>]+/gi, "postgres://<redacted>")
+    .replace(/([a-z][a-z0-9+.-]*:\/\/)[^@\s"'<>/]+@/gi, "$1<redacted>@")
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/-]+=*/gi, "Bearer <redacted>")
+    .replace(/\b(?:ghp|gho|ghu|ghs|ghr|github_pat|vercel)_[A-Za-z0-9_]+/g, "<redacted-token>")
+    .replace(/\b0x[a-fA-F0-9]{40}\b/g, "0x<redacted>")
+    .replace(/\b(linkedAccountSubject|(?:linked[-_ ]?account[-_ ]?)?subject|wallet(?:Address)?|address|actor|username|user)\s*[:=]\s*([^\s,;}\]]+)/gi, "$1=<redacted>")
+    .replace(/\b(token|secret|password|key)\s*[:=]\s*([^\s,;}\]]+)/gi, "$1=<redacted>");
 }
 
 function collectGithubState({ repo, environment, branch }) {
@@ -621,7 +628,7 @@ function ghJson(args, options = {}) {
   const result = spawnSync("gh", args, { encoding: "utf8" });
   if (result.status !== 0) {
     if (options.allowFailure) return undefined;
-    throw new Error(result.stderr.trim() || result.stdout.trim() || `gh ${args.join(" ")} failed`);
+    throw new Error(sanitizeDetail(result.stderr.trim() || result.stdout.trim() || `gh ${args.join(" ")} failed`));
   }
   const text = result.stdout.trim();
   if (!text) return undefined;

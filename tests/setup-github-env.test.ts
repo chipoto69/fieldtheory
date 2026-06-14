@@ -49,6 +49,37 @@ test("production environment bootstrap sets linked identity policy variables", a
   assert.ok(calls.some((args) => args.join(" ") === "variable set NEXT_PUBLIC_SOLANA_CLUSTER --repo chipoto69/fieldtheory --env production --body mainnet-beta"));
 });
 
+test("production environment bootstrap redacts noisy gh failure output", async () => {
+  const root = await mkdtemp(join(tmpdir(), "fieldtheory-gh-env-leak-"));
+  const binDir = join(root, "bin");
+  await mkdir(binDir, { recursive: true });
+  const ghPath = join(binDir, "gh");
+  await writeFile(ghPath, fakeGhLeakScript(), { mode: 0o755 });
+  await chmod(ghPath, 0o755);
+
+  const result = spawnSync(process.execPath, [
+    "scripts/setup-github-production-env.mjs",
+    "--repo",
+    "chipoto69/fieldtheory",
+    "--apply",
+  ], {
+    cwd: new URL("..", import.meta.url),
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      PATH: `${binDir}:${process.env.PATH ?? ""}`,
+    },
+  });
+
+  assert.notEqual(result.status, 0);
+  assert.doesNotMatch(result.stderr, /ghp_abcdefghijklmnopqrstuvwxyz123456/);
+  assert.doesNotMatch(result.stderr, /postgres:\/\/user:password@example\.com/);
+  assert.doesNotMatch(result.stderr, /0xABCDEFabcdefABCDEFabcdefABCDEFabcdefabcd/);
+  assert.doesNotMatch(result.stderr, /github-subject-123/);
+  assert.match(result.stderr, /Bearer <redacted>/);
+  assert.match(result.stderr, /postgres:\/\/<redacted>/);
+});
+
 function fakeGhScript(): string {
   return `#!${process.execPath}
 const { appendFileSync } = require("node:fs");
@@ -109,5 +140,17 @@ if (args[0] === "variable" && args[1] === "set") {
 
 console.log("{}");
 process.exit(0);
+`;
+}
+
+function fakeGhLeakScript(): string {
+  return `#!${process.execPath}
+const args = process.argv.slice(2);
+if (args[0] === "--version") {
+  console.log("gh version 2.0.0");
+  process.exit(0);
+}
+console.error("Bearer ghp_abcdefghijklmnopqrstuvwxyz123456 DATABASE_URL=postgres://user:password@example.com/fieldtheory walletAddress=0xABCDEFabcdefABCDEFabcdefABCDEFabcdefabcd linkedAccountSubject=github-subject-123");
+process.exit(1);
 `;
 }

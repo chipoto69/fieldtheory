@@ -20,7 +20,8 @@
     "portal:typecheck": "npm --prefix apps/portal run typecheck",
     "verify:hosted": "npm run portal:test && npm run portal:typecheck && npm run portal:build",
     "hosted:setup-github-env": "node scripts/setup-github-production-env.mjs",
-    "hosted:check-readiness": "node scripts/check-hosted-deploy-readiness.mjs"
+    "hosted:check-readiness": "node scripts/check-hosted-deploy-readiness.mjs",
+    "hosted:smoke": "node scripts/smoke-hosted-deployment.mjs"
   },
   "files": [
     "apps/operator-suite/",

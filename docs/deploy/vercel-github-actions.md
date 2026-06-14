@@ -43,6 +43,7 @@ secret keys but never include secret values.
 | `PRIVY_APP_SECRET` | Server-side Privy verification. |
 | `PRIVY_JWT_VERIFICATION_KEY` | Optional Privy verification key to avoid a runtime key fetch. |
 | `DATABASE_URL` | Postgres durable store used by hosted mutation routes. |
+| `FIELD_THEORY_PRODUCTION_SMOKE_BEARER_TOKEN` | Optional Privy bearer token for authenticated production import/run/readback smoke. When absent, the smoke step emits a skip notice instead of failing deployment. |
 
 | Variable | Purpose |
 |---|---|
@@ -133,13 +134,21 @@ Production is the preview workflow plus:
   before Vercel build
 - `vercel pull --environment=production`
 - `vercel deploy --prebuilt --prod`
-- post-deploy public smoke against `/api/health`, `/api/contracts`, and
-  `/api/x402/discovery`
-- health JSON must report `status: "configuration_ready"`, configured auth,
-  configured durable store, mutable routes ready, required wallet linking,
-  Base mainnet / Solana mainnet-beta policy, and `x402Enabled: false`
-- unauthenticated `/api/agents` must return `401`, proving protected routes are
-  auth-gated rather than missing Privy runtime config
+- post-deploy public smoke runs
+  `npm run hosted:smoke -- --base-url "$DEPLOYMENT_URL" --json`
+- the smoke script requires `/api/health` to report
+  `status: "configuration_ready"`, configured auth, configured durable store,
+  mutable routes ready, required wallet linking, Base mainnet / Solana
+  mainnet-beta policy, and `x402Enabled: false`
+- the same smoke script requires `/api/contracts` to stay apply-disabled,
+  `/api/x402/discovery` to stay non-enforcing, and unauthenticated
+  `/api/agents` to return `401`
+- optional authenticated smoke skips with a GitHub notice until
+  `FIELD_THEORY_PRODUCTION_SMOKE_BEARER_TOKEN` exists; once configured it runs
+  `hosted:smoke` with a dry-run fixture and proves `/api/agents`,
+  `/api/briefs/validate`, `/api/agents/runs`, and run readback against the
+  durable store without printing token, wallet, subject, DB URL, or request-body
+  values
 
 ## Required Gates Before Enabling
 
@@ -176,8 +185,10 @@ Current scaffold status:
   smoke, production secret and linked-identity policy preflight, and the target
   production `DATABASE_URL` migration on protected `main`; it captures the
   production deployment URL and smokes public health/contracts/x402-discovery
-  routes plus unauthenticated protected-route behavior. Production deploy fails
-  fast when required Vercel, Privy, database, linked-identity, or x402-disable
+  routes plus unauthenticated protected-route behavior through
+  `npm run hosted:smoke`. It also includes an authenticated operator smoke that
+  is skipped until a production Privy bearer token is configured. Production
+  deploy fails fast when required Vercel, Privy, database, linked-identity, or x402-disable
   settings are missing.
 - `apps/portal/vercel.json` keeps the Vercel project rooted in the portal app.
 

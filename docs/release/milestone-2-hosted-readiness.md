@@ -1,7 +1,7 @@
 ---
 title: Milestone 2 Hosted Readiness Checklist
 created: 2026-05-31
-status: draft-implementation-contract
+status: blocked-live-deploy-proof
 scope: readiness gate before Vercel, Privy, agents, and x402 implementation
 tags: [release, readiness, vercel, privy, agents]
 ---
@@ -89,9 +89,29 @@ evidence for each item below:
 | Production secret and variable preflight | `gh secret list --env production --repo chipoto69/fieldtheory` must include Vercel, Privy, and `DATABASE_URL`; GitHub production variables must include `X402_ENABLED=false`, `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true`, Base mainnet `8453`, and Solana `mainnet-beta` plus browser mirrors |
 | Main branch protection | `gh api repos/chipoto69/fieldtheory/branches/main --jq '{name, protected}'` and branch protection detail must show required `preview`, no force pushes/deletions, linear history, conversation resolution, and admin enforcement |
 | Target production DB migration | protected `vercel-production` workflow step `Migrate target production database` |
-| Vercel production public smoke | protected `vercel-production` workflow step `Smoke production public endpoints` must require `configuration_ready`, auth/store readiness, disabled x402, and unauthenticated `/api/agents` returning `401` |
+| Vercel production public smoke | protected `vercel-production` workflow step `Smoke production public endpoints` runs `npm run hosted:smoke -- --base-url "$DEPLOYMENT_URL" --json` and must require `configuration_ready`, auth/store readiness, linked identity policy, disabled x402, apply-disabled contracts, non-enforcing x402 discovery, and unauthenticated `/api/agents` returning `401` |
+| Vercel authenticated smoke | optional protected workflow step `Smoke authenticated production endpoints` runs `npm run hosted:smoke -- --base-url "$DEPLOYMENT_URL" --fixture "$FIXTURE" --json` when `FIELD_THEORY_PRODUCTION_SMOKE_BEARER_TOKEN` exists; it must prove `/api/agents`, `/api/briefs/validate`, `/api/agents/runs`, and run readback without printing token, wallet, subject, DB URL, or request-body values |
 | Vercel preview smoke | `curl -fsS "$FIELD_THEORY_PREVIEW_URL/api/health" && curl -fsS "$FIELD_THEORY_PREVIEW_URL/api/contracts" && curl -fsS "$FIELD_THEORY_PREVIEW_URL/api/x402/discovery"` |
 | Durable DB proof | `psql "$DATABASE_URL" -c "select * from fieldtheory_schema_version;"` |
+
+## Current Live Deployment Gap
+
+The latest Vercel project inspection reported a linked project but no live
+product: `live=false` and `deployments=0`. Treat the current state as a
+secret-ready scaffold only. A green `preview` check or a local `.vercel`
+project link does not prove a working hosted suite.
+
+After operator-owned secrets are installed, the release owner must produce a
+post-secret proof packet before marking Milestone 2 as live:
+
+| Proof artifact | Required evidence |
+|---|---|
+| Deployment URL | Record the exact production URL returned by the protected `vercel-production` workflow. Save public smoke bodies under `docs/release/evidence/production-health.json`, `docs/release/evidence/production-contracts.json`, and `docs/release/evidence/production-x402-discovery.json`. |
+| Vercel deployment id | Record the Vercel deployment id, not only the URL. Capture `vercel inspect "$FIELD_THEORY_PRODUCTION_URL" --token "$VERCEL_TOKEN"` output in `docs/release/evidence/vercel-inspect.txt` or an equivalent Vercel dashboard/API export. |
+| Public smoke JSON | Save `fieldtheory.hosted-smoke.v1` JSON from `npm run hosted:smoke -- --base-url "$FIELD_THEORY_PRODUCTION_URL" --json`; the report must show `/api/health` with `status: "configuration_ready"`, auth configured, durable store configured, wallet linking required, Base chain `8453`, Solana `mainnet-beta`, `x402Enabled: false`, apply-disabled contracts, non-enforcing x402 discovery, and unauthenticated `/api/agents` returning `401`. |
+| DB migration/readback proof | Save `npm --prefix apps/portal run db:migrate` target-production run URL plus `psql "$DATABASE_URL" -c "select * from fieldtheory_schema_version;"` output showing version `2`. Also save one authenticated import/run/readback smoke with raw tokens, wallet addresses, usernames, and bearer values redacted. |
+| Privy linked identity proof | Save a sanitized `/api/agents` response for a real Privy user whose policy status is `satisfied` for GitHub, Base EVM, and Solana. Store only policy labels/statuses and redacted actor identifiers. |
+| Rollback reference | Record the rollback deployment URL/id from the last known-good Vercel deployment and the command or dashboard action used to promote it. With `deployments=0`, this field is blocked until the first production deployment exists. |
 
 Fill this ledger before undrafting or promoting a production deployment:
 
@@ -100,7 +120,9 @@ Fill this ledger before undrafting or promoting a production deployment:
 | PR check run URL | verified 2026-06-14: `preview` passed at `https://github.com/chipoto69/fieldtheory/actions/runs/26915107441/job/79402801233`; CodeRabbit reports `pass` / review skipped |
 | Preview URL | blocked 2026-06-14: preview workflow passed, but production-owned Vercel token and runtime secrets are still absent, so no release preview URL is recorded in this ledger |
 | Production URL | blocked 2026-06-14: production deploy remains disabled until Vercel token, Privy, `DATABASE_URL`, target DB proof, and production smoke evidence exist |
+| Vercel live/deployment inspection | blocked 2026-06-14: Vercel project inspection reported `live=false` and `deployments=0`; no hosted product can be called working until deployment URL, deployment id, public smoke JSON, DB readback, Privy linked identity proof, and rollback reference are recorded |
 | Vercel project id | verified 2026-06-14: `apps/portal/.vercel/project.json` is present locally after linking to `grrrrrrrrs-projects/fieldtheory`; `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` are set as GitHub production secrets |
+| Vercel deployment id | blocked 2026-06-14: no Vercel deployment exists; record the id from `vercel inspect` or Vercel dashboard/API after production deploy |
 | GitHub production environment exists | verified 2026-06-14 with readiness auditor: production environment exists |
 | GitHub production deployment branch policy | verified 2026-06-14 with readiness auditor: deployment branch policy is `main` |
 | GitHub production `X402_ENABLED` variable | verified 2026-06-14 with readiness auditor: `X402_ENABLED=false` |
@@ -114,11 +136,13 @@ Fill this ledger before undrafting or promoting a production deployment:
 | Hosted deploy readiness auditor | checked 2026-06-14: local artifacts/scripts, Vercel project metadata, GitHub production environment, main deployment branch policy, branch protection, required `preview` check, `X402_ENABLED=false`, and linked GitHub/Base/Solana production variables pass; blocked on missing required production secret names `VERCEL_TOKEN`, `DATABASE_URL`, `PRIVY_APP_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`, and `PRIVY_APP_SECRET` |
 | Target database provider and owner | blocked 2026-06-01: provider not selected and `DATABASE_URL` secret absent |
 | `fieldtheory_schema_version` output | blocked 2026-06-01: target production database not configured |
+| Target DB authenticated readback | blocked 2026-06-14: no production `DATABASE_URL`, deployment URL, or real Privy token exists for import/run/readback smoke |
 | Post-deploy `/api/health` output | blocked 2026-06-01: no production deployment URL |
 | Post-deploy `/api/contracts` output | blocked 2026-06-01: no production deployment URL |
 | Post-deploy `/api/x402/discovery` output | blocked 2026-06-01: no production deployment URL |
 | Post-deploy unauthenticated `/api/agents` status | blocked 2026-06-01: no production deployment URL |
 | Post-deploy authenticated mutation failure/success evidence | blocked 2026-06-01: no production deployment URL, Privy app config, or target database |
+| Privy linked identity proof | blocked 2026-06-14: production Privy app and real linked GitHub/Base/Solana user proof are absent; record only sanitized policy status, not raw linked-account subjects |
 | Backup/restore drill | blocked 2026-06-02: target database provider is not selected, so backup and restore evidence cannot exist yet |
 | Migration version policy | partial 2026-06-14: schema v2 adds owner-scoped run idempotency; migration-forward script exists, but rollback and backup/restore policy are not approved |
 | Audit retention policy | blocked 2026-06-02: append-only audit storage exists; retention period is not approved |

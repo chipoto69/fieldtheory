@@ -175,6 +175,30 @@ test("hosted deploy readiness emits secret-safe operator actions for blockers", 
   assert.doesNotMatch(serialized, /privy_secret_value/);
 });
 
+test("hosted deploy readiness redacts tokens wallets subjects and database URLs from remote errors", async () => {
+  const root = await makeReadyRepo();
+  const report = await evaluateHostedDeployReadiness({
+    repoRoot: root,
+    github: {
+      checked: true,
+      error: "Bearer ghp_abcdefghijklmnopqrstuvwxyz123456 token=vercel_secret secret:privy_secret DATABASE_URL=postgres://user:password@example.com/fieldtheory walletAddress=0xABCDEFabcdefABCDEFabcdefABCDEFabcdefabcd linkedAccountSubject=github-subject-123",
+      secrets: [],
+      variables: [],
+      requiredStatusChecks: [],
+    },
+  });
+
+  const serialized = JSON.stringify(report) + "\n" + formatReadinessMarkdown(report);
+  assert.doesNotMatch(serialized, /ghp_abcdefghijklmnopqrstuvwxyz123456/);
+  assert.doesNotMatch(serialized, /vercel_secret/);
+  assert.doesNotMatch(serialized, /privy_secret/);
+  assert.doesNotMatch(serialized, /postgres:\/\/user:password@example\.com/);
+  assert.doesNotMatch(serialized, /0xABCDEFabcdefABCDEFabcdefABCDEFabcdefabcd/);
+  assert.doesNotMatch(serialized, /github-subject-123/);
+  assert.match(serialized, /Bearer <redacted>/);
+  assert.match(serialized, /postgres:\/\/<redacted>/);
+});
+
 test("hosted deploy readiness scopes secret operator commands to missing names", async () => {
   const root = await makeReadyRepo();
   const presentSecrets = REQUIRED_GITHUB_SECRETS.filter((name) => ![
@@ -265,6 +289,7 @@ async function makeReadyRepo(options: { vercelLink?: boolean } = {}): Promise<st
         "verify:hosted": "npm run portal:test && npm run portal:typecheck && npm run portal:build",
         "hosted:setup-github-env": "node scripts/setup-github-production-env.mjs",
         "hosted:check-readiness": "node scripts/check-hosted-deploy-readiness.mjs",
+        "hosted:smoke": "node scripts/smoke-hosted-deployment.mjs",
       },
     }),
   );

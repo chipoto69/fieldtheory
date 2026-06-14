@@ -209,6 +209,17 @@ function readOption(name) {
 }
 
 function fail(message) {
-  console.error(`error: ${message}`);
+  console.error(`error: ${sanitizeDetail(message)}`);
   process.exit(1);
+}
+
+function sanitizeDetail(value) {
+  return String(value ?? "")
+    .replace(/\bpostgres(?:ql)?:\/\/[^\s"'<>]+/gi, "postgres://<redacted>")
+    .replace(/([a-z][a-z0-9+.-]*:\/\/)[^@\s"'<>/]+@/gi, "$1<redacted>@")
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/-]+=*/gi, "Bearer <redacted>")
+    .replace(/\b(?:ghp|gho|ghu|ghs|ghr|github_pat|vercel)_[A-Za-z0-9_]+/g, "<redacted-token>")
+    .replace(/\b0x[a-fA-F0-9]{40}\b/g, "0x<redacted>")
+    .replace(/\b(linkedAccountSubject|(?:linked[-_ ]?account[-_ ]?)?subject|wallet(?:Address)?|address|actor|username|user)\s*[:=]\s*([^\s,;}\]]+)/gi, "$1=<redacted>")
+    .replace(/\b(token|secret|password|key)\s*[:=]\s*([^\s,;}\]]+)/gi, "$1=<redacted>");
 }

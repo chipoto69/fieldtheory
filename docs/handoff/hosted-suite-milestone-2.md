@@ -1,7 +1,7 @@
 ---
 title: Hosted Suite Milestone 2 Handoff
 created: 2026-05-31
-status: milestone-2-scaffold-started
+status: scaffold-ready-live-deploy-blocked
 scope: Vercel, Privy, Gordo/Aeon, Hermes, and x402 work after local contracts pass
 tags: [handoff, vercel, privy, x402, aeon, hermes]
 ---
@@ -95,6 +95,45 @@ Privy app, redirect URLs, Base chain, Solana policy, and required env settings.
 The current server boundary fails closed when `PRIVY_APP_SECRET` is absent and
 only accepts unsigned `Bearer dev:<id>` tokens when
 `PRIVY_DEV_ALLOW_UNSIGNED=true`, for tests and local smoke only.
+
+## Final Working Product Gap
+
+The hosted suite is not yet a live working product. The latest Vercel project
+inspection reported `live=false` and `deployments=0`, so the repository
+currently proves scaffold readiness, not production availability.
+
+The next builder swarm must treat these as the required closeout artifacts after
+operator secrets are installed:
+
+```text
+operator secrets
+  -> protected production workflow
+  -> Vercel deployment URL + deployment id
+  -> public smoke JSON
+  -> target DB migration + readback proof
+  -> Privy linked identity proof
+  -> rollback deployment reference
+  -> release ledger update
+```
+
+Do not declare Milestone 2 complete until the release checklist contains:
+
+- the exact production URL returned by `vercel-production`
+- the Vercel deployment id from Vercel inspect, dashboard, or API evidence
+- saved `/api/health`, `/api/contracts`, and `/api/x402/discovery` JSON bodies
+- `fieldtheory_schema_version` version `2` read back from the same production
+  `DATABASE_URL` used by the deployment
+- one authenticated import/run/readback smoke against the durable store
+- sanitized `/api/agents` identity-policy evidence showing linked GitHub, Base
+  EVM, and Solana requirements are satisfied for a real Privy user
+- rollback deployment URL/id and the dashboard or CLI action that restores it
+
+Public smoke must prove the hosted contract shape, not only route reachability:
+`/api/health` needs `status: "configuration_ready"`, configured auth, durable
+store, mutable routes, wallet linking required, Base chain `8453`, Solana
+`mainnet-beta`, and `x402Enabled: false`. `/api/agents` must return `401`
+without a bearer token and must return sanitized actor/policy state with a real
+Privy token.
 
 ## Sample AgentBriefPack
 
@@ -252,12 +291,18 @@ Milestone 3 now has a non-enforcing fixture-backed handoff:
 3. Configure operator-owned production state: Vercel secrets, Privy app IDs and
    redirect URLs, `DATABASE_URL`, `X402_ENABLED=false`, and linked
    GitHub/Base/Solana production variables.
-4. Prove the target production Postgres store: run `db:migrate`, verify
+4. Run the protected production workflow and record the production deployment
+   URL plus Vercel deployment id. A linked Vercel project with zero deployments
+   is still blocked.
+5. Prove the target production Postgres store: run `db:migrate`, verify
    `fieldtheory_schema_version` version `2`, perform an authenticated mutation
-   plus readback smoke, and record rollback evidence.
-5. Add backup/restore and migration rollback gates before declaring the durable
+   plus readback smoke, and save redacted proof artifacts.
+6. Prove Privy linked identity gating with a real user linked to GitHub, Base
+   EVM, and Solana; store only sanitized policy status in the release evidence.
+7. Record the rollback deployment reference before promotion.
+8. Add backup/restore and migration rollback gates before declaring the durable
    store production-complete.
-6. Use the x402 Milestone 3 handoff fixtures before writing payment enforcement
+9. Use the x402 Milestone 3 handoff fixtures before writing payment enforcement
    code; keep `/api/x402/discovery` non-enforcing until a separate security
    review passes.
 
