@@ -51,5 +51,9 @@ test('loadChromeSessionConfig: --browser firefox resolves correctly', () => {
   const config = loadChromeSessionConfig({ browserId: 'firefox' });
   assert.equal(config.browser.id, 'firefox');
   assert.equal(config.browser.cookieBackend, 'firefox');
-  assert.match(config.chromeUserDataDir, /Firefox/);
+  if (process.platform === 'linux') {
+    assert.match(config.chromeUserDataDir, /\.mozilla[/\\]firefox$/);
+  } else {
+    assert.match(config.chromeUserDataDir, /Firefox/);
+  }
 });

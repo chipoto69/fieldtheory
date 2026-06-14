@@ -108,7 +108,7 @@ On first run, `ft sync` extracts your X session from your browser and downloads 
 | `ft library update <path> --stdin --expected-sha256 <hash>` | Replace a Library page with conflict protection |
 | `ft library delete <path>` | Move a Library page to Trash; the Mac app owns remote sync tombstones |
 | `ft library open <path>` | Open a Library page in the Field Theory Mac app |
-| `ft commands list` | List portable commands under `~/.fieldtheory/commands` |
+| `ft commands list` | List portable commands under `~/.fieldtheory/library/Commands` |
 | `ft commands new <name>` | Create a reusable portable command |
 | `ft commands validate [name]` | Check command shape and guardrails |
 | `ft install app` | Download and install the latest Field Theory Mac app from `afar1/field-releases` |
@@ -131,6 +131,16 @@ Packaged variants can override the bundle id with `FT_APP_BUNDLE_ID`. Advanced d
 | `ft skill install` | Install `/fieldtheory` skill for Claude Code and Codex |
 | `ft skill show` | Print skill content to stdout |
 | `ft skill uninstall` | Remove installed skill files |
+
+### Operator suite
+
+| Command | Description |
+|---------|-------------|
+| `ft suite status --json` | Show the AI operator suite manifest: CLI, docs, Raycast, skill, and MCP/plugin boundaries |
+| `ft suite architecture` | Print visual architecture documentation for MCP, skills, plugins, Raycast, and CLI planes |
+| `ft suite workflows` | Print agent/operator workflow gates and recommended command sequences |
+| `ft suite raycast manifest --json` | Show the Raycast extension manifest that wraps the CLI |
+| `ft suite raycast scaffold --out ./raycast/fieldtheory --force` | Regenerate the Raycast extension source from the CLI templates |
 
 ### Utilities
 
@@ -161,6 +171,104 @@ Then ask your agent:
 > "Every day please sync any new X bookmarks using the Field Theory CLI."
 
 Works with Claude Code, Codex, or any agent with shell access.
+
+## AI operator suite
+
+Field Theory now ships a small operator suite for agents and humans who want one
+local-first control plane instead of separate tool surfaces.
+
+- **CLI backend**: `ft suite status --json` is the stable manifest for operator
+  surfaces and future MCP wrappers.
+- **Visual docs**: `docs/architecture/operator-suite.md` maps MCP, skills,
+  plugins, model routing, product surfaces, stores, and write authority with
+  Mermaid diagrams.
+- **Workflows**: `docs/workflows/operator-suite.md` documents read-only recall,
+  reusable command packaging, skill install, Raycast operation, and canon
+  promotion gates.
+- **Browser console**: open `apps/operator-suite/index.html` for a dependency-free
+  visual console.
+- **Raycast extension**: `raycast/fieldtheory` wraps the local `ft` binary for
+  bookmark search, suite status, and curated read-only health commands.
+- **Capture-first PRD**: `docs/prd/capture-first-agentic-suite.md` defines the
+  local-first build order for clipboard/manual capture, recall packs, source
+  packets, soul drafts, and Aeon/Hermes export bundles.
+- **Capture-first CLI**: `ft capture`, `ft recall`, `ft packet bookmark`,
+  `ft soul draft`, and `ft export aeon|hermes|soul` now provide the local
+  contracts that hosted agents must consume.
+- **Environment runbook**: `docs/setup/capture-first-environment.md` lists local
+  stores, safe environment variables, validation commands, and deferred hosted
+  secrets.
+- **Agentic architecture**: `docs/architecture/capture-first-agentic-suite.md`
+  maps the capture-to-learning loop and the boundary before Vercel/Gordo/x402.
+- **Hosted handoff**: `docs/handoff/hosted-suite-milestone-2.md` is the gate for
+  later Vercel, Privy, Gordo/Aeon, Hermes, and x402 work after local contracts
+  pass.
+- **Hosted suite PRD**: `docs/prd/hosted-agentic-suite.md` defines the Vercel
+  portal, Privy GitHub/Base/Solana auth scaffold, agent run APIs, deployment
+  gates, and x402 handoff boundaries.
+- **Hosted architecture/runbook**: `docs/architecture/hosted-agentic-suite.md`
+  and `docs/setup/hosted-suite-environment.md` map endpoints, data flows,
+  deployment secrets, and production gates before implementation starts.
+- **Hosted implementation contracts**: `docs/api/hosted-suite-endpoints.md`,
+  `docs/data/hosted-suite-data-model.md`,
+  `docs/security/hosted-suite-threat-model.md`,
+  `docs/deploy/vercel-github-actions.md`, and
+  `docs/release/milestone-2-hosted-readiness.md` are the required M2 gates.
+- **Hosted portal scaffold**: `apps/portal` is the initial Next.js App Router
+  control plane with dry-run validation, agent-plan APIs, and
+  `DATABASE_URL`-backed Postgres persistence for hosted import/run/audit
+  metadata. Run `npm run verify:hosted`; run
+  `npm --prefix apps/portal run db:migrate` before production traffic.
+- **Hosted deploy readiness auditor**: `npm run hosted:check-readiness -- --remote --strict`
+  checks local release artifacts, package scripts, Vercel project metadata,
+  GitHub production environment policy, required secret names, and
+  `X402_ENABLED=false` without printing secret values. Production readiness also
+  requires explicit linked GitHub/Base/Solana policy variables:
+  `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true`, Base mainnet `8453`, and Solana
+  `mainnet-beta` with matching public mirrors.
+- **Next feature plan**: `docs/features/agent-brief-packs.md` specifies the
+  proposed recall/source-packet/dispatch bridge from bookmarks to agent work.
+
+What is shipped now:
+
+- The M1 CLI/Raycast layer is the shippable local product surface: capture,
+  recall, packets, soul drafts, and dry-run Aeon/Hermes export bundles.
+- The M2 hosted portal is a validated control-plane scaffold with server-side
+  auth checks, browser Privy login controls, an example-backed operator
+  workbench with live readiness/identity status, sanitized import readback,
+  recent run history, selected run detail, dry-run agent APIs,
+  health/contracts/x402 discovery routes, Postgres metadata persistence, and
+  protected Vercel production workflow gates.
+- The hosted portal is not production-live until the Vercel project, production
+  environment secrets, server-side linked GitHub/Base/Solana identity policy,
+  target database migration proof, and post-deploy smoke evidence are recorded.
+- Apply gates, GitHub writeback, Hermes writeback, and x402 enforcement remain
+  out of scope until their handoff documents pass review.
+
+Hosted environment bootstrap:
+
+```bash
+npm run hosted:setup-github-env -- --repo chipoto69/fieldtheory --apply --allow-missing-secrets --protect-main
+npm run hosted:check-readiness -- --remote --strict
+```
+
+This creates or verifies the GitHub `production` environment, the `main`
+deployment branch policy, `main` branch protection requiring the `preview`
+check, `X402_ENABLED=false`, and the required GitHub/Base/Solana linked-identity
+policy variables; it reports missing secrets without storing secret values.
+
+Raycast development:
+
+```bash
+ft suite raycast scaffold --out ./raycast/fieldtheory --force
+cd raycast/fieldtheory
+npm install
+npm run dev
+```
+
+Future MCP work should wrap existing CLI JSON commands first. Do not give MCP,
+Raycast, or plugins independent write access to `bookmarks.db`, Library
+markdown, or portable command files.
 
 ## Scheduling
 
@@ -202,8 +310,9 @@ Data is stored locally under `~/.fieldtheory/`:
 
 ~/.fieldtheory/library/
   index.md                # markdown knowledge base (ft wiki / ft md)
+  Captures/               # clipboard/manual capture staging
 
-~/.fieldtheory/commands/
+~/.fieldtheory/library/Commands/
   *.md                    # portable commands used by Field Theory and agents
 
 ~/.fieldtheory/ideas/
@@ -268,7 +377,9 @@ Session sync extracts cookies from your browser's local database. Use `ft sync -
 
 ## Security
 
-**Your data stays local.** No telemetry, no analytics, nothing phoned home. The CLI only makes network requests to X's API during sync.
+**CLI mode keeps your data local.** No telemetry, no analytics, nothing phoned home. The CLI only makes network requests to X's API during sync.
+
+**Hosted mode is separate.** The `apps/portal` scaffold validates uploaded Field Theory briefs/exports and writes hosted audit/run metadata only after Privy server auth and `DATABASE_URL` are configured. Production ignores the memory-store override, requires the Postgres schema marker from `db:migrate`, and does not read local CLI stores directly.
 
 **Chrome session sync** reads cookies from Chrome's local database, uses them for the sync request, and discards them. Cookies are never stored separately.
 

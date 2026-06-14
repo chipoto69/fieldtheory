@@ -1,0 +1,381 @@
+---
+title: Hosted Suite Environment Runbook
+created: 2026-05-31
+status: draft-implementation-contract
+scope: local, CI, Vercel, Privy, and x402 setup for the hosted suite
+tags: [setup, vercel, privy, github-actions, x402]
+---
+
+# Hosted Suite Environment Runbook
+
+## Current State
+
+This repo currently has Milestone 1 CLI contracts, static/Raycast operator
+surfaces, and the first Milestone 2 hosted scaffold:
+
+- `apps/portal` Next.js App Router app
+- portal `vercel.json`
+- preview and production GitHub Actions workflows with CI, Postgres migration
+  smoke, Vercel deploy steps, and production public endpoint smoke
+- dry-run API route handlers for health, contracts, validation, agents,
+  Gordo/Aeon import plans, Hermes import plans, and x402 discovery
+- server-side Privy access-token verification with a local/test-only dev token
+  bypass
+- browser-side Privy provider/login controls and an authenticated paste-to-validate
+  operator workbench
+- local-only browser operator mode for no-secret UI smoke; it is disabled in
+  production and depends on the server-side unsigned dev-token gate
+- env-gated linked GitHub/Base/Solana identity policy scaffold; development
+  auth does not fabricate wallet or GitHub identities and cannot satisfy the
+  required policy, and protected write routes reject unsatisfied identities
+  before hosted store writes
+- `DATABASE_URL`-backed Postgres adapter for imports, runs, and audit events
+- explicit `npm --prefix apps/portal run db:migrate` schema bootstrap
+
+It still does not have:
+
+- production Vercel project linkage or secrets
+- production Privy app identity policy configuration and operator-owned policy
+  decisions
+- apply gates
+- x402 enforcement
+
+Do not add production deploy secrets before the portal build and endpoint gates
+pass in CI and the Vercel project is explicitly linked.
+
+## Required Local Environment
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `PRIVY_APP_ID` | M2 server | Server Privy app id for bearer-token verification. |
+| `NEXT_PUBLIC_PRIVY_APP_ID` | M2 scaffold | Public Privy app id for browser auth. Production health requires this to match `PRIVY_APP_ID`. |
+| `PRIVY_APP_SECRET` | M2 server | Server-side Privy verification where needed. |
+| `PRIVY_JWT_VERIFICATION_KEY` | M2 server optional | Dashboard verification key; avoids a runtime key fetch when set. |
+| `DATABASE_URL` | M2 production | Postgres connection string for hosted imports, runs, and audit events. Required for production mutations. |
+| `FIELD_THEORY_CONTRACT_FIXTURE_DIR` | M2 tests | Points tests at generated M1 smoke fixtures. |
+| `FIELD_THEORY_AUDIT_STORE` | M2 local | Local JSON/sqlite audit store path for development. |
+| `FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE` | tests only | Allows in-memory mutations outside production; production ignores it when `DATABASE_URL` is absent. |
+| `FIELD_THEORY_PORTAL_AUTO_CREATE_SCHEMA` | local or break-glass only | Optional local bootstrap convenience. Keep `false` in normal production and run `db:migrate`. |
+| `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES` | M2 wallet scaffold | Set `true` to require linked GitHub, Base EVM, and Solana identities before protected write routes. Defaults to `false`. |
+| `FIELD_THEORY_LOAD_PRIVY_USER` | M2 wallet scaffold | Optional `true` to resolve Privy linked accounts for status display even when the policy is not required. |
+| `FIELD_THEORY_BASE_CHAIN_ID` | M2 wallet scaffold | Server-side Base chain id required by the linked identity policy. Defaults to `NEXT_PUBLIC_BASE_CHAIN_ID` or `84532`; production readiness requires explicit Base mainnet `8453`. |
+| `FIELD_THEORY_SOLANA_CLUSTER` | M2 wallet scaffold | Server-side Solana cluster label required by the linked identity policy. Defaults to `NEXT_PUBLIC_SOLANA_CLUSTER` or `devnet`; production readiness requires explicit `mainnet-beta`. |
+| `NEXT_PUBLIC_BASE_CHAIN_ID` | M2 scaffold | Browser Base network selection. Must match `FIELD_THEORY_BASE_CHAIN_ID` for production readiness. |
+| `NEXT_PUBLIC_SOLANA_CLUSTER` | M2 scaffold | Browser Solana cluster selection. Must match `FIELD_THEORY_SOLANA_CLUSTER` for production readiness. |
+| `NEXT_PUBLIC_FIELD_THEORY_LOCAL_OPERATOR` | local smoke only | Set `true` outside production to let the browser workbench send `Bearer dev:<operator>` for no-secret route smoke. Requires server-side dev auth and is ignored in production. |
+| `NEXT_PUBLIC_FIELD_THEORY_LOCAL_OPERATOR_ID` | local smoke only | Optional local operator id for the dev bearer token. Must be 1-80 characters from letters, numbers, `.`, `_`, `:`, or `-`. Defaults to `operator`. |
+| `X402_ENABLED` | M3 only | Must default false. |
+| `X402_FACILITATOR_URL` | M3 only | Optional facilitator endpoint after review. |
+| `X402_RECEIVING_ADDRESS` | M3 only | Payment recipient address after review. |
+
+## GitHub Secrets for Vercel
+
+| Secret | Required | Notes |
+|---|---|---|
+| `VERCEL_TOKEN` | yes | Used by GitHub Actions to pull env and deploy. |
+| `VERCEL_ORG_ID` | yes | Generated by `vercel pull`; store in GitHub secrets. |
+| `VERCEL_PROJECT_ID` | yes | Generated by `vercel pull`; store in GitHub secrets. |
+| `PRIVY_APP_ID` | after auth server gate | Server-only unless also copied to the public app id. |
+| `NEXT_PUBLIC_PRIVY_APP_ID` | after auth scaffold | Public but environment-specific. |
+| `PRIVY_APP_SECRET` | after auth scaffold | Server-only; never expose to browser. |
+| `PRIVY_JWT_VERIFICATION_KEY` | optional | Server-only verification key from the Privy dashboard. |
+| `DATABASE_URL` | before production mutations | Vercel Postgres/Neon/Supabase connection string; run schema migration before deploy. |
+| `FIELD_THEORY_PRODUCTION_SMOKE_BEARER_TOKEN` | before production promotion | Real Privy bearer token for a smoke operator with linked GitHub, Base EVM, and Solana identities. Required for authenticated import/run/readback smoke. |
+| `X402_ENABLED` | production variable | GitHub production environment variable, not a secret. Keep explicitly `false` until the x402 handoff passes. |
+
+| Variable | Production value | Notes |
+|---|---|---|
+| `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES` | `true` | Required so protected hosted writes require linked GitHub, Base EVM, and Solana identities. |
+| `FIELD_THEORY_BASE_CHAIN_ID` | `8453` | Server-side Base mainnet policy. |
+| `NEXT_PUBLIC_BASE_CHAIN_ID` | `8453` | Browser mirror; must match the server-side value. |
+| `FIELD_THEORY_SOLANA_CLUSTER` | `mainnet-beta` | Server-side Solana policy label. |
+| `NEXT_PUBLIC_SOLANA_CLUSTER` | `mainnet-beta` | Browser mirror; must match the server-side value. |
+| `FIELD_THEORY_FIRST_PRODUCTION_RELEASE` | `true` for initial launch only | Explicit first-release posture when no prior production deployment exists; remove after the first promotion. |
+| `FIELD_THEORY_ROLLBACK_REF` | previous known-good deployment | Required for later launches so the evidence manifest records a real rollback target. |
+
+Bootstrap the non-secret GitHub environment state before adding secrets:
+
+```bash
+npm run hosted:setup-github-env -- --repo chipoto69/fieldtheory --apply --allow-missing-secrets --protect-main
+```
+
+That command creates or updates the `production` environment, adds a deployment
+branch policy for `main`, sets the non-secret variables `X402_ENABLED=false`,
+`FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true`, Base mainnet `8453`, and Solana
+`mainnet-beta` plus their browser mirrors, optionally protects `main` with the
+required `preview` check, and prints the missing required secrets. It never
+reads or writes secret values. Run the same command without
+`--allow-missing-secrets` when the production environment should fail the check
+until all required secrets are present.
+
+Vercel's GitHub Actions documentation recommends installing Vercel CLI, running
+`vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}`,
+then `vercel build`, then `vercel deploy --prebuilt`. Use separate workflows for
+preview and production.
+
+The repository workflows run `db:migrate` against their own CI Postgres service.
+That proves the migration script and schema contract. The protected production
+workflow also runs `db:migrate` against the target `DATABASE_URL` secret before
+Vercel build. Before routing real traffic, verify `fieldtheory_schema_version`
+on the target database and smoke the deployed routes.
+
+## Privy Setup Gate
+
+Before coding auth:
+
+1. Create or select the Privy app in the dashboard.
+2. Enable GitHub OAuth login.
+3. Enable wallet auth for Ethereum SIWE and Solana SIWS.
+4. Decide whether embedded wallets are in scope. If they are, configure Solana
+   RPC clients and connectors as required by Privy's Solana guide.
+5. Set `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true` only after GitHub OAuth,
+   Base EVM chain id, and Solana wallet policy are agreed. The Solana cluster
+   value is a policy label for this scaffold; it is not proof of chain-specific
+   Solana settlement.
+6. Document allowed redirect URLs for local preview, Vercel preview, and
+   production.
+
+## x402 Setup Gate
+
+x402 remains disabled until a dedicated handoff verifies:
+
+- endpoint inventory
+- price policy per endpoint
+- facilitator `/verify` and `/settle` assumptions
+- replay protection
+- failure semantics when payment is missing or invalid
+- privacy review of payment metadata
+- audit log shape
+
+The current non-enforcing handoff lives in
+`docs/handoff/x402-milestone-3.md`. The live discovery route must continue to
+mirror `apps/portal/src/lib/x402-discovery.v1.json` and the downstream fixture
+`apps/portal/tests/fixtures/x402-discovery.v1.json` while `X402_ENABLED=false`.
+
+The x402 docs describe the basic flow as request, HTTP 402 response with payment
+instructions, payment payload submission, verify/settle, then resource delivery.
+This repo must not implement settlement until those gates pass.
+
+## Hosted M2 Local Smoke
+
+Run this before handing the portal to another swarm:
+
+```bash
+npm ci
+npm --prefix apps/portal ci
+cp .env.example .env
+npm run verify:hosted
+npm --prefix apps/portal run dev -- --hostname 127.0.0.1 --port 3000
+```
+
+In a second shell:
+
+```bash
+curl -fsS http://127.0.0.1:3000/api/health
+curl -fsS http://127.0.0.1:3000/api/contracts
+curl -fsS http://127.0.0.1:3000/api/x402/discovery
+curl -i -X POST http://127.0.0.1:3000/api/briefs/validate
+```
+
+The final POST should fail closed without a valid Privy access token. For local
+route-handler tests only, the test suite sets `PRIVY_DEV_ALLOW_UNSIGNED=true`
+and injects a verifier. That dev path authenticates a test actor only; it does
+not claim linked GitHub, Base EVM, or Solana identities. Do not enable that
+bypass in production.
+
+For no-secret browser smoke, run the dev server with both server-side dev auth
+and the client-side local operator flag:
+
+```bash
+export PRIVY_APP_ID=local-dev
+export PRIVY_APP_SECRET=local-secret
+export PRIVY_DEV_ALLOW_UNSIGNED=true
+export NEXT_PUBLIC_FIELD_THEORY_LOCAL_OPERATOR=true
+export NEXT_PUBLIC_FIELD_THEORY_LOCAL_OPERATOR_ID=operator
+npm --prefix apps/portal run dev -- --hostname 127.0.0.1 --port 3000
+```
+
+Open the workbench, paste a valid `AgentBriefPack` or
+`fieldtheory.agent-export.v1` manifest, validate it, and create a dry-run agent
+run. This proves the browser route wiring only. It does not prove production
+Privy login, linked wallet policy, durable Postgres readiness, payment
+authority, or x402 enforcement.
+
+## Hosted Deployment Smoke
+
+After the production workflow returns a deployment URL, run the shared smoke
+script instead of hand-maintaining curl snippets:
+
+```bash
+export FIELD_THEORY_DEPLOYMENT_URL="https://<vercel-production-url>"
+npm run hosted:smoke -- --json
+```
+
+Public smoke requires:
+
+- `/api/health` reports `configuration_ready`, matching server/browser Privy
+  app IDs, configured auth, configured durable store, mutable routes ready,
+  wallet linking required, Base chain `8453`, Solana cluster `mainnet-beta`,
+  and `x402Enabled=false`
+- `/api/contracts` remains apply-disabled
+- `/api/x402/discovery` remains non-enforcing
+- unauthenticated `/api/agents` returns `401`
+
+For authenticated production proof, use a real Privy bearer token for a smoke
+operator with linked GitHub, Base EVM, and Solana identities. Keep the token in
+`FIELD_THEORY_SMOKE_BEARER_TOKEN`, never in a command argument:
+
+```bash
+export FIELD_THEORY_SMOKE_BEARER_TOKEN="<operator-owned-token>"
+npm run hosted:smoke -- --base-url "$FIELD_THEORY_DEPLOYMENT_URL" --fixture /path/to/agent-brief-pack.json --json
+```
+
+The authenticated path validates the operator status, persists one valid import,
+creates one dry-run run with an idempotency key, and reads the run back from the
+durable store. The smoke report contains endpoint names, status codes, and
+sanitized pass/fail reasons only; it must not print bearer tokens, wallet
+addresses, linked-account subjects, request bodies, or database URLs.
+
+After collecting the deploy URL, Vercel inspect output, public smoke JSON,
+authenticated smoke JSON, database schema readback, Privy linked-identity proof,
+and rollback posture, write the release proof bundle:
+
+```bash
+npm run hosted:collect-evidence -- \
+  --deployment-url "$FIELD_THEORY_DEPLOYMENT_URL" \
+  --rollback-ref "$FIELD_THEORY_ROLLBACK_REF" \
+  --vercel-inspect /path/to/vercel-inspect.txt \
+  --public-smoke /path/to/production-smoke-public.json \
+  --authenticated-smoke /path/to/production-smoke-authenticated.json \
+  --db-schema /path/to/production-db-schema.txt \
+  --privy-identity /path/to/production-privy-identity.json \
+  --out docs/release/evidence/hosted-production
+```
+
+The collector writes `manifest.json` and `README.md`; it exits non-zero until
+every required artifact is present and passes the release contract.
+For the initial launch only, use `--first-production-release` instead of
+`--rollback-ref`. Later launches must use `--rollback-ref` with the previous
+known-good production deployment URL/id.
+
+## Postgres Durable Store Smoke
+
+Production mutations require `DATABASE_URL` and a migrated schema. Use any
+Postgres-compatible provider Vercel can reach, or run a local container:
+
+```bash
+docker run --rm --name fieldtheory-postgres \
+  -e POSTGRES_USER=fieldtheory \
+  -e POSTGRES_PASSWORD=fieldtheory \
+  -e POSTGRES_DB=fieldtheory_portal \
+  -p 5432:5432 \
+  postgres:16
+```
+
+In a second shell:
+
+```bash
+export DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal"
+export PRIVY_APP_ID=local-dev
+export NEXT_PUBLIC_PRIVY_APP_ID=local-dev
+export PRIVY_APP_SECRET=local-secret
+export PRIVY_DEV_ALLOW_UNSIGNED=true
+unset FIELD_THEORY_PORTAL_ALLOW_MEMORY_STORE
+
+npm --prefix apps/portal run db:migrate
+npm --prefix apps/portal run dev -- --hostname 127.0.0.1 --port 3000
+```
+
+Smoke the public routes, then prove authenticated imports write durable rows:
+
+```bash
+curl -fsS http://127.0.0.1:3000/api/health
+curl -fsS http://127.0.0.1:3000/api/contracts
+curl -fsS http://127.0.0.1:3000/api/x402/discovery
+curl -i -H "Authorization: Bearer dev:operator" \
+  -H "Content-Type: application/json" \
+  --data @"$FIELD_THEORY_CONTRACT_FIXTURE_DIR/recall.json" \
+  http://127.0.0.1:3000/api/briefs/validate
+psql "$DATABASE_URL" -c "select count(*) from fieldtheory_imports;"
+psql "$DATABASE_URL" -c "select count(*) from fieldtheory_audit_events;"
+```
+
+The route adapter can auto-create schema only outside production, or in
+production only when `FIELD_THEORY_PORTAL_AUTO_CREATE_SCHEMA=true` is explicitly
+set for a controlled break-glass recovery. Normal production deploys must run
+`db:migrate` before traffic and keep that variable unset.
+
+## CI Matrix
+
+| Gate | Command |
+|---|---|
+| CLI contracts | `HOME="$(mktemp -d)" npm test` |
+| CLI build | `npm run build` |
+| Release package | `npm run release:check` |
+| Raycast | `npm --prefix raycast/fieldtheory run lint && npm --prefix raycast/fieldtheory run build` |
+| Portal unit tests | `npm --prefix apps/portal test` |
+| Portal build | `npm --prefix apps/portal run build` |
+| Portal route smoke | `npm --prefix apps/portal run test:e2e` |
+| Portal DB schema | `DATABASE_URL=postgres://... npm --prefix apps/portal run db:migrate` |
+| Portal DB route smoke | `DATABASE_URL=postgres://... npm run portal:test:db` |
+| Hosted deploy readiness | `npm run hosted:check-readiness -- --remote --strict` |
+| Hosted deployment smoke | `FIELD_THEORY_DEPLOYMENT_URL=https://... npm run hosted:smoke -- --json` |
+| Hosted release evidence | `npm run hosted:collect-evidence -- --deployment-url https://... --rollback-ref ... --vercel-inspect ... --public-smoke ... --authenticated-smoke ... --db-schema ... --privy-identity ...` or initial launch variant with `--first-production-release` |
+| Vercel preview | `vercel build && vercel deploy --prebuilt` from GitHub Actions |
+| Vercel production | same as preview, but only from protected `main` |
+
+Portal gates now execute against `apps/portal`. Production deploy remains blocked
+until those gates pass in CI and real Vercel/Privy secrets are configured.
+The CI Postgres migration and DB route smoke are throwaway proofs only.
+Production readiness also requires the protected production workflow to migrate
+the target `DATABASE_URL`, pass `npm run hosted:smoke` against the deployed URL,
+and write a ready `fieldtheory.hosted-release-evidence.v1` manifest with
+`npm run hosted:collect-evidence`.
+
+`npm run hosted:check-readiness -- --remote --strict --json` is the local
+auditor for that final preflight. It reports machine-readable `status`,
+`blockers`, `warnings`, and `operatorActions`; it checks secret names only and
+never prints secret values. `operatorActions[]` is the safe handoff checklist
+for the next authenticated operator: Vercel linking, GitHub environment
+bootstrap, missing secret-name population, branch-protection drift, and the
+required `X402_ENABLED=false` policy. It requires `X402_ENABLED=false`
+explicitly for production readiness.
+
+The in-memory import/run/audit adapter is local/test only. In production mode,
+protected mutation routes return `durable_store_not_configured` unless
+`DATABASE_URL` is set. When `DATABASE_URL` is present, production checks the
+schema marker created by `db:migrate` and returns `store_schema_not_ready`
+instead of creating tables from request handlers.
+
+Export imports currently persist only sanitized metadata: target, run id,
+run-scoped `relPath` values, file hashes, forbidden writes, and result envelope
+status/counts. Warning text, raw details, and source snippets are intentionally
+discarded from the persisted summary. Absolute `files[].path` metadata is
+ignored and never used for routing.
+
+## Production Deployment Gate
+
+Production deploy is allowed only when:
+
+- PR is not draft.
+- Branch has merged through protected `main`.
+- CLI gates and portal gates pass in GitHub Actions.
+- GitHub `production` environment exists with deployment branch policy `main`
+  and `X402_ENABLED=false`.
+- `main` is protected with the required `preview` check, no force pushes or
+  deletions, linear history, conversation resolution, and admin enforcement.
+- Vercel project id and org id are set as GitHub secrets.
+- `apps/portal/.vercel/project.json` exists locally after `vercel pull` or
+  project linking.
+- `DATABASE_URL` is set in both Vercel and the GitHub production environment,
+  and the production workflow has migrated the target schema.
+- `PRIVY_APP_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`, and `PRIVY_APP_SECRET` are set in
+  both Vercel and the GitHub production environment.
+- Privy redirect URLs include the production domain.
+- GitHub and Vercel production variables set
+  `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true`,
+  `FIELD_THEORY_BASE_CHAIN_ID=8453`, `NEXT_PUBLIC_BASE_CHAIN_ID=8453`,
+  `FIELD_THEORY_SOLANA_CLUSTER=mainnet-beta`, and
+  `NEXT_PUBLIC_SOLANA_CLUSTER=mainnet-beta`.
+- `X402_ENABLED=false` unless the x402 handoff has passed.
+- The deployment workflow uses `vercel deploy --prebuilt --prod`.

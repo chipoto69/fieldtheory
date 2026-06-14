@@ -1,0 +1,228 @@
+name: vercel-production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  production:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fieldtheory
+          POSTGRES_PASSWORD: fieldtheory
+          POSTGRES_DB: fieldtheory_portal_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fieldtheory -d fieldtheory_portal_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      PRODUCTION_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      PRODUCTION_PRIVY_APP_ID: ${{ secrets.PRIVY_APP_ID }}
+      PRODUCTION_NEXT_PUBLIC_PRIVY_APP_ID: ${{ secrets.NEXT_PUBLIC_PRIVY_APP_ID }}
+      PRODUCTION_PRIVY_APP_SECRET: ${{ secrets.PRIVY_APP_SECRET }}
+      PRODUCTION_PRIVY_JWT_VERIFICATION_KEY: ${{ secrets.PRIVY_JWT_VERIFICATION_KEY }}
+      FIELD_THEORY_SMOKE_BEARER_TOKEN: ${{ secrets.FIELD_THEORY_PRODUCTION_SMOKE_BEARER_TOKEN }}
+      X402_ENABLED: ${{ vars.X402_ENABLED }}
+      FIELD_THEORY_REQUIRE_LINKED_IDENTITIES: ${{ vars.FIELD_THEORY_REQUIRE_LINKED_IDENTITIES }}
+      FIELD_THEORY_BASE_CHAIN_ID: ${{ vars.FIELD_THEORY_BASE_CHAIN_ID }}
+      NEXT_PUBLIC_BASE_CHAIN_ID: ${{ vars.NEXT_PUBLIC_BASE_CHAIN_ID }}
+      FIELD_THEORY_SOLANA_CLUSTER: ${{ vars.FIELD_THEORY_SOLANA_CLUSTER }}
+      NEXT_PUBLIC_SOLANA_CLUSTER: ${{ vars.NEXT_PUBLIC_SOLANA_CLUSTER }}
+      FIELD_THEORY_ROLLBACK_REF: ${{ vars.FIELD_THEORY_ROLLBACK_REF }}
+      FIELD_THEORY_FIRST_PRODUCTION_RELEASE: ${{ vars.FIELD_THEORY_FIRST_PRODUCTION_RELEASE }}
+      EVIDENCE_DIR: ${{ runner.temp }}/fieldtheory-release-evidence
+      VERCEL_CLI_VERSION: 54.6.1
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            raycast/fieldtheory/package-lock.json
+            apps/portal/package-lock.json
+      - name: Require production deploy secrets
+        run: |
+          missing=0
+          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID PRODUCTION_DATABASE_URL PRODUCTION_PRIVY_APP_ID PRODUCTION_NEXT_PUBLIC_PRIVY_APP_ID PRODUCTION_PRIVY_APP_SECRET FIELD_THEORY_SMOKE_BEARER_TOKEN; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Production deploy requires $name."
+              missing=1
+            fi
+          done
+          if [ -n "${PRODUCTION_PRIVY_APP_ID:-}" ] && [ -n "${PRODUCTION_NEXT_PUBLIC_PRIVY_APP_ID:-}" ] && [ "${PRODUCTION_PRIVY_APP_ID:-}" != "${PRODUCTION_NEXT_PUBLIC_PRIVY_APP_ID:-}" ]; then
+            echo "::error::Production deploy requires PRIVY_APP_ID and NEXT_PUBLIC_PRIVY_APP_ID to match."
+            missing=1
+          fi
+          if [ "${X402_ENABLED:-}" != "false" ]; then
+            echo "::error::Production deploy requires an explicit X402_ENABLED=false variable until the x402 handoff is implemented."
+            missing=1
+          fi
+          if [ "${FIELD_THEORY_REQUIRE_LINKED_IDENTITIES:-}" != "true" ]; then
+            echo "::error::Production deploy requires FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true."
+            missing=1
+          fi
+          if [ "${FIELD_THEORY_BASE_CHAIN_ID:-}" != "8453" ]; then
+            echo "::error::Production deploy requires FIELD_THEORY_BASE_CHAIN_ID=8453 for Base mainnet."
+            missing=1
+          fi
+          if [ "${NEXT_PUBLIC_BASE_CHAIN_ID:-}" != "${FIELD_THEORY_BASE_CHAIN_ID:-}" ]; then
+            echo "::error::Production deploy requires NEXT_PUBLIC_BASE_CHAIN_ID to match FIELD_THEORY_BASE_CHAIN_ID."
+            missing=1
+          fi
+          if [ "${FIELD_THEORY_SOLANA_CLUSTER:-}" != "mainnet-beta" ]; then
+            echo "::error::Production deploy requires FIELD_THEORY_SOLANA_CLUSTER=mainnet-beta."
+            missing=1
+          fi
+          if [ "${NEXT_PUBLIC_SOLANA_CLUSTER:-}" != "${FIELD_THEORY_SOLANA_CLUSTER:-}" ]; then
+            echo "::error::Production deploy requires NEXT_PUBLIC_SOLANA_CLUSTER to match FIELD_THEORY_SOLANA_CLUSTER."
+            missing=1
+          fi
+          exit "$missing"
+      - run: npm ci
+      - run: npm run build
+      - run: HOME="$(mktemp -d)" npm test
+      - run: npm run release:check
+      - run: git diff --check
+      - run: npm --prefix raycast/fieldtheory ci
+      - run: npm --prefix raycast/fieldtheory run lint
+      - run: npm --prefix raycast/fieldtheory run build
+      - run: npm --prefix apps/portal ci
+      - run: DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal_ci" npm --prefix apps/portal run db:migrate
+      - run: DATABASE_URL="postgres://fieldtheory:fieldtheory@127.0.0.1:5432/fieldtheory_portal_ci" npm run portal:test:db
+      - run: npm run verify:hosted
+      - run: npm install --global "vercel@$VERCEL_CLI_VERSION"
+      - name: Migrate target production database
+        run: |
+          mkdir -p "$EVIDENCE_DIR"
+          npm --prefix apps/portal run db:migrate
+          npm --prefix apps/portal run db:schema-version > "$EVIDENCE_DIR/production-db-schema.json"
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - name: Pull Vercel production environment
+        working-directory: apps/portal
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+      - name: Verify Vercel production runtime env names
+        working-directory: apps/portal
+        run: |
+          vercel env ls production --token="$VERCEL_TOKEN" > /tmp/fieldtheory-vercel-env.txt
+          missing=0
+          for name in DATABASE_URL PRIVY_APP_ID NEXT_PUBLIC_PRIVY_APP_ID PRIVY_APP_SECRET X402_ENABLED FIELD_THEORY_REQUIRE_LINKED_IDENTITIES FIELD_THEORY_BASE_CHAIN_ID NEXT_PUBLIC_BASE_CHAIN_ID FIELD_THEORY_SOLANA_CLUSTER NEXT_PUBLIC_SOLANA_CLUSTER; do
+            if ! grep -Eq "(^|[[:space:]])${name}([[:space:]]|$)" /tmp/fieldtheory-vercel-env.txt; then
+              echo "::error::Vercel production runtime env is missing $name."
+              missing=1
+            fi
+          done
+          exit "$missing"
+      - name: Build Vercel production artifact
+        working-directory: apps/portal
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+      - name: Deploy staged Vercel production artifact
+        id: deploy
+        working-directory: apps/portal
+        run: |
+          deployment_output="$(vercel deploy --prebuilt --prod --skip-domain --token="$VERCEL_TOKEN")"
+          printf '%s\n' "$deployment_output"
+          deployment_url="$(printf '%s\n' "$deployment_output" | awk '/^https:\/\// { url=$0 } END { print url }')"
+          case "$deployment_url" in
+            https://*) ;;
+            *)
+              echo "::error::Vercel deploy did not return an https deployment URL."
+              exit 1
+              ;;
+          esac
+          echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
+          echo "deployment_ref=$deployment_url" >> "$GITHUB_OUTPUT"
+          vercel inspect "$deployment_url" --token="$VERCEL_TOKEN" > "$EVIDENCE_DIR/vercel-inspect.txt"
+      - name: Smoke production public endpoints
+        run: |
+          npm run hosted:smoke -- --base-url "${{ steps.deploy.outputs.url }}" --json \
+            | tee "$EVIDENCE_DIR/production-smoke-public.json"
+      - name: Smoke authenticated production endpoints
+        run: |
+          fixture="$(mktemp)"
+          cat > "$fixture" <<'JSON'
+          {
+            "id": "production-smoke-brief",
+            "version": "agent-brief-pack.v1",
+            "kind": "recall_pack",
+            "generatedAt": "2026-06-14T00:00:00.000Z",
+            "input": { "query": "production smoke" },
+            "limits": { "captures": 1, "library": 1, "commands": 1, "bookmarks": 1 },
+            "storeStatus": [{ "store": "captures", "status": "available" }],
+            "evidence": [{
+              "id": "ev-smoke",
+              "sourceType": "capture",
+              "title": "Production smoke fixture",
+              "locator": "production-smoke",
+              "excerpt": "Fixture proves hosted import and dry-run readback wiring.",
+              "rank": 1,
+              "sourceRank": 1,
+              "score": 1,
+              "scoreReason": "production-smoke",
+              "retrievedAt": "2026-06-14T00:00:00.000Z",
+              "tags": []
+            }],
+            "boundaries": [{
+              "id": "boundary-smoke",
+              "authority": "dry-run",
+              "gate": "production smoke",
+              "rule": "No external writes.",
+              "reason": "Smoke validates hosted contracts only.",
+              "forbiddenActions": ["external_dispatch"],
+              "evidenceIds": ["ev-smoke"]
+            }],
+            "promotionCandidates": [],
+            "summaryClaims": [{ "text": "Hosted smoke fixture is dry-run only.", "evidenceIds": ["ev-smoke"] }],
+            "typedSlots": [],
+            "suggestedCommands": [],
+            "resultEnvelope": { "status": "complete", "resultCount": 1, "warnings": [], "generatedBy": "fieldtheory" }
+          }
+          JSON
+          npm run hosted:smoke -- --base-url "${{ steps.deploy.outputs.url }}" --fixture "$fixture" --json \
+            | tee "$EVIDENCE_DIR/production-smoke-authenticated.json"
+          curl -fsS \
+            -H "Authorization: Bearer $FIELD_THEORY_SMOKE_BEARER_TOKEN" \
+            "${{ steps.deploy.outputs.url }}/api/agents" \
+            > "$EVIDENCE_DIR/production-privy-identity.json"
+      - name: Collect hosted release evidence
+        run: |
+          rollback_args=()
+          if [ -n "${FIELD_THEORY_ROLLBACK_REF:-}" ]; then
+            rollback_args+=(--rollback-ref "$FIELD_THEORY_ROLLBACK_REF")
+          fi
+          if [ "${FIELD_THEORY_FIRST_PRODUCTION_RELEASE:-}" = "true" ]; then
+            rollback_args+=(--first-production-release)
+          fi
+          npm run hosted:collect-evidence -- \
+            --deployment-url "${{ steps.deploy.outputs.url }}" \
+            --vercel-inspect "$EVIDENCE_DIR/vercel-inspect.txt" \
+            --public-smoke "$EVIDENCE_DIR/production-smoke-public.json" \
+            --authenticated-smoke "$EVIDENCE_DIR/production-smoke-authenticated.json" \
+            --db-schema "$EVIDENCE_DIR/production-db-schema.json" \
+            --privy-identity "$EVIDENCE_DIR/production-privy-identity.json" \
+            --out "$EVIDENCE_DIR/sanitized" \
+            --json \
+            "${rollback_args[@]}"
+      - name: Promote staged deployment to production
+        working-directory: apps/portal
+        run: vercel promote "${{ steps.deploy.outputs.url }}" --yes --timeout=5m --token="$VERCEL_TOKEN"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hosted-production-release-evidence
+          path: ${{ runner.temp }}/fieldtheory-release-evidence/sanitized
+          if-no-files-found: ignore

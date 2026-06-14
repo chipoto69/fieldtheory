@@ -1,5 +1,12 @@
 node_modules/
 dist/
 *.js.map
+.DS_Store
 .env
 .env.local
+apps/portal/.next/
+apps/portal/.vercel/
+apps/portal/out/
+apps/portal/coverage/
+apps/portal/tsconfig.tsbuildinfo
+raycast/fieldtheory/raycast-env.d.ts

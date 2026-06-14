@@ -1,6 +1,6 @@
 {
   "name": "fieldtheory",
-  "version": "1.3.20",
+  "version": "1.7.1",
   "description": "Field Theory CLI. Self-custody for your X/Twitter bookmarks. Local sync, full-text search, classification, and terminal dashboards.",
   "type": "module",
   "bin": {
@@ -9,15 +9,44 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "tsx --test tests/**/*.test.ts",
+    "test": "tsx --test tests/*.test.ts",
     "dev": "tsx src/cli.ts",
     "start": "node dist/cli.js",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run release:check",
+    "release:check": "npm run build && npm pack --dry-run && node bin/ft.mjs --help",
+    "portal:test": "npm --prefix apps/portal test",
+    "portal:test:db": "npm --prefix apps/portal run test:db",
+    "portal:build": "npm --prefix apps/portal run build",
+    "portal:typecheck": "npm --prefix apps/portal run typecheck",
+    "verify:hosted": "npm run portal:test && npm run portal:typecheck && npm run portal:build",
+    "hosted:setup-github-env": "node scripts/setup-github-production-env.mjs",
+    "hosted:check-readiness": "node scripts/check-hosted-deploy-readiness.mjs",
+    "hosted:smoke": "node scripts/smoke-hosted-deployment.mjs",
+    "hosted:collect-evidence": "node scripts/collect-hosted-release-evidence.mjs"
   },
   "files": [
+    "apps/operator-suite/",
+    "apps/portal/app/",
+    "apps/portal/scripts/",
+    "apps/portal/src/",
+    "apps/portal/tests/",
+    "apps/portal/next-env.d.ts",
+    "apps/portal/next.config.mjs",
+    "apps/portal/package-lock.json",
+    "apps/portal/package.json",
+    "apps/portal/tsconfig.json",
+    "apps/portal/vercel.json",
     "bin/",
     "dist/",
+    "docs/",
     "LICENSE",
+    "scripts/",
+    "raycast/fieldtheory/assets/",
+    "raycast/fieldtheory/eslint.config.js",
+    "raycast/fieldtheory/package-lock.json",
+    "raycast/fieldtheory/package.json",
+    "raycast/fieldtheory/src/",
+    "raycast/fieldtheory/tsconfig.json",
     "README.md"
   ],
   "engines": {
@@ -26,7 +55,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/afar1/fieldtheory-cli.git"
+    "url": "git+https://github.com/chipoto69/fieldtheory.git"
   },
   "keywords": [
     "bookmarks",
@@ -37,9 +66,13 @@
     "sqlite",
     "local-first",
     "self-custody",
-    "cli"
+    "cli",
+    "agents",
+    "mcp",
+    "raycast"
   ],
   "dependencies": {
+    "@scure/bip39": "1.6.0",
     "commander": "^14.0.3",
     "dotenv": "^17.3.1",
     "sql.js": "^1.14.1",

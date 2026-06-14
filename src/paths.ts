@@ -31,6 +31,10 @@ export function canonicalCommandsDir(): string {
   return process.env.FT_COMMANDS_DIR ?? path.join(canonicalLibraryDir(), 'Commands');
 }
 
+export function capturesDir(): string {
+  return path.join(canonicalLibraryDir(), 'Captures');
+}
+
 export function codexContextSessionsDir(): string {
   return path.join(canonicalLibraryDir(), 'Codex Context', 'sessions');
 }

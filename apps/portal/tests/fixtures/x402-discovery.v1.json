@@ -1,0 +1,126 @@
+{
+  "ok": true,
+  "version": "fieldtheory.x402-discovery.v1",
+  "enabled": false,
+  "enforcement": "disabled",
+  "settlement": "not-implemented",
+  "endpoints": [
+    {
+      "id": "paid-brief-export",
+      "route": "/api/x402/protected/briefs/:id",
+      "method": "GET",
+      "auth": "privy-user",
+      "status": "planned",
+      "enforcement": "disabled",
+      "pricePolicyOwner": "operator-required",
+      "privacy": "metadata-only",
+      "headers": [
+        "PAYMENT-REQUIRED",
+        "PAYMENT-SIGNATURE",
+        "PAYMENT-RESPONSE"
+      ],
+      "resourceTemplate": "https://fieldtheory.example/api/x402/protected/briefs/{id}",
+      "description": "Paid read access to a validated AgentBriefPack export summary after owner approval.",
+      "mimeType": "application/json",
+      "facilitator": {
+        "status": "undecided",
+        "verifyUrl": "operator-required:https://facilitator.example/verify",
+        "settleUrl": "operator-required:https://facilitator.example/settle"
+      },
+      "replayProtection": {
+        "status": "required-before-enforcement",
+        "idempotencyKey": "x402:<endpoint-id>:<payment-id>",
+        "nonceWindowSeconds": 300
+      },
+      "accepts": [
+        {
+          "scheme": "exact",
+          "networkId": "base-sepolia",
+          "network": "base-sepolia",
+          "asset": "USDC",
+          "maxAmountRequired": "operator-required:price",
+          "payTo": "operator-required:base-pay-to",
+          "resource": "https://fieldtheory.example/api/x402/protected/briefs/{id}",
+          "description": "Base Sepolia placeholder. Operator must choose price, payTo, facilitator, and asset contract.",
+          "mimeType": "application/json"
+        },
+        {
+          "scheme": "exact",
+          "networkId": "solana-devnet",
+          "network": "solana-devnet",
+          "asset": "USDC",
+          "maxAmountRequired": "operator-required:price",
+          "payTo": "operator-required:solana-pay-to",
+          "resource": "https://fieldtheory.example/api/x402/protected/briefs/{id}",
+          "description": "Solana devnet placeholder. Operator must choose price, payTo, facilitator, and mint.",
+          "mimeType": "application/json"
+        }
+      ]
+    },
+    {
+      "id": "paid-agent-run",
+      "route": "/api/x402/protected/agents/runs/:id",
+      "method": "GET",
+      "auth": "artifact-owner",
+      "status": "planned",
+      "enforcement": "disabled",
+      "pricePolicyOwner": "operator-required",
+      "privacy": "metadata-only",
+      "headers": [
+        "PAYMENT-REQUIRED",
+        "PAYMENT-SIGNATURE",
+        "PAYMENT-RESPONSE"
+      ],
+      "resourceTemplate": "https://fieldtheory.example/api/x402/protected/agents/runs/{id}",
+      "description": "Paid read access to a dry-run agent run artifact and audit envelope after owner approval.",
+      "mimeType": "application/json",
+      "facilitator": {
+        "status": "undecided",
+        "verifyUrl": "operator-required:https://facilitator.example/verify",
+        "settleUrl": "operator-required:https://facilitator.example/settle"
+      },
+      "replayProtection": {
+        "status": "required-before-enforcement",
+        "idempotencyKey": "x402:<endpoint-id>:<payment-id>",
+        "nonceWindowSeconds": 300
+      },
+      "accepts": [
+        {
+          "scheme": "exact",
+          "networkId": "base-sepolia",
+          "network": "base-sepolia",
+          "asset": "USDC",
+          "maxAmountRequired": "operator-required:price",
+          "payTo": "operator-required:base-pay-to",
+          "resource": "https://fieldtheory.example/api/x402/protected/agents/runs/{id}",
+          "description": "Base Sepolia placeholder. Operator must choose price, payTo, facilitator, and asset contract.",
+          "mimeType": "application/json"
+        },
+        {
+          "scheme": "exact",
+          "networkId": "solana-devnet",
+          "network": "solana-devnet",
+          "asset": "USDC",
+          "maxAmountRequired": "operator-required:price",
+          "payTo": "operator-required:solana-pay-to",
+          "resource": "https://fieldtheory.example/api/x402/protected/agents/runs/{id}",
+          "description": "Solana devnet placeholder. Operator must choose price, payTo, facilitator, and mint.",
+          "mimeType": "application/json"
+        }
+      ]
+    }
+  ],
+  "gates": [
+    "endpoint inventory approval",
+    "price policy owner",
+    "facilitator verify/settle assumptions",
+    "replay protection",
+    "payment metadata privacy review",
+    "audit event shape"
+  ],
+  "references": [
+    "https://docs.x402.org/core-concepts/http-402",
+    "https://docs.x402.org/core-concepts/facilitator",
+    "https://docs.x402.org/extensions/payment-identifier"
+  ]
+}

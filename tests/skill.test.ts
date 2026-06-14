@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { skillWithFrontmatter, skillBody } from '../src/skill.js';
 
 describe('skill content', () => {
@@ -31,10 +32,19 @@ describe('skill content', () => {
       assert.ok(content.includes('ft possible grid'));
       assert.ok(content.includes('ft possible prompt'));
       assert.ok(content.includes('ft possible nightly install'));
+      assert.ok(content.includes('ft capture clipboard --type note --json'));
+      assert.ok(content.includes('ft recall <query> --json'));
+      assert.ok(content.includes('ft packet bookmark <id> --target aeon --json'));
+      assert.ok(content.includes('ft soul draft --from bookmarks,library,clipboard --out soul/'));
+      assert.ok(content.includes('ft export aeon --repo <path> --query <query> --bookmark <id> --soul --briefs --json'));
       assert.ok(content.includes('ft library search'));
       assert.ok(content.includes('ft library show'));
       assert.ok(content.includes('ft commands list'));
       assert.ok(content.includes('ft commands validate'));
+      assert.ok(content.includes('ft suite status --json'));
+      assert.ok(content.includes('ft suite architecture'));
+      assert.ok(content.includes('ft suite workflows'));
+      assert.ok(content.includes('ft suite raycast manifest'));
     }
   });
 
@@ -49,5 +59,10 @@ describe('skill content', () => {
   it('skill content ends with newline', () => {
     assert.ok(skillWithFrontmatter().endsWith('\n'));
     assert.ok(skillBody().endsWith('\n'));
+  });
+
+  it('checked-in Claude command matches generated skill content', () => {
+    const checkedIn = readFileSync(new URL('../.claude/commands/fieldtheory.md', import.meta.url), 'utf8');
+    assert.equal(checkedIn, skillWithFrontmatter());
   });
 });

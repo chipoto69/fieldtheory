@@ -37,6 +37,14 @@ import { dataDir, ensureDataDir, isFirstRun, migrateLegacyIdeasData, twitterBook
 import { PromptCancelledError, promptText } from './prompt.js';
 import { skillWithFrontmatter, installSkill, uninstallSkill } from './skill.js';
 import { registerCompanionCommands } from './companion-cli.js';
+import {
+  OPERATOR_SUITE_ARCHITECTURE_MD,
+  OPERATOR_SUITE_WORKFLOWS_MD,
+  formatOperatorSuiteStatus,
+  getOperatorSuiteStatus,
+  getRaycastManifest,
+  scaffoldRaycastExtension,
+} from './operator-suite.js';
 import { getPathReport } from './field-status.js';
 import { formatAgentContext, getAgentContext } from './agent-context.js';
 import { formatCurrentDocumentSummary, readCurrentDocumentContext, readCurrentDocumentSummary } from './current.js';
@@ -145,6 +153,22 @@ import { formatSeedCandidates, queryRandomSeedCandidates, querySeedCandidates } 
 import { formatSeedOrganization, organizeSeedCandidatesBy } from './seeds-organize.js';
 import { modelOrganizeSeeds } from './seeds-model.js';
 import { saveSeedFromCandidates } from './seeds-save.js';
+import { captureClipboard, captureText, type CaptureResult, type CaptureType } from './capture.js';
+import { buildRecallPack } from './recall.js';
+import { buildBookmarkPacket } from './packet.js';
+import { draftSoulFiles, type SoulDraftSourceName } from './soul-draft.js';
+import {
+  exportAeonBundle,
+  exportHermesBundle,
+  exportSoulBundle,
+  type AgentExportResult,
+} from './agent-export.js';
+import {
+  formatAgentBriefPackMarkdown,
+  type AgentBriefPack,
+  type AgentBriefTarget,
+} from './agent-brief-pack.js';
+import { readStdin } from './document-ops.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -388,6 +412,10 @@ function showCachedUpdateNotice(): void {
 // ── What's new ────────────────────────────────────────────────────────────
 
 const WHATS_NEW: Record<string, string[]> = {
+  '1.4.0': [
+    'ft suite exposes the AI operator suite manifest, architecture docs, workflows, and Raycast scaffold',
+    'Operator suite docs map MCP, skills, plugins, CLI, Raycast, and local write authority',
+  ],
   '1.3.18': [
     'ft sync now downloads media by default; pass --no-media to skip',
     'ft sync --gaps now also fills media gaps in the same pass',
@@ -485,6 +513,9 @@ function isInternalWorkerCommand(command: Command): boolean {
 function shouldSkipCommandChrome(command: Command): boolean {
   if (isInternalWorkerCommand(command)) return true;
   if (command.opts().json) return true;
+  if (['capture', 'recall', 'packet', 'soul', 'export'].includes(command.name())) return true;
+  if (['capture', 'packet', 'soul', 'export'].includes(command.parent?.name() ?? '')) return true;
+  if (command.parent?.name() === 'suite' || command.parent?.parent?.name() === 'suite') return true;
   if ([
     'path', 'paths', 'current', 'recent', 'state', 'ls', 'tree', 'find', 'grep', 'cat',
     'head', 'meta', 'pwd', 'context', 'open', 'tab', 'reveal', 'link', 'links',
@@ -728,6 +759,80 @@ function parsePositiveInteger(value: string): number {
     throw new InvalidArgumentError('value must be a positive integer');
   }
   return parsed;
+}
+
+function parseCaptureType(value: string | undefined): CaptureType {
+  if (value === 'note' || value === 'source' || value === 'idea' || value === 'soul') return value;
+  if (!value) throw new Error('Missing --type. Expected note, source, idea, or soul.');
+  throw new Error(`Unsupported capture type: ${value}`);
+}
+
+function parseCaptureTags(value: string | undefined): string[] {
+  return (value ?? '').split(',').map((tag) => tag.trim()).filter(Boolean);
+}
+
+function parseAgentBriefTarget(value: string | undefined): AgentBriefTarget {
+  if (value === 'aeon' || value === 'hermes' || value === 'content-os') return value;
+  if (!value) throw new Error('Missing --target. Expected aeon, hermes, or content-os.');
+  throw new Error(`Unsupported target: ${value}`);
+}
+
+function parseSoulSources(value: string | undefined): SoulDraftSourceName[] {
+  const raw = value ?? 'bookmarks,library,clipboard';
+  const sources = raw.split(',').map((entry) => entry.trim()).filter(Boolean);
+  const valid = new Set(['bookmarks', 'library', 'clipboard']);
+  for (const source of sources) {
+    if (!valid.has(source)) throw new Error(`Unsupported soul source: ${source}`);
+  }
+  return sources as SoulDraftSourceName[];
+}
+
+function requiredOption(value: string | undefined, flag: string): string {
+  if (!value || !value.trim()) throw new Error(`Missing ${flag}.`);
+  return value;
+}
+
+function printCaptureResult(result: CaptureResult, options: { json?: boolean; md?: boolean }): void {
+  if (options.json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  if (options.md) {
+    process.stdout.write(fs.readFileSync(result.path, 'utf-8'));
+    return;
+  }
+  console.log(`Captured: ${result.relPath}`);
+}
+
+function printAgentBriefPack(pack: AgentBriefPack, options: { json?: boolean; md?: boolean }): void {
+  if (options.json) {
+    console.log(JSON.stringify(pack, null, 2));
+    return;
+  }
+  process.stdout.write(formatAgentBriefPackMarkdown(pack));
+}
+
+function printSoulDraftResult(result: Awaited<ReturnType<typeof draftSoulFiles>>, options: { json?: boolean }): void {
+  if (options.json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  console.log(`Soul draft written: ${result.root}`);
+  for (const file of result.files) console.log(`  ${file.relPath}`);
+}
+
+function printExportResult(result: AgentExportResult, options: { json?: boolean }): void {
+  if (options.json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  console.log(`Export written: ${result.root}`);
+  console.log(`Run: ${result.runId}`);
+  for (const file of result.files) console.log(`  ${file.relPath}`);
+}
+
+function collectOption(value: string, previous: string[]): string[] {
+  return [...previous, value];
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
@@ -1917,6 +2022,84 @@ export function buildCli() {
     }));
 
   registerCompanionCommands(program, safe);
+
+  const suite = program
+    .command('suite')
+    .description('Operate the Field Theory AI operator suite');
+
+  suite
+    .command('status')
+    .description('Show operator suite surfaces, components, and workflows')
+    .option('--json', 'JSON output')
+    .action((options) => {
+      const status = getOperatorSuiteStatus();
+      if (options.json) {
+        printJson(status);
+        return;
+      }
+      process.stdout.write(formatOperatorSuiteStatus(status));
+    });
+
+  suite
+    .command('architecture')
+    .description('Print visual MCP, skills, plugins, and CLI architecture docs')
+    .option('--json', 'JSON output')
+    .action((options) => {
+      if (options.json) {
+        printJson({ path: 'docs/architecture/operator-suite.md', markdown: OPERATOR_SUITE_ARCHITECTURE_MD });
+        return;
+      }
+      process.stdout.write(OPERATOR_SUITE_ARCHITECTURE_MD);
+    });
+
+  suite
+    .command('workflows')
+    .description('Print operator and agent workflow documentation')
+    .option('--json', 'JSON output')
+    .action((options) => {
+      if (options.json) {
+        printJson({ path: 'docs/workflows/operator-suite.md', markdown: OPERATOR_SUITE_WORKFLOWS_MD });
+        return;
+      }
+      process.stdout.write(OPERATOR_SUITE_WORKFLOWS_MD);
+    });
+
+  const raycast = suite
+    .command('raycast')
+    .description('Inspect or scaffold the Raycast CLI wrapper extension');
+
+  raycast
+    .command('manifest')
+    .description('Print the Raycast extension manifest')
+    .option('--json', 'JSON output')
+    .action((options) => {
+      const manifest = getRaycastManifest();
+      if (options.json) {
+        printJson(manifest);
+        return;
+      }
+      process.stdout.write(JSON.stringify(manifest, null, 2) + '\n');
+    });
+
+  raycast
+    .command('scaffold')
+    .description('Write the Raycast extension files from the CLI templates')
+    .option('--out <path>', 'Output directory', 'raycast/fieldtheory')
+    .option('--force', 'Overwrite existing files', false)
+    .option('--json', 'JSON output')
+    .action(safe(async (options) => {
+      const result = scaffoldRaycastExtension(String(options.out), { force: Boolean(options.force) });
+      if (options.json) {
+        printJson(result);
+        return;
+      }
+      console.log(`Raycast extension: ${result.root}`);
+      for (const file of result.written) console.log(`  wrote ${file}`);
+      for (const file of result.skipped) console.log(`  skipped ${file}`);
+      if (result.skipped.length > 0) {
+        console.log('Run with --force to overwrite skipped files.');
+      }
+    }));
 
   // ── sample ──────────────────────────────────────────────────────────────
 
@@ -3259,6 +3442,167 @@ export function buildCli() {
       for (const r of results) {
         console.log(`  Removed from ${r.agent}: ${r.path}`);
       }
+    }));
+
+  // ── agentic capture-first commands ────────────────────────────────────
+
+  const capture = program
+    .command('capture')
+    .description('Capture clipboard or stdin material into the Field Theory Library');
+
+  capture
+    .command('text')
+    .description('Capture text from stdin. Do not capture secrets, tokens, private keys, or wallet seed phrases.')
+    .option('--stdin', 'Read capture text from stdin', false)
+    .option('--type <type>', 'Capture type: note, source, idea, or soul')
+    .option('--tags <tags>', 'Comma-separated tags')
+    .option('--json', 'JSON output')
+    .option('--md', 'Print created markdown')
+    .action(safe(async (options) => {
+      if (!options.stdin) throw new Error('ft capture text requires --stdin.');
+      const result = await captureText({
+        text: await readStdin(),
+        type: parseCaptureType(options.type),
+        tags: parseCaptureTags(options.tags),
+      });
+      printCaptureResult(result, options);
+    }));
+
+  capture
+    .command('clipboard')
+    .description('Capture macOS clipboard text. Do not capture secrets, tokens, private keys, or wallet seed phrases.')
+    .option('--type <type>', 'Capture type: note, source, idea, or soul')
+    .option('--tags <tags>', 'Comma-separated tags')
+    .option('--json', 'JSON output')
+    .option('--md', 'Print created markdown')
+    .action(safe(async (options) => {
+      const result = await captureClipboard({
+        type: parseCaptureType(options.type),
+        tags: parseCaptureTags(options.tags),
+      });
+      printCaptureResult(result, options);
+    }));
+
+  program
+    .command('recall')
+    .description('Build an agent brief pack from local Field Theory sources')
+    .argument('<query>', 'Recall query')
+    .option('--json', 'JSON output')
+    .option('--md', 'Markdown output')
+    .option('--captures <n>', 'Capture result limit', parsePositiveInteger, 5)
+    .option('--library <n>', 'Library result limit', parsePositiveInteger, 5)
+    .option('--commands <n>', 'Command result limit', parsePositiveInteger, 3)
+    .option('--bookmarks <n>', 'Bookmark result limit', parsePositiveInteger, 8)
+    .action(safe(async (query, options) => {
+      const pack = await buildRecallPack(query, {
+        limits: {
+          captures: options.captures,
+          library: options.library,
+          commands: options.commands,
+          bookmarks: options.bookmarks,
+        },
+      });
+      printAgentBriefPack(pack, options);
+    }));
+
+  const packet = program
+    .command('packet')
+    .description('Build dry-run source packets for agent targets');
+
+  packet
+    .command('bookmark')
+    .description('Build a source packet from one bookmark')
+    .argument('<id>', 'Bookmark record id')
+    .option('--target <target>', 'Target: aeon, hermes, or content-os')
+    .option('--json', 'JSON output')
+    .option('--md', 'Markdown output')
+    .action(safe(async (id, options) => {
+      const pack = await buildBookmarkPacket(id, {
+        target: parseAgentBriefTarget(options.target),
+      });
+      printAgentBriefPack(pack, options);
+    }));
+
+  const soul = program
+    .command('soul')
+    .description('Draft agent soul files from Field Theory sources');
+
+  soul
+    .command('draft')
+    .description('Draft SOUL.md, STYLE.md, MEMORY.md, and examples')
+    .option('--from <sources>', 'Comma-separated sources: bookmarks, library, clipboard')
+    .option('--out <path>', 'Output directory')
+    .option('--json', 'JSON output')
+    .option('--force', 'Overwrite existing files', false)
+    .action(safe(async (options) => {
+      const result = await draftSoulFiles({
+        from: parseSoulSources(options.from),
+        outDir: requiredOption(options.out, '--out'),
+        force: options.force,
+      });
+      printSoulDraftResult(result, options);
+    }));
+
+  const exportCommand = program
+    .command('export')
+    .description('Export local-only agent handoff bundles');
+
+  exportCommand
+    .command('aeon')
+    .description('Export a local Aeon/Gordo bundle')
+    .option('--repo <path>', 'Target repo or export directory')
+    .option('--query <query>', 'Recall query for the export brief')
+    .option('--bookmark <id>', 'Bookmark id to include as a source packet', collectOption, [])
+    .option('--soul', 'Include soul draft files', false)
+    .option('--briefs', 'Include brief pack files', false)
+    .option('--json', 'JSON output')
+    .option('--force', 'Overwrite existing files', false)
+    .option('--allow-existing-repo', 'Allow writing into an existing Git repository', false)
+    .action(safe(async (options) => {
+      const result = await exportAeonBundle({
+        repoPath: requiredOption(options.repo, '--repo'),
+        query: options.query,
+        bookmarkIds: options.bookmark,
+        includeSoul: options.soul,
+        includeBriefs: options.briefs,
+        force: options.force,
+        allowExistingRepo: options.allowExistingRepo,
+      });
+      printExportResult(result, options);
+    }));
+
+  exportCommand
+    .command('hermes')
+    .description('Export a local Hermes bundle')
+    .option('--out <path>', 'Output directory')
+    .option('--query <query>', 'Recall query for the export brief')
+    .option('--bookmark <id>', 'Bookmark id to include as a source packet', collectOption, [])
+    .option('--briefs', 'Include brief pack files', false)
+    .option('--json', 'JSON output')
+    .option('--force', 'Overwrite existing files', false)
+    .action(safe(async (options) => {
+      const result = await exportHermesBundle({
+        outDir: requiredOption(options.out, '--out'),
+        query: options.query,
+        bookmarkIds: options.bookmark,
+        includeBriefs: options.briefs,
+        force: options.force,
+      });
+      printExportResult(result, options);
+    }));
+
+  exportCommand
+    .command('soul')
+    .description('Export soul files')
+    .option('--out <path>', 'Output directory')
+    .option('--json', 'JSON output')
+    .option('--force', 'Overwrite existing files', false)
+    .action(safe(async (options) => {
+      const result = await exportSoulBundle({
+        outDir: requiredOption(options.out, '--out'),
+        force: options.force,
+      });
+      printExportResult(result, options);
     }));
 
   // ── hidden backward-compat aliases ────────────────────────────────────

@@ -1,0 +1,147 @@
+---
+title: Hosted Agentic Suite Engineering Review
+created: 2026-05-31
+status: scaffold-follow-up-open
+scope: final working product after capture-first CLI contracts
+tags: [engineering-review, vercel, privy, agents, x402]
+---
+
+# Hosted Agentic Suite Engineering Review
+
+## Verdict
+
+Do not start Vercel implementation from the current repo state without first
+landing the hosted PRD, hosted architecture, and hosted environment runbook.
+Milestone 1 is strong enough to serve as the contract substrate, but the final
+product requirements are not yet represented as implementation artifacts.
+
+## Evidence Read
+
+| Evidence | Finding |
+|---|---|
+| `docs/handoff/hosted-suite-milestone-2.md` | Handoff exists and is smoke-ready, but it is a bridge document, not a full product PRD. |
+| `docs/prd/capture-first-agentic-suite.md` | Explicitly defers hosted app, Privy, Gordo/Aeon writeback, Hermes writeback, and x402. |
+| `docs/architecture/capture-first-agentic-suite.md` | Hosted layer is shown as deferred and thin over CLI contracts. |
+| Initial repo scan | Before this scaffold pass, no `.github/workflows`, `vercel.json`, `next.config.*`, or `apps/portal` existed. |
+| Vercel docs | GitHub Actions deployment should use Vercel CLI pull/build/deploy-prebuilt with separate preview and production workflows. |
+| Privy docs | Wallet auth supports Ethereum SIWE and Solana SIWS; wallet login must be enabled in the Privy dashboard. |
+| x402 docs | x402 flow uses HTTP 402 challenge, payment payload, verify/settle, then resource delivery; enforcement needs separate replay/audit design. |
+
+Follow-up scaffold evidence:
+
+| Evidence | Finding |
+|---|---|
+| `apps/portal` | Next.js App Router scaffold now exists with dashboard shell and dry-run API routes. |
+| `.github/workflows/vercel-preview.yml` | Preview workflow runs CLI, release, Raycast, diff, and portal gates, then deploys preview only when Vercel secrets exist. |
+| `.github/workflows/vercel-production.yml` | Production workflow is protected-main only, uses the GitHub production environment, and fails fast when Vercel secrets are missing. |
+| `apps/portal/package.json` | `@privy-io/node` is installed for server access-token verification; Privy browser SDK remains deferred. |
+| `apps/portal/src/lib/auth.ts` | Server auth verifies real Privy access tokens, requires server app config, and disables unsigned dev tokens in production. |
+| `apps/portal/src/lib/contracts.ts` | Export manifests produce sanitized summaries from `relPath` values only. |
+| `apps/portal/src/lib/postgres-store.ts` | `DATABASE_URL` now selects a Postgres hosted store; production checks a migrated schema marker. |
+| `apps/portal/src/lib/postgres-schema.ts` | Schema version `1` is explicit and can be applied through `db:migrate`. |
+
+## Required Plan Change
+
+The next milestone is not "deploy what exists." It is:
+
+1. Add hosted-suite PRD and architecture.
+2. Add hosted environment/deployment runbook.
+3. Scaffold the portal from the documented endpoint contract.
+4. Add contract validators and tests before connecting any provider.
+5. Add Privy scaffold with fail-closed auth behavior.
+6. Add Vercel preview workflow.
+7. Add dry-run Gordo/Hermes adapters.
+8. Add production workflow only after portal gates pass.
+9. Draft x402 endpoint handoff before enforcement.
+
+## Final Product Requirements
+
+| Requirement | Current status | Evidence needed before completion |
+|---|---|---|
+| Vercel-hosted app | Scaffolded, not deployed | `apps/portal`, portal `vercel.json`, passing local portal build, deployed preview URL still needed. |
+| Agents live with the app | Dry-run scaffolded | Route handlers for agent run creation/status and Postgres-backed audit/import records exist; apply authority still disabled. |
+| Privy GitHub/wallet login | Server and browser scaffolded | `@privy-io/node` verifies server access tokens; browser SDK login controls exist; env-gated linked identity policy is scaffolded but production Privy policy values remain pending. |
+| Base EVM and Solana wallet scaffold | Env/UI/policy scaffolded | UI distinguishes GitHub, Base chain id, and Solana cluster; route policy can require linked identities, but real wallet linking still depends on production Privy dashboard config. |
+| Gordo/Aeon control plane | Dry-run scaffolded | Import-plan endpoint and tests exist; target mismatch and `aeon/aeon.yml.draft` checks exist; no repo mutation authority. |
+| Hermes integration | Dry-run scaffolded | Import-plan endpoint and tests exist; target mismatch and `hermes/task-payload.dry-run.json` checks exist; no Kanban/profile write authority. |
+| x402 architecture handoff | Partial | Endpoint inventory, replay/audit/threat model, payment metadata review. |
+| GitHub Actions Vercel deployment | Scaffolded, secrets pending | Preview deploy skips without secrets; production workflow is guarded to `main`, fails without required Vercel secrets, and runs a Postgres schema gate. |
+| Raycast continuity | Present for local CLI | Docs explaining how Raycast remains local while portal is hosted. |
+
+## Blockers Before Coding
+
+1. No authoritative hosted endpoint inventory exists.
+2. Production Privy GitHub/Base/Solana dashboard policy and secrets are still pending.
+3. Audit storage and run readback envelopes exist for hosted actions, but retention policy is still pending.
+4. No Vercel/GitHub secret boundary exists.
+5. x402 replay/payment metadata threat model exists as planning docs, but fixtures/handoff are not yet implemented in code beyond discovery.
+
+## New Planning Artifacts
+
+This review creates these implementation contracts:
+
+- `docs/prd/hosted-agentic-suite.md`
+- `docs/architecture/hosted-agentic-suite.md`
+- `docs/setup/hosted-suite-environment.md`
+- `docs/api/hosted-suite-endpoints.md`
+- `docs/data/hosted-suite-data-model.md`
+- `docs/security/hosted-suite-threat-model.md`
+- `docs/deploy/vercel-github-actions.md`
+- `docs/release/milestone-2-hosted-readiness.md`
+
+## Subagent Review Queue
+
+Four subagents were ordered to review independent lanes:
+
+| Lane | Focus |
+|---|---|
+| Hosted architecture | Product requirements, endpoint/data-flow gaps, milestone order. |
+| Verification | Current gate coverage, missing CI/deploy/test matrix. |
+| Security/contracts | Auth, wallet, x402, secret handling, remote write risks. |
+| Operator/release | Raycast continuity, docs, release/deployment readiness. |
+
+Their findings should be appended below before the next implementation commit.
+
+## Subagent Findings Integrated
+
+| Lane | Findings | Action |
+|---|---|---|
+| Hosted architecture | Missing hosted PRD, endpoint inventory, authz matrix, data model, integration specs, deployment runbook. | Added hosted PRD, architecture, endpoint contract, data model, deploy plan, and readiness checklist. |
+| Verification | Current gates prove M1 local contracts only; there is no enforced CI, portal test matrix, Privy/Hermes/Gordo/x402 coverage, or packed CLI smoke in CI. | Added CI/deploy gates to hosted runbook and Vercel deployment plan. |
+| Security/contracts | Hosted app must preserve evidence-linked `AgentBriefPack` invariants, dry-run authority, secret scanning, auth classes, x402 replay/audit review, and remote-write prohibitions. | Added endpoint contract, data model, and threat model. |
+| Operator/release | Operator can use local CLI/Raycast/static console today, but final product lacks hosted app, dynamic portal, deployment plan, and M2 release bridge. | Added release readiness checklist and README/handoff links. |
+
+## Second Review Findings Integrated
+
+| Lane | Findings | Action |
+|---|---|---|
+| Hosted architecture | Validated imports were not carrying target/run metadata, and plan routes could build plausible plans from mismatched export types. | Added sanitized export summaries, target compatibility checks, and Aeon/Hermes required-file checks. |
+| Verification | Production workflow could be manually dispatched from non-`main`, could pass without deploy secrets, and missed release/Raycast/diff gates. | Added job branch guard, production environment, required secret preflight, pinned Vercel CLI, release/Raycast/diff gates, and `verify:hosted`. |
+| Security/contracts | Real Privy verification was missing; unsigned dev auth could be misconfigured in production; x402 health could over-signal. | Wired `@privy-io/node`, disabled dev auth in production, added verifier tests, and made health report x402 as requested but not enabled. |
+| Operator/release | Docs needed reproducible local smoke, hosted/CLI security wording split, and handoff updates for an existing portal. | Updated setup, PRD, handoff, data model, endpoint contract, deploy plan, and README security copy. |
+
+## Third Review Findings Integrated
+
+| Lane | Findings | Action |
+|---|---|---|
+| Durable architecture | Routes needed an async store interface and Postgres adapter without route-level database imports. | Added `HostedStore`, `MemoryHostedStore`, `PostgresHostedStore`, composite import/run audit methods, and `getHostedStore()`. |
+| Verification | Durable storage needed schema CI, owner-isolation regression tests, and a migration command. | Added `db:migrate`, schema version `1`, GitHub Actions Postgres services, and same-artifact owner-scope tests. |
+| Security/contracts | Import IDs could collide across users; production memory override was unsafe; result envelopes could carry secrets into durable summaries. | Owner-scoped import IDs, production memory fail-close, generic store errors, and result-envelope token/BIP39 scanning are now in place. |
+| Operator/release | Docs still said memory-only and provider-open. | Updated setup, data model, threat model, handoff, deploy plan, release checklist, README, and env examples for `DATABASE_URL` and migration. |
+
+## Current Open Issues
+
+- The output guard has tests for non-concurrent symlink swaps, but a malicious
+  concurrent filesystem attacker could still race between final path check and
+  write. Treat that as out of M1 scope and document it as a hosted threat when
+  accepting uploaded/exported manifests.
+- Durable store migrations are versioned only at schema v1. Add backup/restore
+  drills and forward migration tests before treating hosted persistence as
+  production-complete.
+
+Closed in this planning pass:
+
+- Updated `tests/engine-invoke.test.ts` so the EOF test comment describes the
+  current piped-stdin close behavior.
+- Added a callout in `docs/workflows/operator-suite.md` that `bm_test` smoke
+  snippets require the seeded setup fixture.

@@ -1,0 +1,160 @@
+---
+title: Field Theory Hosted Agentic Suite PRD
+created: 2026-05-31
+status: draft-implementation-contract
+scope: Vercel hosted product after capture-first CLI contracts
+tags: [prd, vercel, privy, aeon, hermes, x402, agents]
+---
+
+# Field Theory Hosted Agentic Suite PRD
+
+## Working Decision
+
+The hosted suite must be a thin, audited product layer over Field Theory's local
+capture-first contracts. The web app does not replace the CLI stores and does
+not gain hidden authority over wiki canon, GBrain, Hermes, Aeon/Gordo, or user
+wallets.
+
+Milestone 1 proved the local contracts:
+
+- `fieldtheory.capture.v1`
+- `agent-brief-pack.v1`
+- `fieldtheory.agent-export.v1`
+
+Milestone 2 creates the hosted control plane around those contracts. Milestone 3
+turns on production deployment and payment-gated endpoints only after auth,
+audit, and replay behavior are tested.
+
+## Product Promise
+
+Let operators and agents capture knowledge locally, package it into cited
+briefs, review the resulting agent context in a browser, and safely route that
+context into Aeon/Gordo and Hermes without losing provenance or write authority.
+
+## Users
+
+| User | Job |
+|---|---|
+| Solo operator | Review capture/recall/export state, launch dry-run agent handoffs, and review planned GitHub plus wallet linking state. |
+| Coding agent | Read stable endpoint contracts and fetch authorized brief/export packets. |
+| Aeon/Gordo workspace | Consume run-scoped Field Theory export bundles and agent soul drafts. |
+| Hermes profile | Import Field Theory packets as explicit staged handoffs, not raw canon. |
+| Future buyer agent | Pay for approved Field Theory endpoints through x402 after the endpoint inventory is frozen. |
+
+## Current Evidence
+
+| Evidence | Finding |
+|---|---|
+| `docs/handoff/hosted-suite-milestone-2.md` | Defines M2 entry gate, contract versions, sample brief/export shapes, Privy assumptions, and x402 deferral. |
+| `docs/prd/capture-first-agentic-suite.md` | Locks M1 as local-first and explicitly defers Vercel, Privy, Gordo/Aeon writeback, Hermes writeback, and x402 enforcement. |
+| `docs/architecture/capture-first-agentic-suite.md` | Maps the hosted layer as a deferred surface over CLI contracts. |
+| Repo scan | `apps/portal`, portal `vercel.json`, and preview/production GitHub Actions now exist as the first Milestone 2 scaffold. |
+| Current PR #1 | Draft branch `codex/fieldtheory-suite`; M1 validation passed and branch is not `main`. |
+
+## Non-Goals
+
+- Do not write directly to wiki canon or GBrain from the hosted app.
+- Do not let Vercel routes read operator-local raw stores directly.
+- Do not create GitHub repos, push branches, write secrets, or dispatch
+  workflows without a distinct apply gate.
+- Do not add x402 enforcement before endpoint inventory, replay protection,
+  audit logs, and wallet identity rules are approved.
+- Do not make Privy wallet login imply payment authority.
+
+## Milestone 2 Scope
+
+| Capability | Required shape | Authority |
+|---|---|---|
+| Next.js portal | `apps/portal` with App Router, dashboard, endpoint docs, and agent run views | Reads staged fixtures and server-side store adapters only. |
+| Auth scaffold | Privy server access-token verification plus env-gated GitHub, Base EVM, and Solana linked-account policy | Authenticates the bearer token and can require linked identities before protected write routes; wallet identity still does not authorize payments by itself. |
+| Contract API | Route handlers for health, contracts, briefs, exports, agents, and x402 discovery | Returns typed JSON only until apply gates exist. |
+| Durable store | `DATABASE_URL` Postgres adapter plus explicit schema migration | Stores only hosted metadata, sanitized summaries, runs, and audit records. |
+| Gordo/Aeon adapter | Dry-run import of `fieldtheory.agent-export.v1` plus optional apply-plan preview | No repo mutation until explicit apply command. |
+| Hermes adapter | Dry-run profile/task payload import with staged result envelope | No Kanban/profile writeback until explicit apply command. |
+| Operator audit | Append-only action log for hosted operations | Stores who requested what, from which contract version, with which auth identity. |
+| Deployment CI | GitHub Actions for Vercel preview and production | Production only from protected main after gates. |
+
+## Milestone 3 Scope
+
+| Capability | Required shape | Authority |
+|---|---|---|
+| Production Vercel deploy | Protected production deployment with documented secrets | Vercel deployment only; no external write side effects. |
+| Agent runtime endpoints | Agent-facing contract fetch, run creation, status, owner-scoped history, and artifact download | Requires authenticated user and run ownership. |
+| Wallet-gated surfaces | Privy identity checks around private dashboard and paid endpoint previews | Wallet ownership proves access tier only after policy mapping. |
+| x402 architecture handoff | Endpoint inventory, payment challenge flow, replay/audit strategy, facilitator assumptions | Fixture-backed handoff first; enforcement in a later gate. |
+
+## Endpoint Inventory
+
+All endpoints must be implemented as Next.js App Router route handlers. Current
+Next.js docs define route handlers as `route.js|ts` files inside `app`, with
+standard `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, and `OPTIONS`
+methods.
+
+| Endpoint | Method | Auth | x402 | Purpose |
+|---|---|---|---|---|
+| `/api/health` | `GET` | none | none | Build/runtime configuration readiness; not schema proof. |
+| `/api/contracts` | `GET` | none | none | Supported contract versions and schema links. |
+| `/api/briefs/validate` | `POST` | Privy | none | Validate an uploaded or generated `AgentBriefPack`. |
+| `/api/exports/validate` | `POST` | Privy | none | Validate export manifest shape and forbidden writes. |
+| `/api/artifacts/imports/:id` | `GET` | Privy | deferred | Read sanitized import metadata and validation audit envelope. |
+| `/api/agents` | `GET` | Privy | none | List configured local/remote agent targets. |
+| `/api/agents/runs` | `GET` | Privy | deferred | List owner-scoped dry-run handoffs and audit envelopes. |
+| `/api/agents/runs` | `POST` | Privy | deferred | Create a dry-run agent handoff from a validated export. |
+| `/api/agents/runs/:id` | `GET` | Privy | deferred | Read run status, artifacts, and audit envelope. |
+| `/api/gordo/import-plan` | `POST` | Privy | none | Convert export bundle into a Gordo/Aeon apply plan. |
+| `/api/hermes/import-plan` | `POST` | Privy | none | Convert export bundle into a Hermes staged import plan. |
+| `/api/x402/discovery` | `GET` | none | none | Publish planned paid endpoint inventory, not enforcement. |
+| `/api/x402/protected/*` | varies | Privy or agent token | planned | Later paid endpoints after x402 review. |
+
+## Auth and Identity
+
+Privy must be configured to support:
+
+- GitHub OAuth login.
+- Ethereum wallet authentication for Base EVM ownership.
+- Solana wallet authentication or embedded wallets.
+- Account linking between GitHub and wallet identities.
+
+Privy's wallet docs say wallet login uses Ethereum SIWE or Solana SIWS, and the
+dashboard must enable wallet authentication before implementation. Privy's
+Solana guide also notes that Solana connectors and RPC config are required when
+using embedded wallet UI signing flows.
+
+## Data Flow
+
+1. Operator runs local Field Theory capture/recall/export commands.
+2. Operator uploads or imports a generated brief/export manifest into the portal.
+3. Portal validates contract version, secret boundaries, owner scope, and
+   forbidden writes.
+4. Portal stores sanitized import metadata and audit events through
+   `HostedStore`.
+5. Portal creates a dry-run agent handoff plan.
+6. Operator reviews the plan and owner-scoped audit envelope in the workbench,
+   `GET /api/agents/runs`, or `GET /api/agents/runs/:id`.
+7. Later apply gates can dispatch to Gordo/Aeon or Hermes.
+8. Later x402 gates can challenge paid endpoint calls with HTTP 402 and verify
+   settlement before returning protected output. Until then,
+   `/api/x402/discovery` mirrors the non-enforcing
+   `fieldtheory.x402-discovery.v1` fixture.
+
+## Acceptance Criteria
+
+| Area | Criteria |
+|---|---|
+| Contract fidelity | Hosted validators reject unknown contract versions, missing evidence, target payloads with duplicated forbidden actions, unsafe file paths, secret-like content in result envelopes, and manifests that imply remote writes. |
+| Auth scaffold | App builds without real secrets using documented dummy env values; authenticated routes fail closed when Privy server config is absent; server routes verify Privy access tokens through `@privy-io/node`; unsigned dev tokens are disabled in production; browser login controls use `@privy-io/react-auth` when `NEXT_PUBLIC_PRIVY_APP_ID` is configured; local browser operator mode can smoke protected routes outside production with server-side dev auth only. |
+| Durable store | Production mutations require `DATABASE_URL`, ignore memory-store override, and require the schema marker created by `npm --prefix apps/portal run db:migrate`. |
+| Wallet linking | Routes report linked-identity policy as deferred by default. When `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true`, server auth loads Privy linked accounts and requires GitHub, configured Base EVM chain id, and Solana identities before protected write routes: brief validation, export validation, Gordo/Aeon import plans, Hermes import plans, and agent run creation. Authenticated denials append a blocked policy audit without storing the rejected payload. Development auth cannot satisfy the policy. The Solana cluster value is a policy label in M2, not settlement proof. Payment/apply authority remains behind later gates. |
+| Agent runs | Initial run creation is dry-run only; owner-scoped run index/detail responses expose audit envelopes; no external write happens in M2. |
+| Gordo/Aeon | Import plan consumes `target: "aeon"` manifests, requires `aeon/aeon.yml.draft`, and keeps it as a draft. |
+| Hermes | Import plan consumes `target: "hermes"` manifests, requires `hermes/task-payload.dry-run.json`, and emits staged profile handoff only. |
+| Vercel CI | Preview and production workflows use `vercel build` and `vercel deploy --prebuilt`; production deploy runs only from protected main. |
+| x402 | Handoff includes endpoint inventory, pricing owner, facilitator assumptions, replay protection, audit log requirements, and fixture-backed route parity before enforcement. |
+
+## External Docs Checked
+
+- Vercel GitHub Actions deployment docs: https://vercel.com/docs/git/vercel-for-github
+- Next.js route handlers docs: https://nextjs.org/docs/app/getting-started/route-handlers
+- Privy wallet auth docs: https://docs.privy.io/authentication/user-authentication/login-methods/wallet
+- Privy Solana guide: https://docs.privy.io/recipes/solana/getting-started-with-privy-and-solana
+- x402 introduction: https://docs.x402.org/introduction
