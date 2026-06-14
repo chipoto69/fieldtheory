@@ -42,7 +42,7 @@ tags: [security, privy, wallet, x402, agents]
 | Ownership gate | Artifact and run reads require owner checks. |
 | Authority gate | Apply-capable routes must be disabled until a separate PR. |
 | Secret gate | Token, cookie, private-key, and BIP39 fixtures are rejected before persistence. |
-| Audit gate | Successful validation, import, and run creation write audit events; failed-auth audit needs a privacy-preserving design before it becomes a release claim. |
+| Audit gate | Successful validation, import, run creation, and linked-identity policy denials write audit events; denial audits must stay privacy-preserving. |
 | x402 gate | No enforcement until replay, verify/settle, refund/failure, and privacy review pass. |
 
 ## Current Mitigations
@@ -70,8 +70,10 @@ tags: [security, privy, wallet, x402, agents]
   target-specific dry-run artifact paths.
 - When `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true`, the server loads Privy
   linked accounts and requires GitHub OAuth, the configured Base EVM chain id,
-  and Solana identity before protected write routes. Failed policy checks
-  return before any hosted store write.
+  and Solana identity before protected write routes. Failed policy checks write
+  one blocked `identity_policy` audit event before returning, without storing
+  raw bearer tokens, linked-account subjects, wallet addresses, usernames, or
+  request bodies.
 - Local browser operator mode is available only outside production. It sends a
   `Bearer dev:<operator>` token from the browser so operators can smoke the
   workbench without Privy secrets, but it still depends on server-side
@@ -98,8 +100,8 @@ tags: [security, privy, wallet, x402, agents]
   prove chain-specific settlement, RPC health, or payment authority.
 - Local browser operator mode proves UI-to-route wiring only. It does not prove
   production Privy login, wallet linking, durable store readiness, or x402.
-- Failed authorization attempts return closed errors but are not yet persisted
-  to the audit log.
+- Missing/invalid bearer-token attempts and identity-resolution failures return
+  closed errors without audit writes because there is no verified actor yet.
 - The public health endpoint reports whether `DATABASE_URL` is configured, not
   whether the database is reachable or migrated.
 

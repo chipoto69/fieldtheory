@@ -242,15 +242,24 @@ Milestone 3 now has a non-enforcing fixture-backed handoff:
 
 ## Next Hosted Work Items
 
-1. Read the real `agent-brief-pack.v1` JSON from the M1 smoke output.
-2. Read the real Aeon/Hermes export manifests.
-3. Extend the current portal as a thin consumer of those contracts.
-4. Add server-side linked GitHub/Base/Solana identity policies after the browser
-   Privy login and server verification boundaries stay green.
-5. Add backup/restore and migration-version gates before declaring the durable
+1. Run the M1 smoke script and use its real `agent-brief-pack.v1`,
+   `export-aeon.json`, and `export-hermes.json` outputs as portal import
+   fixtures.
+2. Smoke the current portal workbench in local operator mode: validate a real
+   M1 brief/export, read back the sanitized import through
+   `/api/artifacts/imports/[id]`, create one `dry-run` agent run with an
+   `idempotencyKey`, replay it, and inspect run detail.
+3. Configure operator-owned production state: Vercel secrets, Privy app IDs and
+   redirect URLs, `DATABASE_URL`, `X402_ENABLED=false`, and linked
+   GitHub/Base/Solana production variables.
+4. Prove the target production Postgres store: run `db:migrate`, verify
+   `fieldtheory_schema_version` version `2`, perform an authenticated mutation
+   plus readback smoke, and record rollback evidence.
+5. Add backup/restore and migration rollback gates before declaring the durable
    store production-complete.
 6. Use the x402 Milestone 3 handoff fixtures before writing payment enforcement
-   code.
+   code; keep `/api/x402/discovery` non-enforcing until a separate security
+   review passes.
 
 ## M2 Entry Gate
 

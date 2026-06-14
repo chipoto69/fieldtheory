@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { buildLocalOperatorAuthorization, isLocalOperatorModeEnabled, localOperatorIdFromEnv } from "@/lib/local-operator";
 import { workbenchFixtures } from "@/lib/workbench-fixtures";
+import { buildWorkbenchRunIdempotencyKey } from "@/lib/workbench-idempotency";
 
 type ValidationResponse = {
   report?: {
@@ -49,9 +50,12 @@ type RunResponse = {
     id: string;
     target: string;
     status: string;
+    importId?: string;
+    idempotencyKey?: string;
     resultEnvelope?: Record<string, unknown>;
   };
   auditEvents?: AuditEventView[];
+  idempotentReplay?: boolean;
   error?: { code: string; message: string };
 };
 
@@ -256,6 +260,7 @@ function WorkbenchCore({
         target: runTarget,
         importId: validation.import.id,
         mode: "dry-run",
+        idempotencyKey: buildWorkbenchRunIdempotencyKey(runTarget, validation.import.id),
       }, getAuthorization);
       setRun(body);
       if (body.error) setError(`${body.error.code}: ${body.error.message}`);
@@ -426,6 +431,12 @@ function WorkbenchCore({
               <strong>Run</strong>
               <span>{run.run.id}</span>
               <span>{run.run.target} / {run.run.status}</span>
+              <span>{run.idempotentReplay ? "safe retry replay" : "new dry-run"} / {run.run.idempotencyKey ?? "no retry key"}</span>
+              {importIdForRun(run.run) && (
+                <button className="link-button" type="button" disabled={Boolean(busy)} onClick={() => inspectImport(importIdForRun(run.run) ?? "")}>
+                  inspect import
+                </button>
+              )}
             </div>
             <div className="result-box">
               <strong>Audit</strong>
@@ -469,6 +480,12 @@ function WorkbenchCore({
         <div className="result-box">
           <strong>Selected run detail</strong>
           <span>{selectedRun.run.target} / {selectedRun.run.status} / {selectedRun.run.id}</span>
+          <span>{selectedRun.run.idempotencyKey ?? "no retry key"}</span>
+          {importIdForRun(selectedRun.run) && (
+            <button className="link-button" type="button" disabled={Boolean(busy)} onClick={() => inspectImport(importIdForRun(selectedRun.run) ?? "")}>
+              inspect import
+            </button>
+          )}
           <pre className="code">{JSON.stringify({ run: selectedRun.run, auditEvents: selectedRun.auditEvents ?? [] }, null, 2)}</pre>
         </div>
       )}
@@ -553,6 +570,12 @@ function targetForImport(item: NonNullable<ValidationResponse["import"]>): "aeon
   const target = item.exportSummary?.target;
   if (target === "aeon" || target === "hermes") return target;
   return "content-os";
+}
+
+export function importIdForRun(run: { importId?: unknown } | undefined): string | undefined {
+  if (typeof run?.importId !== "string") return undefined;
+  const importId = run.importId.trim();
+  return importId.length > 0 ? importId : undefined;
 }
 
 function isApiError(value: unknown): value is { error: { code: string; message: string } } {

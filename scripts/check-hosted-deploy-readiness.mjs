@@ -625,5 +625,11 @@ function ghJson(args, options = {}) {
   }
   const text = result.stdout.trim();
   if (!text) return undefined;
-  return JSON.parse(text);
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    if (options.allowFailure) return undefined;
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Expected JSON from gh ${args.join(" ")}: ${message}`);
+  }
 }

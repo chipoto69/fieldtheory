@@ -165,6 +165,7 @@ test("agent run creation rejects unsatisfied linked identity policy before store
   assert.equal(body.auditEvents[0].targetType, "identity_policy");
   assert.equal(body.auditEvents[0].targetId, "agent.run.create");
   assert.equal(body.auditEvents[0].outcome, "blocked");
+  assert.doesNotMatch(JSON.stringify(body), /12345|0xABCDEF|operator/);
   assert.equal(hostedStore.listAuditEvents().length, 1);
 });
 
@@ -198,6 +199,7 @@ test("required linked identity policy records blocked audit events without write
     assert.equal(body.auditEvents[0].targetType, "identity_policy", item.name);
     assert.equal(body.auditEvents[0].targetId, item.action, item.name);
     assert.equal(body.auditEvents[0].outcome, "blocked", item.name);
+    assert.doesNotMatch(JSON.stringify(body), /12345|0xABCDEF|operator/, item.name);
     assert.equal(hostedStore.listAuditEvents().length, 1, item.name);
   }
 });
