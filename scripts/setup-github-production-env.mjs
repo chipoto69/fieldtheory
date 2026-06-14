@@ -12,6 +12,13 @@ const REQUIRED_SECRETS = [
 ];
 
 const OPTIONAL_SECRETS = ["PRIVY_JWT_VERIFICATION_KEY"];
+const LINKED_IDENTITY_VARIABLES = [
+  { name: "FIELD_THEORY_REQUIRE_LINKED_IDENTITIES", value: "true" },
+  { name: "FIELD_THEORY_BASE_CHAIN_ID", value: "8453" },
+  { name: "NEXT_PUBLIC_BASE_CHAIN_ID", value: "8453" },
+  { name: "FIELD_THEORY_SOLANA_CLUSTER", value: "mainnet-beta" },
+  { name: "NEXT_PUBLIC_SOLANA_CLUSTER", value: "mainnet-beta" },
+];
 
 const args = new Set(process.argv.slice(2));
 const apply = args.has("--apply");
@@ -34,9 +41,10 @@ function main() {
     ensureEnvironment();
     ensureBranchPolicy();
     ensureX402Variable();
+    ensureLinkedIdentityVariables();
     if (protectMain) ensureBranchProtection();
   } else {
-    console.log("dry-run: would create/update the GitHub environment and X402_ENABLED=false variable.");
+    console.log("dry-run: would create/update the GitHub environment, X402_ENABLED=false, and linked identity variables.");
     console.log("dry-run: would add a deployment branch policy for main if it is missing.");
     if (protectMain) console.log("dry-run: would enable branch protection requiring the preview check on main.");
   }
@@ -55,9 +63,19 @@ function main() {
   console.log(`required_secrets_missing=${requiredMissing.join(",") || "none"}`);
   console.log(`optional_secrets_missing=${optionalMissing.join(",") || "none"}`);
   console.log(`x402_variable=${x402 ? `${x402.name}=${x402.value}` : "missing"}`);
+  for (const variable of LINKED_IDENTITY_VARIABLES) {
+    const actual = variables.find((item) => item.name === variable.name);
+    console.log(`linked_identity_variable=${variable.name}=${actual?.value ?? "missing"}`);
+  }
 
   if (apply && x402?.value !== "false") {
     fail("X402_ENABLED was not set to false.");
+  }
+  for (const variable of LINKED_IDENTITY_VARIABLES) {
+    const actual = variables.find((item) => item.name === variable.name);
+    if (apply && actual?.value !== variable.value) {
+      fail(`${variable.name} was not set to ${variable.value}.`);
+    }
   }
   if (requiredMissing.length > 0 && allowMissingSecrets) {
     console.log("missing secrets allowed: environment bootstrap is complete, but production deploy remains blocked.");
@@ -99,6 +117,12 @@ function ensureBranchPolicy() {
 
 function ensureX402Variable() {
   gh(["variable", "set", "X402_ENABLED", "--repo", repo, "--env", environment, "--body", "false"]);
+}
+
+function ensureLinkedIdentityVariables() {
+  for (const variable of LINKED_IDENTITY_VARIABLES) {
+    gh(["variable", "set", variable.name, "--repo", repo, "--env", environment, "--body", variable.value]);
+  }
 }
 
 function ensureBranchProtection() {

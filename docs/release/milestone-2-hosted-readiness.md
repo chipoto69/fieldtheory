@@ -86,7 +86,7 @@ evidence for each item below:
 | Diff hygiene | `git diff --check` |
 | Hosted deploy readiness auditor | `npm run hosted:check-readiness -- --remote --strict --json` |
 | GitHub production environment bootstrap | `npm run hosted:setup-github-env -- --repo chipoto69/fieldtheory --apply --allow-missing-secrets --protect-main` |
-| Production secret preflight | `gh secret list --env production --repo chipoto69/fieldtheory` must include Vercel, Privy, and `DATABASE_URL`; GitHub production variable `X402_ENABLED` must be explicitly `false` |
+| Production secret and variable preflight | `gh secret list --env production --repo chipoto69/fieldtheory` must include Vercel, Privy, and `DATABASE_URL`; GitHub production variables must include `X402_ENABLED=false`, `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true`, Base mainnet `8453`, and Solana `mainnet-beta` plus browser mirrors |
 | Main branch protection | `gh api repos/chipoto69/fieldtheory/branches/main --jq '{name, protected}'` and branch protection detail must show required `preview`, no force pushes/deletions, linear history, conversation resolution, and admin enforcement |
 | Target production DB migration | protected `vercel-production` workflow step `Migrate target production database` |
 | Vercel production public smoke | protected `vercel-production` workflow step `Smoke production public endpoints` must require `configuration_ready`, auth/store readiness, disabled x402, and unauthenticated `/api/agents` returning `401` |
@@ -107,11 +107,11 @@ Fill this ledger before undrafting or promoting a production deployment:
 | Main branch protection | verified 2026-06-14 with readiness auditor: main is protected and required status checks include `preview` |
 | Required GitHub production secrets present | missing 2026-06-14: `VERCEL_TOKEN`, `DATABASE_URL`, `PRIVY_APP_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`, `PRIVY_APP_SECRET`; optional `PRIVY_JWT_VERIFICATION_KEY` missing |
 | Privy app id and redirect URLs | blocked 2026-06-01: production Privy app and redirect URL evidence are not populated |
-| Linked identity policy mode | blocked 2026-06-14: readiness now requires `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true` so protected hosted writes require linked GitHub, Base EVM, and Solana identities |
-| Base EVM policy owner | blocked 2026-06-14: readiness now requires `FIELD_THEORY_BASE_CHAIN_ID=8453` and `NEXT_PUBLIC_BASE_CHAIN_ID=8453` for production Base mainnet policy |
-| Solana policy owner | blocked 2026-06-14: readiness now requires `FIELD_THEORY_SOLANA_CLUSTER=mainnet-beta` and `NEXT_PUBLIC_SOLANA_CLUSTER=mainnet-beta` for production Solana policy |
+| Linked identity policy mode | verified 2026-06-14 with setup script and readiness auditor: `FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true` so protected hosted writes require linked GitHub, Base EVM, and Solana identities |
+| Base EVM policy owner | verified 2026-06-14 with setup script and readiness auditor: `FIELD_THEORY_BASE_CHAIN_ID=8453` and `NEXT_PUBLIC_BASE_CHAIN_ID=8453` for production Base mainnet policy |
+| Solana policy owner | verified 2026-06-14 with setup script and readiness auditor: `FIELD_THEORY_SOLANA_CLUSTER=mainnet-beta` and `NEXT_PUBLIC_SOLANA_CLUSTER=mainnet-beta` for production Solana policy |
 | x402 handoff fixtures | recorded 2026-06-01: non-enforcing discovery and audit fixtures added; `/api/x402/discovery` mirrors the fixture and `X402_ENABLED=false` remains required |
-| Hosted deploy readiness auditor | checked 2026-06-14: local artifacts/scripts, Vercel project metadata, GitHub production environment, main deployment branch policy, branch protection, required `preview` check, and `X402_ENABLED=false` pass; blocked on missing required production secret names `VERCEL_TOKEN`, `DATABASE_URL`, `PRIVY_APP_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`, and `PRIVY_APP_SECRET`, plus missing linked-identity production variables |
+| Hosted deploy readiness auditor | checked 2026-06-14: local artifacts/scripts, Vercel project metadata, GitHub production environment, main deployment branch policy, branch protection, required `preview` check, `X402_ENABLED=false`, and linked GitHub/Base/Solana production variables pass; blocked on missing required production secret names `VERCEL_TOKEN`, `DATABASE_URL`, `PRIVY_APP_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`, and `PRIVY_APP_SECRET` |
 | Target database provider and owner | blocked 2026-06-01: provider not selected and `DATABASE_URL` secret absent |
 | `fieldtheory_schema_version` output | blocked 2026-06-01: target production database not configured |
 | Post-deploy `/api/health` output | blocked 2026-06-01: no production deployment URL |

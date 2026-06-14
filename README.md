@@ -254,8 +254,8 @@ npm run hosted:check-readiness -- --remote --strict
 
 This creates or verifies the GitHub `production` environment, the `main`
 deployment branch policy, `main` branch protection requiring the `preview`
-check, and `X402_ENABLED=false`; it reports missing secrets and linked-identity
-policy variables without storing secret values.
+check, `X402_ENABLED=false`, and the required GitHub/Base/Solana linked-identity
+policy variables; it reports missing secrets without storing secret values.
 
 Raycast development:
 

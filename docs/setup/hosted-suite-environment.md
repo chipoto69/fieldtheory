@@ -97,11 +97,13 @@ npm run hosted:setup-github-env -- --repo chipoto69/fieldtheory --apply --allow-
 ```
 
 That command creates or updates the `production` environment, adds a deployment
-branch policy for `main`, sets the environment variable `X402_ENABLED=false`,
-optionally protects `main` with the required `preview` check, and prints the
-missing required secrets. It never reads or writes secret values. Run the same
-command without `--allow-missing-secrets` when the production environment should
-fail the check until all required secrets are present.
+branch policy for `main`, sets the non-secret variables `X402_ENABLED=false`,
+`FIELD_THEORY_REQUIRE_LINKED_IDENTITIES=true`, Base mainnet `8453`, and Solana
+`mainnet-beta` plus their browser mirrors, optionally protects `main` with the
+required `preview` check, and prints the missing required secrets. It never
+reads or writes secret values. Run the same command without
+`--allow-missing-secrets` when the production environment should fail the check
+until all required secrets are present.
 
 Vercel's GitHub Actions documentation recommends installing Vercel CLI, running
 `vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}`,
